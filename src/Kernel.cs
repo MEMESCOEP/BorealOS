@@ -20,7 +20,7 @@ namespace BorealOS
             Console.WriteLine("[== BOREALOS ==]");
 
             // Initialize serial port COM1 with a baud rate of 9600
-            VGAConsoleUtils.WriteMsg("[INFO] >> Initializing serial port COM1 (BRate=9600)...", Terminal.MessageTypes.INFO);
+            VGAConsoleUtils.WriteMsg("[INFO] >> Initializing serial port COM1 (BRate=9600)...", Terminal.MessageType.INFO);
             SerialPort.Enable(COMPort.COM1, BaudRate.BaudRate9600);
 
             // Now we can initialize the graphics
@@ -33,7 +33,7 @@ namespace BorealOS
             // Initialization is done, now we can print OS information and start the shell
             FBConsoleUtils.Clear();
             FBConsoleUtils.WriteStr("<== Welcome to BorealOS! ==>\n\r", Color.White);
-            FBConsoleUtils.WriteMessage($"Running at {Managers.VideoManager.FBCanvas.Mode.Width}x{Managers.VideoManager.FBCanvas.Mode.Height} (CON={FBConsoleUtils.ConsoleSize.Width}x{FBConsoleUtils.ConsoleSize.Height}).\n\r", Color.White, Terminal.MessageTypes.INFO);
+            FBConsoleUtils.WriteMessage($"Running at {Managers.VideoManager.FBCanvas.Mode.Width}x{Managers.VideoManager.FBCanvas.Mode.Height} (CON={FBConsoleUtils.ConsoleSize.Width}x{FBConsoleUtils.ConsoleSize.Height}).\n\r", Color.White, Terminal.MessageType.INFO);
             FBConsoleUtils.DrawPrompt();
         }
         

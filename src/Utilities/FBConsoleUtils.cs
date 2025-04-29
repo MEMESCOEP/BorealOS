@@ -12,7 +12,7 @@ namespace BorealOS.Utilities
         /* VARIABLES */
         public const int FONT_SIZE_X = 8;
         public const int FONT_SIZE_Y = 16;
-        public const int MAX_HISTORY = 100_000; // 100k characters, whatever, random arbitrary number. Might be too much or too low IDK!
+        public const int MAX_HISTORY = 10_000; // Random arbitrary number. Might be too much or too low IDK! Should at least be more than ConsoleSize.Width * ConsoleSize.Height
         
         public static Color BGColor = Color.Black;
         public static Point CursorPosition = new Point(0, 0);
@@ -35,7 +35,7 @@ namespace BorealOS.Utilities
             ConsoleSize.Width = (int)(VideoManager.FBCanvas.Mode.Width / Cosmos.System.Graphics.Fonts.PCScreenFont.Default.Width);
             ConsoleSize.Height = (int)(VideoManager.FBCanvas.Mode.Height / Cosmos.System.Graphics.Fonts.PCScreenFont.Default.Height);
 
-            WriteMessage($"Console size is {ConsoleSize.Width}x{ConsoleSize.Height}\n\r", Color.White, Terminal.MessageTypes.INFO);
+            WriteMessage($"Console size is {ConsoleSize.Width}x{ConsoleSize.Height}\n\r", Color.White, Terminal.MessageType.INFO);
         }
 
         // Write a colored string to the screen at the current cursor position
@@ -107,34 +107,12 @@ namespace BorealOS.Utilities
             }
         }
 
-        public static void WriteMessage(string Message, Color MessageColor, Terminal.MessageTypes MsgType)
+        public static void WriteMessage(string Message, Color MessageColor, Terminal.MessageType MsgType)
         {
             WriteStr("[", Color.White);
-            
-            switch (MsgType)
-            {
-                case Terminal.MessageTypes.INFO:
-                    WriteStr("INFO", Color.Green);
-                    break;
-
-                case Terminal.MessageTypes.ERROR:
-                    WriteStr("ERROR", Color.Red);
-                    break;
-
-                case Terminal.MessageTypes.WARNING:
-                    WriteStr("WARN", Color.Yellow);
-                    break;
-
-                case Terminal.MessageTypes.DEBUG:
-                    WriteStr("DEBUG", Color.Magenta);
-                    break;
-
-                default:
-                    WriteStr("MSG_TYPE_NOT_DEFINED", Color.DarkCyan);
-                    break;
-            }
-
-            WriteStr($"] >> {Message}", Color.White);
+            WriteStr(Terminal.MessageTypeToString(MsgType), Terminal.MessageTypeToColor(MsgType));
+            WriteStr($"] >> ", Color.White);
+            WriteStr(Message, MessageColor);
         }
 
         // Draw the prompt in color
