@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using BorealOS.Managers;
@@ -8,12 +9,39 @@ namespace BorealOS.Utilities
     public class Terminal
     {
         /* ENUMS */
-        public enum MessageTypes
+        public enum MessageType
         {
             INFO,
             ERROR,
             WARNING,
             DEBUG
+        }
+        
+        /// <summary>
+        /// Fucking .ToString() does NOT work for some horrible sad reason. It was one of my favorites :(
+        /// </summary>
+        public static string MessageTypeToString(MessageType Type)
+        {
+            return Type switch
+            {
+                MessageType.INFO => "INFO",
+                MessageType.ERROR => "ERROR",
+                MessageType.WARNING => "WARNING",
+                MessageType.DEBUG => "DEBUG",
+                _ => "MSG_TYPE_NOT_DEFINED"
+            };
+        }
+
+        public static Color MessageTypeToColor(MessageType Type)
+        {
+            return Type switch
+            {
+                MessageType.INFO => Color.White,
+                MessageType.ERROR => Color.Red,
+                MessageType.WARNING => Color.Yellow,
+                MessageType.DEBUG => Color.Cyan,
+                _ => Color.White
+            };
         }
 
 
@@ -22,12 +50,6 @@ namespace BorealOS.Utilities
 
 
         /* FUNCTIONS */
-        // Move the cursor relative to where it currently is
-        public static void MoveCursorRelative(int XRel, int YRel)
-        {
-            FBConsoleUtils.CursorPosition.X = Math.Max(0, Math.Min(FBConsoleUtils.ConsoleSize.Width, FBConsoleUtils.CursorPosition.X + XRel));
-            FBConsoleUtils.CursorPosition.Y = Math.Max(0, Math.Min(FBConsoleUtils.ConsoleSize.Height, FBConsoleUtils.CursorPosition.Y + YRel));
-        }
 
         public static void ParseCommand(string Command)
         {
@@ -41,7 +63,7 @@ namespace BorealOS.Utilities
                 case "reboot":
                     if (Args.Length > 2)
                     {
-                        FBConsoleUtils.WriteMessage($"The {CMD} command must have exactly 0-1 arguments supplied, not {Args.Length - 1}.\n\r", Color.White, MessageTypes.ERROR);
+                        FBConsoleUtils.WriteMessage($"The {CMD} command must have exactly 0-1 arguments supplied, not {Args.Length - 1}.\n\r", Color.White, MessageType.ERROR);
                         break;
                     }
 
@@ -51,7 +73,7 @@ namespace BorealOS.Utilities
                         {
                             if (char.IsNumber(Args[1][I]) == false)
                             {
-                                FBConsoleUtils.WriteMessage($"The {CMD} command must have numeric arguments supplied.\n\r", Color.White, MessageTypes.ERROR);
+                                FBConsoleUtils.WriteMessage($"The {CMD} command must have numeric arguments supplied.\n\r", Color.White, MessageType.ERROR);
                                 return;
                             }
                         }
@@ -67,7 +89,7 @@ namespace BorealOS.Utilities
                 case "turnoff":
                     if (Args.Length > 2)
                     {
-                        FBConsoleUtils.WriteMessage($"The {CMD} command must have exactly 0-1 arguments supplied, not {Args.Length - 1}.\n\r", Color.White, MessageTypes.ERROR);
+                        FBConsoleUtils.WriteMessage($"The {CMD} command must have exactly 0-1 arguments supplied, not {Args.Length - 1}.\n\r", Color.White, MessageType.ERROR);
                         break;
                     }
 
@@ -77,7 +99,7 @@ namespace BorealOS.Utilities
                         {
                             if (char.IsNumber(Args[1][I]) == false)
                             {
-                                FBConsoleUtils.WriteMessage($"The {CMD} command must have numeric arguments supplied.\n\r", Color.White, MessageTypes.ERROR);
+                                FBConsoleUtils.WriteMessage($"The {CMD} command must have numeric arguments supplied.\n\r", Color.White, MessageType.ERROR);
                                 return;
                             }
                         }
@@ -94,7 +116,7 @@ namespace BorealOS.Utilities
                     break;
 
                 case "pwd":
-                    FBConsoleUtils.WriteMessage($"PWD is \"{FilesystemManager.CWD}\".\n\r", Color.White, MessageTypes.INFO);
+                    FBConsoleUtils.WriteMessage($"PWD is \"{FilesystemManager.CWD}\".\n\r", Color.White, MessageType.INFO);
                     break;
 
                 case "ls":
@@ -115,7 +137,7 @@ namespace BorealOS.Utilities
                 case "cd":
                     if (Args.Length < 2 || Args.Length > 2)
                     {
-                        FBConsoleUtils.WriteMessage($"The cd command must have exactly 1 argument supplied, not {Args.Length - 1}.\n\r", Color.White, MessageTypes.ERROR);
+                        FBConsoleUtils.WriteMessage($"The cd command must have exactly 1 argument supplied, not {Args.Length - 1}.\n\r", Color.White, MessageType.ERROR);
                         break;
                     }
 
@@ -127,18 +149,18 @@ namespace BorealOS.Utilities
                     {
                         foreach(string Path in Args.Skip(1))
                         {
-                            FBConsoleUtils.WriteMessage($"Real path for \"{Path}\" is \"{FSUtils.GetRealPath(Path)}\".\n\r", Color.White, MessageTypes.INFO);
+                            FBConsoleUtils.WriteMessage($"Real path for \"{Path}\" is \"{FSUtils.GetRealPath(Path)}\".\n\r", Color.White, MessageType.INFO);
                         }
                     }
                     else
                     {
-                        FBConsoleUtils.WriteMessage($"Real path for \"{FilesystemManager.CWD}\" is \"{FSUtils.GetRealPath(FilesystemManager.CWD)}\".\n\r", Color.White, MessageTypes.INFO);
+                        FBConsoleUtils.WriteMessage($"Real path for \"{FilesystemManager.CWD}\" is \"{FSUtils.GetRealPath(FilesystemManager.CWD)}\".\n\r", Color.White, MessageType.INFO);
                     }
 
                     break;
 
                 default:
-                    FBConsoleUtils.WriteMessage($"Invalid command \"{CMD}\".\n\r", Color.White, MessageTypes.ERROR);
+                    FBConsoleUtils.WriteMessage($"Invalid command \"{CMD}\".\n\r", Color.White, MessageType.ERROR);
                     break;
             }
         }

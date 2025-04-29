@@ -13,7 +13,7 @@ namespace BorealOS.Managers
         // Initialize the framebuffer (called the canvas)
         public static void Init()
         {
-            Utilities.VGAConsoleUtils.WriteMsg("Initializing canvas...", Utilities.Terminal.MessageTypes.INFO);
+            Utilities.VGAConsoleUtils.WriteMsg("Initializing canvas...", Utilities.Terminal.MessageType.INFO);
             FBCanvas = FullScreenCanvas.GetFullScreenCanvas(new Mode(1024, 768, ColorDepth.ColorDepth32));
             FBCanvas.Clear(Color.Black);
             FBCanvas.Display();

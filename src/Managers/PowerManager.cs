@@ -12,14 +12,14 @@ namespace BorealOS.Managers
         /* FUNCTIONS */
         public static void Shutdown()
         {
-            FBConsoleUtils.WriteMessage($"Shutting down in {PowerActionDelay}s...", Color.White, Terminal.MessageTypes.INFO);
+            FBConsoleUtils.WriteMessage($"Shutting down in {PowerActionDelay}s...", Color.White, Terminal.MessageType.INFO);
             TimeUtils.WaitSeconds(PowerActionDelay);
             Cosmos.System.Power.Shutdown();
         }
 
         public static void Reboot()
         {
-            FBConsoleUtils.WriteMessage($"Rebooting in {PowerActionDelay}s...", Color.White, Terminal.MessageTypes.INFO);
+            FBConsoleUtils.WriteMessage($"Rebooting in {PowerActionDelay}s...", Color.White, Terminal.MessageType.INFO);
             TimeUtils.WaitSeconds(PowerActionDelay);
             Cosmos.System.Power.Reboot();
         }

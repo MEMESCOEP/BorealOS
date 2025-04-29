@@ -21,10 +21,10 @@ namespace BorealOS.Managers
         /* FUNCTIONS */
         public static void Init()
         {
-            FBConsoleUtils.WriteMessage("Registering VirtFS...\n\r", Color.White, Terminal.MessageTypes.INFO);
+            FBConsoleUtils.WriteMessage("Registering VirtFS...\n\r", Color.White, Terminal.MessageType.INFO);
             VFSManager.RegisterVFS(VirtFS);
 
-            FBConsoleUtils.WriteMessage("Mapping disks...\n\r", Color.White, Terminal.MessageTypes.INFO);
+            FBConsoleUtils.WriteMessage("Mapping disks...\n\r", Color.White, Terminal.MessageType.INFO);
 
             foreach (Disk VFSDisk in VFSManager.GetDisks())
             {
@@ -75,7 +75,7 @@ namespace BorealOS.Managers
                     }
                     catch (Exception EX)
                     {
-                        FBConsoleUtils.WriteMessage($"Failed to mount partition #{PartitionIndex}: {EX.Message}\n\n\r", Color.White, Terminal.MessageTypes.ERROR);
+                        FBConsoleUtils.WriteMessage($"Failed to mount partition #{PartitionIndex}: {EX.Message}\n\n\r", Color.White, Terminal.MessageType.ERROR);
                         continue;
                     }
                 }
@@ -118,7 +118,7 @@ namespace BorealOS.Managers
             // Make sure the path actually exists
             if (Directory.Exists(RealPath) == false)
             {
-                FBConsoleUtils.WriteMessage($"The path \"{Path}\" either doesn't exist or isn't a directory.\n\r", Color.White, Terminal.MessageTypes.ERROR);
+                FBConsoleUtils.WriteMessage($"The path \"{Path}\" either doesn't exist or isn't a directory.\n\r", Color.White, Terminal.MessageType.ERROR);
                 return;
             }
 

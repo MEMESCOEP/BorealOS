@@ -20,7 +20,7 @@ namespace BorealOS
             Console.WriteLine("[== BOREALOS ==]");
 
             // Initialize serial port COM1 with a baud rate of 9600
-            VGAConsoleUtils.WriteMsg("[INFO] >> Initializing serial port COM1 (BRate=9600)...", Terminal.MessageTypes.INFO);
+            VGAConsoleUtils.WriteMsg("[INFO] >> Initializing serial port COM1 (BRate=9600)...", Terminal.MessageType.INFO);
             SerialPort.Enable(COMPort.COM1, BaudRate.BaudRate9600);
 
             // Now we can initialize the graphics
@@ -33,7 +33,7 @@ namespace BorealOS
             // Initialization is done, now we can print OS information and start the shell
             FBConsoleUtils.Clear();
             FBConsoleUtils.WriteStr("<== Welcome to BorealOS! ==>\n\r", Color.White);
-            FBConsoleUtils.WriteMessage($"Running at {Managers.VideoManager.FBCanvas.Mode.Width}x{Managers.VideoManager.FBCanvas.Mode.Height} (CON={FBConsoleUtils.ConsoleSize.Width}x{FBConsoleUtils.ConsoleSize.Height}).\n\r", Color.White, Terminal.MessageTypes.INFO);
+            FBConsoleUtils.WriteMessage($"Running at {Managers.VideoManager.FBCanvas.Mode.Width}x{Managers.VideoManager.FBCanvas.Mode.Height} (CON={FBConsoleUtils.ConsoleSize.Width}x{FBConsoleUtils.ConsoleSize.Height}).\n\r", Color.White, Terminal.MessageType.INFO);
             FBConsoleUtils.DrawPrompt();
         }
         
@@ -63,25 +63,33 @@ namespace BorealOS
             else if (Key.Key == ConsoleKey.Backspace)
             {
                 // Get rid of the previous console
-                Managers.VideoManager.FBCanvas.DrawFilledRectangle(FBConsoleUtils.BGColor, FBConsoleUtils.CursorPosition.X * 8, FBConsoleUtils.CursorPosition.Y * 16, 8, 16);
-                
-                // If we can actually backspace more, remove the last character and move the cursor back one position
-                if (FBConsoleUtils.CursorPosition.X > FBConsoleUtils.GetPromptLength())
-                {
-                    Terminal.CurrentCommand = Terminal.CurrentCommand.Remove(Terminal.CurrentCommand.Length - 1);
-                    Terminal.MoveCursorRelative(-1, 0);
-                }
+                FBConsoleUtils.DrawRectAtCurrent(FBConsoleUtils.BGColor);
 
-                // Redraw the cursor
-                Managers.VideoManager.FBCanvas.DrawFilledRectangle(Color.White, FBConsoleUtils.CursorPosition.X * 8, FBConsoleUtils.CursorPosition.Y * 16, 8, 16);
+                if (Terminal.CurrentCommand.Length > 0)
+                {
+                    // Remove the last character from the command
+                    Terminal.CurrentCommand = Terminal.CurrentCommand.Substring(0, Terminal.CurrentCommand.Length - 1);
+                    FBConsoleUtils.MoveCursorRelative(-1, 0);
+                }
                 
+                // Redraw the cursor
+                FBConsoleUtils.DrawRectAtCurrent(Color.White);
             }
-            else if (StrUtils.IsCharTypable(Key.KeyChar) == true)
+            else if (Key.Key == ConsoleKey.PageDown)
+            {
+                // Reversed is nicer.
+                FBConsoleUtils.ScrollUp();
+            }
+            else if (Key.Key == ConsoleKey.PageUp)
+            {
+                FBConsoleUtils.ScrollDown();
+            }
+            else if (StrUtils.IsCharTypable(Key.KeyChar))
             {
                 Terminal.CurrentCommand += Key.KeyChar;
                 FBConsoleUtils.WriteStr(Key.KeyChar.ToString(), Color.White);
             }
-            
+
             // Update the framebuffer
             Managers.VideoManager.FBCanvas.Display();
         }

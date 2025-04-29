@@ -46,7 +46,7 @@ namespace BorealOS.Utilities
             // Make sure the directory exists
             if (Directory.Exists(GetRealPath(NewDir)) == false)
             {
-                FBConsoleUtils.WriteMessage($"The directory \"{RelPath}\" doesn't exist.\n\r", Color.White, Terminal.MessageTypes.ERROR);
+                FBConsoleUtils.WriteMessage($"The directory \"{RelPath}\" doesn't exist.\n\r", Color.White, Terminal.MessageType.ERROR);
                 return;
             }
 
