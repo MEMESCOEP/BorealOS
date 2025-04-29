@@ -22,12 +22,6 @@ namespace BorealOS.Utilities
 
 
         /* FUNCTIONS */
-        // Move the cursor relative to where it currently is
-        public static void MoveCursorRelative(int XRel, int YRel)
-        {
-            FBConsoleUtils.CursorPosition.X = Math.Max(0, Math.Min(FBConsoleUtils.ConsoleSize.Width, FBConsoleUtils.CursorPosition.X + XRel));
-            FBConsoleUtils.CursorPosition.Y = Math.Max(0, Math.Min(FBConsoleUtils.ConsoleSize.Height, FBConsoleUtils.CursorPosition.Y + YRel));
-        }
 
         public static void ParseCommand(string Command)
         {
