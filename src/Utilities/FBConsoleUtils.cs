@@ -210,13 +210,13 @@ namespace BorealOS.Utilities
             }
         }
         
-        private static void DrawChar(char Character, Color Color)
+        private static void DrawChar(char Character, Color CharColor)
         {
             int ScrollOffset = FONT_SIZE_Y * Scroll;
             if (CursorPosition.Y + Scroll >= 0 && CursorPosition.Y + Scroll <= ConsoleSize.Height - 1)
             {
                 VideoManager.FBCanvas.DrawChar(Character, Cosmos.System.Graphics.Fonts.PCScreenFont.Default,
-                    Color, CursorPosition.X * FONT_SIZE_X,
+                    CharColor, CursorPosition.X * FONT_SIZE_X,
                     CursorPosition.Y * FONT_SIZE_Y + ScrollOffset);
             }
         }

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using BorealOS.Managers;
+using Cosmos.Core;
+using Cosmos.System.Graphics;
 
 namespace BorealOS.Utilities
 {
@@ -16,7 +18,13 @@ namespace BorealOS.Utilities
             WARNING,
             DEBUG
         }
-        
+
+
+        /* VARIABLES */
+        public static string CurrentCommand = "";
+
+
+        /* FUNCTIONS */
         /// <summary>
         /// Fucking .ToString() does NOT work for some horrible sad reason. It was one of my favorites :(
         /// </summary>
@@ -36,20 +44,13 @@ namespace BorealOS.Utilities
         {
             return Type switch
             {
-                MessageType.INFO => Color.White,
+                MessageType.INFO => Color.Green,
                 MessageType.ERROR => Color.Red,
                 MessageType.WARNING => Color.Yellow,
                 MessageType.DEBUG => Color.Cyan,
-                _ => Color.White
+                _ => Color.Magenta
             };
         }
-
-
-        /* VARIABLES */
-        public static string CurrentCommand = "";
-
-
-        /* FUNCTIONS */
 
         public static void ParseCommand(string Command)
         {
@@ -125,6 +126,7 @@ namespace BorealOS.Utilities
                         foreach(string Path in Args.Skip(1))
                         {
                             FilesystemManager.ListDirectory(Path);
+                            FBConsoleUtils.WriteStr("\n\r", Color.White);
                         }
                     }
                     else
@@ -157,6 +159,58 @@ namespace BorealOS.Utilities
                         FBConsoleUtils.WriteMessage($"Real path for \"{FilesystemManager.CWD}\" is \"{FSUtils.GetRealPath(FilesystemManager.CWD)}\".\n\r", Color.White, MessageType.INFO);
                     }
 
+                    break;
+
+                case "hostname":
+                    if (Args.Length < 2 || Args.Length > 2)
+                    {
+                        FBConsoleUtils.WriteMessage($"The hostname command must have exactly 1 argument supplied, not {Args.Length - 1}.\n\r", Color.White, MessageType.ERROR);
+                        break;
+                    }
+
+                    Kernel.Hostname = Args[1];
+                    break;
+
+                case "getvideomode":
+                    FBConsoleUtils.WriteMessage($"\"{VideoManager.FBCanvas.Name()}\", running at {VideoManager.FBCanvas.Mode.Width}x{VideoManager.FBCanvas.Mode.Height}@{VideoManager.GetFBColorDepth(VideoManager.FBCanvas.Mode.ColorDepth)} " +
+                        $"(CON={FBConsoleUtils.ConsoleSize.Width}x{FBConsoleUtils.ConsoleSize.Height}).\n\r", Color.White, MessageType.INFO);
+
+                    break;
+
+                case "fbvideomodes":
+                    FBConsoleUtils.WriteStr("[== SUPPORTED VIDEO MODES ==]\n\r", Color.White);
+
+                    foreach (Mode VideoMode in VideoManager.FBCanvas.AvailableModes)
+                    {
+                        FBConsoleUtils.WriteStr($"\t{VideoMode.Width}x{VideoMode.Height}@{VideoManager.GetFBColorDepth(VideoMode.ColorDepth)}", Color.White);
+
+                        if (VideoMode == VideoManager.FBCanvas.Mode)
+                        {
+                            FBConsoleUtils.WriteStr(" <--", Color.Cyan);
+                        }
+
+                        FBConsoleUtils.WriteStr("\n\r", Color.White);
+                    }
+
+                    break;
+
+                case "sysinfo":
+                    uint TotalMem = CPU.GetAmountOfRAM();
+                    float UsedMem = GCImplementation.GetUsedRAM() / 1024.0f;
+                    float MemPercentage = (UsedMem / (TotalMem * 1024.0f)) * 100.0f;
+
+                    FBConsoleUtils.WriteStr($"Hostname: {Kernel.Hostname}\n\r", Color.White);
+
+                    if (CPU.CanReadCPUID() != 0)
+                    {
+                        FBConsoleUtils.WriteStr($"CPU: {CPU.GetCPUBrandString()}, {Math.Max(CPU.GetCPUCycleSpeed() / 1000000000.0f, 0)}GHz\n\r", Color.White);
+                    }
+                    else
+                    {
+                        FBConsoleUtils.WriteStr("CPU: Unknown\n\r", Color.White);
+                    }
+
+                    FBConsoleUtils.WriteStr($"MEM: {TotalMem}MB total, {UsedMem}KB ({MemPercentage:F2}%) used \n\r", Color.White);
                     break;
 
                 default:

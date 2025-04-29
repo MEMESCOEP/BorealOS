@@ -1,8 +1,10 @@
 ﻿using System.Drawing;
 using System;
+using Cosmos.Core.Memory;
 using Cosmos.HAL;
-using BorealOS.Utilities;
 using Sys = Cosmos.System;
+using BorealOS.Utilities;
+using BorealOS.Managers;
 
 namespace BorealOS
 {
@@ -11,29 +13,48 @@ namespace BorealOS
     {
         /* VARIABLES */
         public static string Hostname = "BorealOS";
+        private ulong CursorBlinkRate = 125000000;
+        private bool CursorOn = false;
+        private int RATFreePages = 10;
 
 
         /* FUNCTIONS */
         // Perform initialization steps here
         protected override void BeforeRun()
         {
-            Console.WriteLine("[== BOREALOS ==]");
+            VGAConsoleUtils.WriteMsg($"[INFO] >> Initializing RAT minpages ({RATFreePages} page(s))...", Terminal.MessageType.INFO);
+            RAT.MinFreePages = RATFreePages;
+
+            VGAConsoleUtils.WriteMsg($"[INFO] >> Initializing PIT...", Terminal.MessageType.INFO);
+            PIT SysPIT = new PIT();
 
             // Initialize serial port COM1 with a baud rate of 9600
             VGAConsoleUtils.WriteMsg("[INFO] >> Initializing serial port COM1 (BRate=9600)...", Terminal.MessageType.INFO);
             SerialPort.Enable(COMPort.COM1, BaudRate.BaudRate9600);
 
             // Now we can initialize the graphics
-            Managers.VideoManager.Init();
+            VideoManager.Init();
             FBConsoleUtils.Init();
 
+            // Create a PIT timer to blink the FB cursor
+            FBConsoleUtils.WriteMessage($"Initializing cursor blink PIT timer ({CursorBlinkRate / 1000000}ms)...\n\r", Color.White, Terminal.MessageType.INFO);
+            PIT.PITTimer CursorBlinkTimer = new PIT.PITTimer(BlinkCursor, CursorBlinkRate, true);
+            SysPIT.RegisterTimer(CursorBlinkTimer);
+
             // Initialize the VirtFS
-            Managers.FilesystemManager.Init();
+            FilesystemManager.Init();
 
             // Initialization is done, now we can print OS information and start the shell
+            FBConsoleUtils.WriteMessage("Init done.\n\r", Color.White, Terminal.MessageType.INFO);
+            SysPIT.Wait(2000);
+
             FBConsoleUtils.Clear();
-            FBConsoleUtils.WriteStr("<== Welcome to BorealOS! ==>\n\r", Color.White);
-            FBConsoleUtils.WriteMessage($"Running at {Managers.VideoManager.FBCanvas.Mode.Width}x{Managers.VideoManager.FBCanvas.Mode.Height} (CON={FBConsoleUtils.ConsoleSize.Width}x{FBConsoleUtils.ConsoleSize.Height}).\n\r", Color.White, Terminal.MessageType.INFO);
+            FBConsoleUtils.WriteStr("<== Welcome to ", Color.White);
+            FBConsoleUtils.WriteStr("BorealOS", Color.FromArgb(255, 59, 214, 198));
+            FBConsoleUtils.WriteStr("! ==>\n\r", Color.White);
+            FBConsoleUtils.WriteMessage($"\"{VideoManager.FBCanvas.Name()}\", running at {VideoManager.FBCanvas.Mode.Width}x{VideoManager.FBCanvas.Mode.Height}@{VideoManager.GetFBColorDepth(VideoManager.FBCanvas.Mode.ColorDepth)} " +
+                $"(CON={FBConsoleUtils.ConsoleSize.Width}x{FBConsoleUtils.ConsoleSize.Height}).\n\r", Color.White, Terminal.MessageType.INFO);
+
             FBConsoleUtils.DrawPrompt();
         }
         
@@ -51,12 +72,12 @@ namespace BorealOS
                     FBConsoleUtils.WriteStr("\n\r", Color.White);
                     Terminal.ParseCommand(Terminal.CurrentCommand);
                 }
-                
+
                 if (FBConsoleUtils.CursorPosition.Y - PreviousYPos >= 2 || Terminal.CurrentCommand.Length <= 0)
                 {
                     FBConsoleUtils.WriteStr("\n\r", Color.White);
                 }
-                
+
                 FBConsoleUtils.DrawPrompt();
                 Terminal.CurrentCommand = "";
             }
@@ -71,7 +92,7 @@ namespace BorealOS
                     Terminal.CurrentCommand = Terminal.CurrentCommand.Substring(0, Terminal.CurrentCommand.Length - 1);
                     FBConsoleUtils.MoveCursorRelative(-1, 0);
                 }
-                
+
                 // Redraw the cursor
                 FBConsoleUtils.DrawRectAtCurrent(Color.White);
             }
@@ -91,7 +112,19 @@ namespace BorealOS
             }
 
             // Update the framebuffer
-            Managers.VideoManager.FBCanvas.Display();
+            VideoManager.FBCanvas.Display();
+        }
+
+        // Blink the FBconsole cursor
+        private void BlinkCursor()
+        {
+            if (Console.KeyAvailable == true)
+                return;
+
+            CursorOn = !CursorOn;
+
+            FBConsoleUtils.DrawRectAtCurrent(CursorOn == true ? Color.White : Color.Black);
+            VideoManager.FBCanvas.Display();
         }
     }
 }

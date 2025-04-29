@@ -114,18 +114,21 @@ namespace BorealOS.Managers
         public static void ListDirectory(string Path)
         {
             string RealPath = FSUtils.GetRealPath(Path);
+            string UnixPath = FSUtils.RelativeToAbsolutePath(Path);
 
             // Make sure the path actually exists
             if (Directory.Exists(RealPath) == false)
             {
-                FBConsoleUtils.WriteMessage($"The path \"{Path}\" either doesn't exist or isn't a directory.\n\r", Color.White, Terminal.MessageType.ERROR);
+                FBConsoleUtils.WriteMessage($"The path \"{UnixPath}\" either doesn't exist or isn't a directory.\n\r", Color.White, Terminal.MessageType.ERROR);
                 return;
             }
 
             string[] FileList = Directory.GetFiles(RealPath);
             string[] DirList = Directory.GetDirectories(RealPath);
 
-            FBConsoleUtils.WriteStr($"[== DIRECTORY LIST ({Path}) ==]\n\r", Color.White);
+            FBConsoleUtils.WriteStr("[== DIRECTORY LIST (", Color.White);
+            FBConsoleUtils.WriteStr(UnixPath, Color.Red);
+            FBConsoleUtils.WriteStr(") ==]\n\r", Color.White);
             
             if (FileList.Length == 0 && DirList.Length == 0)
             {
