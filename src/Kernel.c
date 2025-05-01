@@ -341,6 +341,12 @@ void KernelStart(void)
     TerminalDrawString("[INFO] >> Initializing GDT...\n\r");
     InitGDT();
 
+    // The PIC must be remapped & disabled before the IDT init. There is a tiny amount of time that WILL
+    // cause issues if the PIT manages to fire, which usually leads to a general protection fault. Disabling
+    // the PIC will ensure that the PIT can't fire during that time.
+    TerminalDrawString("[INFO] >> Initializing PIC...\n\r");
+    InitPIC();
+
     TerminalDrawString("[INFO] >> Initializing IDT...\n\r");
     InitIDT();
 
@@ -349,9 +355,6 @@ void KernelStart(void)
     {
         TestIDT(ExceptionNum);
     }*/
-
-    TerminalDrawString("[INFO] >> Initializing PIC...\n\r");
-    InitPIC();
 
     TerminalDrawString("[INFO] >> Initializing FPU...\n\r");
     InitFPU();
@@ -363,7 +366,7 @@ void KernelStart(void)
     // TODO: Implement monitor EDID checking / other monitor stuff
 
     // The current SSE init implementation is VERY broken, so we'll skip initializing that for now because
-    // floating-point math can still be done, just slower. The current method breaks with loops (somehow?).
+    // floating-point math can still be done, just slower. The current method breaks loops somehow?
     TerminalDrawString("[WARN] >> SSE initialization will be skipped due to a broken implementation.\n\r");
     //InitSSE();
 
@@ -402,14 +405,18 @@ void KernelStart(void)
     
     TerminalDrawString("[INFO] >> Initializing USB controller(s)\n\r");
     // Init code here
-
+    
     // Display system information before the init finishes.
-    // Get the number of processors in the system.
+    // Get the number of processors in the system. For some
+    // reason, getting the CPU count causes page faults on vbox?? tf??
+    /*
     ProcessorCount = MPRequest.response->cpu_count;
 
     TerminalDrawString("[INFO] >> ");
     TerminalDrawChar(ProcessorCount + '0', true);
     TerminalDrawString(" available processor(s).\n\r");
+    */
+
     TerminalDrawString("[INFO] >> ");
     TerminalDrawChar(FBCount + '0', true);
     TerminalDrawString(" available framebuffer(s):\n\r");
@@ -452,6 +459,5 @@ void KernelLoop()
     
     //while(true);
 
-    TerminalDrawString("[WARN] >> End of kernel loop reached (no more running processes); invoking ACPI shutdown...");
-    ACPIShutdown();
+    KernelPanic(0, "End of kernel loop reached (no more running processes)");
 }
