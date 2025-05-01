@@ -5,3 +5,5 @@ BorealOS.iso
 HDD.img
 /ISORoot
 /obj
+BuildLog.txt
+SerialOutput.txt
