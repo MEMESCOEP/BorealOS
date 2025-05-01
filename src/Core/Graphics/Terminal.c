@@ -96,7 +96,7 @@ void SetScrollRow(int Row)
     ScrollRow = (FONT_HEIGHT * Row) + FONT_HEIGHT;
 }
 
-void ScrollTerminal(int Rows)
+void ScrollTerminal(int Rows __attribute__((unused)))
 {
     for (int Row = ScrollRow; Row < ScreenHeight; Row++)
     {

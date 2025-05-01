@@ -23,5 +23,6 @@ extern int YSensitivity;
 /* FUNCTIONS */
 void InitPS2Mouse();
 void MouseWait(uint8_t MType);
+uint8_t MouseRead();
 
 #endif

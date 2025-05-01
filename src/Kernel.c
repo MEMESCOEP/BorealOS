@@ -10,13 +10,14 @@
 #include <stdbool.h>
 #include <Limine.h>
 #include "Utilities/StrUtils.h"
-#include "Core/Devices/DeviceControllers/PS2Controller.h"
+#include "Drivers/HID/Keyboard.h"
 #include "Drivers/HID/Mouse.h"
 #include "Drivers/IO/Serial.h"
 #include "Core/Interrupts/IDT_ISR.h"
 #include "Core/Interrupts/GDT.h"
 #include "Core/Graphics/Terminal.h"
 #include "Core/Graphics/Graphics.h"
+#include "Core/Devices/DeviceControllers/PS2Controller.h"
 #include "Core/Devices/PIC.h"
 #include "Core/Devices/FPU.h"
 #include "Core/Power/ACPI.h"
@@ -35,11 +36,11 @@ char* FirmwareTypes[4] = {
 };
 
 char* FirmwareType = "Unknown";
-char FBResWidthBuffer[8];
-char FBResHeightBuffer[8];
-char FBResBPPBuffer[8];
+char FBResWidthBuffer[8] = "";
+char FBResHeightBuffer[8] = "";
+char FBResBPPBuffer[8] = "";
 char FBResBSBuffer[8] = "?";
-char RegBuffer[256];
+char RegBuffer[256] = "";
 int ProcessorCount = 0;
 
 
@@ -75,6 +76,9 @@ static volatile LIMINE_REQUESTS_END_MARKER;
 
 
 /* FUNCTIONS */
+// Prototypes so GCC stops complaining
+void KernelLoop();
+
 // Halts the system in case of a failure, this will usually only be called by KernelPanic.
 void HaltSystem(void)
 {
@@ -92,7 +96,7 @@ void KernelPanic(uint64_t ErrorCode, char* Message)
 	__asm__ volatile ("cli");
     
     // Convert the error code into a string so it can be displayed.
-    char ECBuffer[64];
+    char ECBuffer[64] = "";
     
     IntToStr(ErrorCode, ECBuffer, 16);
 
@@ -126,7 +130,7 @@ void KernelPanic(uint64_t ErrorCode, char* Message)
 
         if (CrashStackState != NULL)
         {
-            if (CrashStackState->InterruptNum != NULL || CrashStackState->InterruptNum == 0x00)
+            if (CrashStackState->InterruptNum != 0x00 || CrashStackState->InterruptNum == 0x00)
             {
                 TerminalDrawString("INTERRUPT_NUM = 0x");
                 IntToStr(CrashStackState->InterruptNum, RegBuffer, 16);
@@ -137,7 +141,7 @@ void KernelPanic(uint64_t ErrorCode, char* Message)
                 TerminalDrawString("INTERRUPT_NUM = NULL");
             }
             
-            if (CrashStackState->ErrorCode != NULL || CrashStackState->ErrorCode == 0x00)
+            if (CrashStackState->ErrorCode != 0x00 || CrashStackState->ErrorCode == 0x00)
             {
                 TerminalDrawString("\n\rERROR_CODE = 0x");
                 IntToStr(CrashStackState->ErrorCode, RegBuffer, 16);
@@ -148,7 +152,7 @@ void KernelPanic(uint64_t ErrorCode, char* Message)
                 TerminalDrawString("\n\rERROR_CODE = NULL");
             }
             
-            if (CrashStackState->RIP != NULL || CrashStackState->RIP == 0x00)
+            if (CrashStackState->RIP != 0x00 || CrashStackState->RIP == 0x00)
             {
                 TerminalDrawString("\n\rRIP = 0x");
                 IntToStr(CrashStackState->RIP, RegBuffer, 16);
@@ -159,7 +163,7 @@ void KernelPanic(uint64_t ErrorCode, char* Message)
                 TerminalDrawString("\n\rRIP = NULL");
             }
 
-            if (CrashStackState->CS != NULL || CrashStackState->CS == 0x00)
+            if (CrashStackState->CS != 0x00 || CrashStackState->CS == 0x00)
             {
                 TerminalDrawString("\n\rCS = 0x");
                 IntToStr(CrashStackState->CS, RegBuffer, 16);
@@ -170,7 +174,7 @@ void KernelPanic(uint64_t ErrorCode, char* Message)
                 TerminalDrawString("\n\rCS = NULL");
             }
 
-            if (CrashStackState->RFLAGS != NULL || CrashStackState->RFLAGS == 0x00)
+            if (CrashStackState->RFLAGS != 0x00 || CrashStackState->RFLAGS == 0x00)
             {
                 TerminalDrawString("\n\rRFLAGS = 0x");
                 IntToStr(CrashStackState->RFLAGS, RegBuffer, 16);
@@ -181,7 +185,7 @@ void KernelPanic(uint64_t ErrorCode, char* Message)
                 TerminalDrawString("\n\rRFLAGS = NULL");
             }
 
-            if (CrashStackState->SS_RSP != NULL || CrashStackState->SS_RSP == 0x00)
+            if (CrashStackState->SS_RSP != 0x00 || CrashStackState->SS_RSP == 0x00)
             {
                 TerminalDrawString("\n\rSS_RSP = 0x");
                 IntToStr(CrashStackState->SS_RSP, RegBuffer, 16);
@@ -210,7 +214,7 @@ void KernelPanic(uint64_t ErrorCode, char* Message)
 
         if (CrashStackState != NULL)
         {
-            if (CrashStackState->InterruptNum != NULL || CrashStackState->InterruptNum == 0x00)
+            if (CrashStackState->InterruptNum != 0x00 || CrashStackState->InterruptNum == 0x00)
             {
                 SendStringSerial(SERIAL_COM1, "\rINTERRUPT_NUM = 0x");
                 IntToStr(CrashStackState->InterruptNum, RegBuffer, 16);
@@ -221,7 +225,7 @@ void KernelPanic(uint64_t ErrorCode, char* Message)
                 SendStringSerial(SERIAL_COM1, "\rINTERRUPT_NUM = NULL");
             }
             
-            if (CrashStackState->ErrorCode != NULL || CrashStackState->ErrorCode == 0x00)
+            if (CrashStackState->ErrorCode != 0x00 || CrashStackState->ErrorCode == 0x00)
             {
                 SendStringSerial(SERIAL_COM1, "\rERROR_CODE = 0x");
                 IntToStr(CrashStackState->ErrorCode, RegBuffer, 16);
@@ -232,7 +236,7 @@ void KernelPanic(uint64_t ErrorCode, char* Message)
                 SendStringSerial(SERIAL_COM1, "\rERROR_CODE = NULL");
             }
             
-            if (CrashStackState->RIP != NULL || CrashStackState->RIP == 0x00)
+            if (CrashStackState->RIP != 0x00 || CrashStackState->RIP == 0x00)
             {
                 SendStringSerial(SERIAL_COM1, "\rRIP = 0x");
                 IntToStr(CrashStackState->RIP, RegBuffer, 16);
@@ -243,7 +247,7 @@ void KernelPanic(uint64_t ErrorCode, char* Message)
                 SendStringSerial(SERIAL_COM1, "\rRIP = NULL");
             }
 
-            if (CrashStackState->CS != NULL || CrashStackState->CS == 0x00)
+            if (CrashStackState->CS != 0x00 || CrashStackState->CS == 0x00)
             {
                 SendStringSerial(SERIAL_COM1, "\rCS = 0x");
                 IntToStr(CrashStackState->CS, RegBuffer, 16);
@@ -254,7 +258,7 @@ void KernelPanic(uint64_t ErrorCode, char* Message)
                 SendStringSerial(SERIAL_COM1, "\rCS = NULL");
             }
 
-            if (CrashStackState->RFLAGS != NULL || CrashStackState->RFLAGS == 0x00)
+            if (CrashStackState->RFLAGS != 0x00 || CrashStackState->RFLAGS == 0x00)
             {
                 SendStringSerial(SERIAL_COM1, "\rRFLAGS = 0x");
                 IntToStr(CrashStackState->RFLAGS, RegBuffer, 16);
@@ -265,7 +269,7 @@ void KernelPanic(uint64_t ErrorCode, char* Message)
                 SendStringSerial(SERIAL_COM1, "\rRFLAGS = NULL");
             }
 
-            if (CrashStackState->SS_RSP != NULL || CrashStackState->SS_RSP == 0x00)
+            if (CrashStackState->SS_RSP != 0x00 || CrashStackState->SS_RSP == 0x00)
             {
                 SendStringSerial(SERIAL_COM1, "\rSS_RSP = 0x");
                 IntToStr(CrashStackState->SS_RSP, RegBuffer, 16);
@@ -314,13 +318,13 @@ void KernelStart(void)
     // TODO: implement OS logo drawing
     
     // Get the firmware type.
-    if (FWTypeRequest.response->firmware_type >= 0 && FWTypeRequest.response->firmware_type <= 3)
+    if (FWTypeRequest.response->firmware_type <= 3)
     {
         FirmwareType = FirmwareTypes[FWTypeRequest.response->firmware_type];
     }
     else
     {
-        FirmwareType = FWTypeRequest.response->firmware_type + '0';
+        IntToStr(FWTypeRequest.response->firmware_type, FirmwareType, 10);
     }
 
     // Print boot information.
@@ -341,10 +345,10 @@ void KernelStart(void)
     InitIDT();
 
     // The IDT can be tested using this for loop.
-    for (int ExceptionNum = 0; ExceptionNum < 32; ExceptionNum++)
+    /*for (int ExceptionNum = 0; ExceptionNum < 32; ExceptionNum++)
     {
-        //TestIDT(ExceptionNum);
-    }
+        TestIDT(ExceptionNum);
+    }*/
 
     TerminalDrawString("[INFO] >> Initializing PIC...\n\r");
     InitPIC();

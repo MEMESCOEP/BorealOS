@@ -4,6 +4,7 @@
 
 /* LIBRARIES */
 #include <stdbool.h>
+#include "Core/Graphics/Terminal.h"
 #include "Core/Devices/PIC.h"
 #include "Core/IO/RegisterIO.h"
 #include "Keyboard.h"

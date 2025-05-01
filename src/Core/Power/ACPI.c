@@ -79,7 +79,7 @@ void InitACPI()
     RSDPAddress = RSDPRequest.response->address + HHOffset;
 
     // Ensure that the HHDM and RSDP values are valid
-    if (FirmwareType == "BIOS")
+    if (StrCmp(FirmwareType, "BIOS") == 0)
     {
         TerminalDrawString("[INFO] >> Checking if RSDP address is valid for BIOS firmware...\n\r");
 
@@ -90,7 +90,7 @@ void InitACPI()
 
         TerminalDrawString("[INFO] >> RSDP address is withing the valid range for BIOS firmware (0xE0000-0xFFFFF).\n\r");
     }
-    else if (FirmwareType == "64-bit UEFI")
+    else if (StrCmp(FirmwareType, "64-bit UEFI") == 0)
     {
         TerminalDrawString("[INFO] >> Checking if RSDP address is valid for 64-bit UEFI firmware...\n\r");
     }
@@ -99,17 +99,25 @@ void InitACPI()
         KernelPanic(0, "No ACPI support is available yet for non-BIOS / 64-bit UEFI firmwares.");
     }
 
-    char FixedRSDPAddrBuffer[32];
-    char HHOffsetBuffer[32];
-    char RSDPAddrBuffer[16];
+    char FixedRSDPAddrBuffer[32] = "";
+    char HHOffsetBuffer[32] = "";
+    char RSDPAddrBuffer[16] = "";
 
     IntToStr(RSDPAddress, FixedRSDPAddrBuffer, 16);
     IntToStr(RSDPRequest.response->address, RSDPAddrBuffer, 16);
     IntToStr(HHOffset, HHOffsetBuffer, 16);
 
-    TerminalDrawString("[INFO] >> Higher half offset (provided from bootloader): 0x");
-    TerminalDrawString(HHOffsetBuffer);
-    TerminalDrawString("\n\r");
+    // Sometimes Limine doesn't provide this on 64-bit UEFI firmware
+    if (HHOffsetBuffer[0] == '\0')
+    {
+        TerminalDrawString("[WARN] >> Higher half offset was notprovided from bootloader.\n\r");
+    }
+    else
+    {
+        TerminalDrawString("[INFO] >> Higher half offset (provided from bootloader): 0x");
+        TerminalDrawString(HHOffsetBuffer);
+        TerminalDrawString("\n\r");
+    }
 
     TerminalDrawString("[INFO] >> ACPI RSDP address (provided from bootloader): 0x");
     TerminalDrawString(RSDPAddrBuffer);
@@ -142,7 +150,7 @@ bool ChecksumValidateSDT(ACPISDTHeader *SDTTableHeader)
 {
     unsigned char Sum = 0;
 
-    for (int i = 0; i < SDTTableHeader->Length; i++)
+    for (uint32_t i = 0; i < SDTTableHeader->Length; i++)
     {
         Sum += ((char *) SDTTableHeader)[i];
     }

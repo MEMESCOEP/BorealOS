@@ -1,9 +1,10 @@
 /* LIBRARIES */
 #include <stdint.h>
-#include "PS2Controller.h"
+#include "Utilities/StrUtils.h"
 #include "Core/Graphics/Terminal.h"
 #include "Core/Power/ACPI.h"
 #include "Core/IO/RegisterIO.h"
+#include "PS2Controller.h"
 #include "Kernel.h"
 
 
@@ -194,13 +195,15 @@ void InitPS2Controller()
     }
 }
 
-bool PS2ControllerExists()
+/*bool PS2ControllerExists()
 {
     if (ACPIInitialized == false)
     {
         KernelPanic(0, "ACPI must be properly initialized before checking if the PS/2 controller exists!");
     }
-}
+
+    return false;
+}*/
 
 void PS2Wait()
 {

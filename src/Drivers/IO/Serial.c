@@ -1,6 +1,7 @@
 /* LIBRARIES */
 #include <stdbool.h>
 #include "Utilities/StrUtils.h"
+#include "Core/Graphics/Terminal.h"
 #include "Core/Graphics/Graphics.h"
 #include "Core/IO/RegisterIO.h"
 #include "Serial.h"

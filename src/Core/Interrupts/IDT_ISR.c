@@ -38,7 +38,7 @@ typedef struct {
 __attribute__((aligned(0x10))) 
 static IDTEntry IDTEntries[256];
 
-unsigned char* CPUExceptions[] = {
+char* CPUExceptions[] = {
     "<FATAL_CPU_EXCEPTION_0> Division By Zero",
 	"<FATAL_CPU_EXCEPTION_1> Debug",
 	"<FATAL_CPU_EXCEPTION_2> Non Maskable Interrupt",
@@ -81,14 +81,14 @@ static IDTTable IDTr;
 static bool Vectors[IDT_MAX_DESCRIPTORS];
 extern void* ISRStubTable[];
 bool IDTInitialized = false;
-char DescriptorsBuffer[4];
-char IRQBuffer[4];
+char DescriptorsBuffer[4] = "";
+char IRQBuffer[4] = "";
 int MouseDelta[2] = {0, 0};
 
 
 /* FUNCTIONS */
 // Throw a kernel panic when the CPU encounters an exception.
-__attribute__((noreturn))
+//__attribute__((noreturn))
 void CPUExceptionHandler(StackState* CurrentStackState)
 {
 	CrashStackState = CurrentStackState;
@@ -97,26 +97,9 @@ void CPUExceptionHandler(StackState* CurrentStackState)
 	// situation from becoming even worse.
 	__asm__ volatile ("cli");
 
-	// Make sure the exception is between the spec's defined  values of 0 and 31, which
-	// prevents the kernel from erroneously reading past the defined exceptions and into
-	// unknown memory.
-	if ((CurrentStackState->ErrorCode != NULL || CurrentStackState->ErrorCode == 0x00) && (CurrentStackState->ErrorCode < 0 || CurrentStackState->ErrorCode > 31))
-	{
-		char ErrorBuffer[40];
-		char ECBuffer[21];
-
-		IntToStr(CurrentStackState->ErrorCode, ECBuffer, 16);
-		StrCat("Unknown (fatal) CPU exception -> 0x", ECBuffer, ErrorBuffer);
-		KernelPanic(CurrentStackState->ErrorCode, ErrorBuffer);
-	}
-	else if (CurrentStackState->InterruptNum == 0x00 || CurrentStackState->InterruptNum != NULL)
-	{
-		KernelPanic(CurrentStackState->InterruptNum, CPUExceptions[CurrentStackState->InterruptNum]);
-	}
-	else
-	{
-		KernelPanic(0, "Unknown (fatal) CPU exception -> NO_ERRCODE_OR_INTNUM");
-	}
+	// Since the meanings for CPU exceptions are well-defined, we can simply look up
+	// the error type using the interrupt number
+	KernelPanic(CurrentStackState->InterruptNum, CPUExceptions[CurrentStackState->InterruptNum]);
 }
 
 // Called when a non-exception interrupt is fired. This will be refactored, and device

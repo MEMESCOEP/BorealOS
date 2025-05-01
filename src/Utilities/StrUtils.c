@@ -43,19 +43,12 @@ void IntToStr(uint64_t Num, char *Buffer, int Base)
         int CharIndex = 0;
         bool IsNegative = false;
 
-        // Handle negative numbers for Base 10.
-        if (Num < 0 && Base == 10)
-        {
-            IsNegative = true;
-            Num = -Num;
-        }
-
         // Process each digit.
         while (Num != 0)
         {
             if (Base == 0)
             {
-                Num == 0;
+                Num = 0;
             }
 
             int Remainder = Num % Base;
@@ -193,4 +186,10 @@ int StrLen(char* String)
 int StrPixelLength(char* String)
 {
     return StrLen(String) * FONT_WIDTH;
+}
+
+int StrCmp(const char *Str1, const char *Str2)
+{
+    while (*Str1 && *Str1 == *Str2) { ++Str1; ++Str2; }
+    return (int)(unsigned char)(*Str1) - (int)(unsigned char)(*Str2);
 }

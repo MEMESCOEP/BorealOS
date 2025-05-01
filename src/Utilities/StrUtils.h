@@ -18,5 +18,6 @@ void InsertCharIntoString(char* String, char Character, int Index);
 void InsertString(char* OriginalString, char* StringToAppend, int Index);
 int StrLen(char* String);
 int StrPixelLength(char* String);
+int StrCmp(const char *Str1, const char *Str2);
 
 #endif

@@ -5,7 +5,7 @@
 extern bool FPUInitialized;
 
 /* FUNCTIONS */
-void InitPFU();
+void InitFPU();
 void InitSSE();
 
 #endif

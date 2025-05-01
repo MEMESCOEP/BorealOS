@@ -7,6 +7,11 @@
 
 
 /* FUNCTIONS */
+// Prototypes so GCC stops complaining
+void RemapPIC(int Offset1, int Offset2);
+void DisablePIC();
+
+// ACTUAL functions
 void InitPIC()
 {
     // Remap the PIC to prevent conflicts with IRQs 0 to 7.

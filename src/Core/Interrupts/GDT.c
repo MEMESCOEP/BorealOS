@@ -60,7 +60,7 @@ void InitGDT()
     GDTSetEntry(8, 0xFFFF, 0x00000000, 0xF3, 0xAF);
 
     GDTDesriptor.Size = sizeof(struct GDTEntry) * 9 - 1;
-    GDTDesriptor.Offset = &GDTEntries;
+    GDTDesriptor.Offset = (int64_t)&GDTEntries;
     asm volatile ("lgdt %0" :: "m"(GDTDesriptor) : "memory");
     GDTInitialized = true;
 }

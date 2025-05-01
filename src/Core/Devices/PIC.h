@@ -30,5 +30,6 @@
 /* FUNCTIONS */
 void InitPIC();
 void PICSendEOI(uint8_t IRQ);
+void ClearIRQMask(uint8_t IRQLine);
 
 #endif

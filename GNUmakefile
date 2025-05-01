@@ -35,6 +35,8 @@ endif
 override CFLAGS += \
     -Wall \
     -Wextra \
+    -Werror \
+    -Wno-unused-variable \
     -std=gnu11 \
     -ffreestanding \
     -fno-stack-protector \
