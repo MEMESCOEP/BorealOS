@@ -128,7 +128,7 @@ void PS2KBWaitForData()
 void InitPS2Keyboard()
 {
     TerminalDrawString("[INFO] >> Unmasking PS/2 keyboard interrupt #1...\n\r");
-    ClearIRQMask(1);
+    PICClearIRQMask(1);
 }
 
 // Turn the keyboard LEDs on/off with booleans

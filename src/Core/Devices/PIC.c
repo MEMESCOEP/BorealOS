@@ -40,6 +40,8 @@ void PICSendEOI(uint8_t IRQ)
 void RemapPIC(int Offset1, int Offset2)
 {
     // Disable interrupts while the PIC is being initialized, otherwise a stray interrupt could cause a CPU exception.
+    // The IDT init process will reenable them. We also don't unmask IRQs until they're needed because that could also
+    // cause issues.
     TerminalDrawString("\tPIC INTERRUPTS DISABLE\n\r");
     __asm__ volatile ("cli");
 
@@ -80,15 +82,6 @@ void RemapPIC(int Offset1, int Offset2)
     TerminalDrawString("\tPIC SLAVE ICW4_8086\n\r");
 	OutB(PIC2_DATA, ICW4_8086);
 	IOWait();
-
-	// Unmask both PICs. This is equivalent to enabling every IRQ.
-    TerminalDrawString("\tPIC UNMASK ALL IRQs\n\r");
-	OutB(PIC1_DATA, 0);
-	OutB(PIC2_DATA, 0);
-
-    // Reenable interrupts.
-    TerminalDrawString("\tPIC INTERRUPTS ENABLE\n\r");
-    __asm__ volatile ("sti");
 }
 
 // "Disable" the PIC chips by masking every IRQ.
@@ -99,7 +92,7 @@ void DisablePIC()
 }
 
 // Disable an IRQ by setting the mask for the specific IRQ.
-void SetIRQMask(uint8_t IRQLine)
+void PICSetIRQMask(uint8_t IRQLine)
 {
     uint16_t Port;
     uint8_t Value;
@@ -119,7 +112,7 @@ void SetIRQMask(uint8_t IRQLine)
 }
 
 // Enable an IRQ by clearing the mask for the specific IRQ.
-void ClearIRQMask(uint8_t IRQLine)
+void PICClearIRQMask(uint8_t IRQLine)
 {
     uint16_t Port;
     uint8_t Value;

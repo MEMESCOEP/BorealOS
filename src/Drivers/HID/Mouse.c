@@ -179,8 +179,8 @@ void InitPS2Mouse()
     }
 
     TerminalDrawString("[INFO] >> Unmasking PS/2 mouse IRQs (#2 & #12)...\n\r");
-    ClearIRQMask(2);
-    ClearIRQMask(12);
+    PICClearIRQMask(2);
+    PICClearIRQMask(12);
 }
 
 void PS2SetSampleRate(int SampleRate)
