@@ -407,15 +407,12 @@ void KernelStart(void)
     // Init code here
     
     // Display system information before the init finishes.
-    // Get the number of processors in the system. For some
-    // reason, getting the CPU count causes page faults on vbox?? tf??
-    /*
+    // Get the number of processors in the system.
     ProcessorCount = MPRequest.response->cpu_count;
 
     TerminalDrawString("[INFO] >> ");
     TerminalDrawChar(ProcessorCount + '0', true);
     TerminalDrawString(" available processor(s).\n\r");
-    */
 
     TerminalDrawString("[INFO] >> ");
     TerminalDrawChar(FBCount + '0', true);
