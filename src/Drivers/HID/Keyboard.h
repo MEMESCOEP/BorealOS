@@ -1,6 +1,10 @@
 #ifndef KEYBOARD_H
 #define KEYBOARD_H
 
+/* LIBRARIES */
+#include <stdbool.h>
+
+
 /* DEFINITIONS */
 #define KEYBOARD_COMMAND_REG 0x64
 #define KEYBOARD_DATA_REG    0x60
@@ -20,10 +24,12 @@ extern bool LeftControlPressed;
 extern bool LeftShiftPressed;
 extern bool LeftAltPressed;
 extern bool KeyPressed;
+extern int LastReleasedInput;
 extern int LastInput;
 
 
 /* FUNCTIONS */
+int PS2SetScancodeSet(int ScancodeSet);
 int GetPS2Scancode();
 void PS2KBWaitForData();
 void InitPS2Keyboard();

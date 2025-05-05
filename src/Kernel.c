@@ -396,7 +396,8 @@ void KernelStart(void)
         TerminalDrawString("\n\r");
     }*/
 
-    TerminalDrawString("\n\r[INFO] >> Initializing PS/2 keyboard & mouse...\n\r");
+    TerminalDrawString("\n\r[INFO] >> Initializing PS/2 controller, keyboard, and mouse...\n\r");
+    InitPS2Controller();
     InitPS2Keyboard();
     InitPS2Mouse();
 
@@ -442,7 +443,7 @@ void KernelStart(void)
 
     TerminalDrawString("\n\r[INFO] >> Firmware type is \"");
     TerminalDrawString(FirmwareType);
-    TerminalDrawString("\"\n\r[INFO] >> SYSINIT done.\n\r");
+    TerminalDrawString("\"\n\r[INFO] >> Init process finished.\n\r");
 
     // The main system initialization has finished, so the kernel loop can be entered.
     KernelLoop();
@@ -453,8 +454,12 @@ void KernelStart(void)
 void KernelLoop()
 {
     TerminalDrawString("[INFO] >> Kernel loop started.\n\r");
-    
-    //while(true);
+
+    // This is a fake loop to be used only in testing
+    while (LastInput != 0x01)
+    {
+        asm volatile ("hlt");   
+    }
 
     KernelPanic(0, "End of kernel loop reached (no more running processes)");
 }

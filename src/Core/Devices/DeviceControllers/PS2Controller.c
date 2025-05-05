@@ -1,6 +1,7 @@
 /* LIBRARIES */
 #include <stdint.h>
 #include "Utilities/StrUtils.h"
+#include "Drivers/HID/Keyboard.h"
 #include "Core/Graphics/Terminal.h"
 #include "Core/Power/ACPI.h"
 #include "Core/IO/RegisterIO.h"
@@ -9,190 +10,195 @@
 
 
 /* FUNCTIONS */
+void PS2Wait(uint8_t BitToCheck, bool WaitForSet)
+{
+    if (WaitForSet == true)
+    {
+        while (!(InB(0x64) & BitToCheck));
+    }
+    else
+    {
+        while (InB(0x64) & BitToCheck);
+    }
+}
+
 void InitPS2Controller()
 {
-    // Reinitialize the PS/2 controller.
-    TerminalDrawString("[INFO] >> Disabling PS/2 devices...\n\r");
-    // Disable both devices
-    OutB(0x64, 0xAD);
-    OutB(0x64, 0xA7);
+    // --- STEP 1 ---
+    // Initialize USB controllers
 
-    // Clear the buffer
-    TerminalDrawString("[INFO] >> Clearing PS/2 buffer...\n\r");
-    InB(0x60);
 
-    // Set the controller's config byte
-    TerminalDrawString("[INFO] >> Setting PS/2 controller's config byte...\n\r");
-    uint8_t ConfigByte = InB(0x20) & 0xFB;
-    OutB(0x60, ConfigByte);
 
-    // Perform a self-test on the PS/2 controller; any value other than 0x55 means the test failed
-    TerminalDrawString("[INFO] >> Performing self-test on PS/2 controller (MUST RETURN 0x55)...\n\r");
-    OutB(0x64, 0xAA);
-    
-    while ((InB(0x64) & 0x01) == 0)
+    // --- STEP 2 ---
+    // Determine if the PS/2 controller actually exists
+
+
+
+    // --- STEPS 3 & 4 ---
+    // Disable ports (1 and 2 in order) and then read from port 0x60 to flush the
+    // PS/2 output buffer
+    TerminalDrawString("[INFO] >> Disabling PS/2 ports and flushing PS/2 output buffer...\n\r");
+    PS2Wait(0x02, false);
+    OutB(PS2_CMD_STATUS_PORT, 0xAD);
+
+    PS2Wait(0x02, false);
+    OutB(PS2_CMD_STATUS_PORT, 0xA7);
+
+    while (InB(0x64) & 0x01)
     {
-        TerminalDrawString("Waiting for response...\r");
-        // The controller is not ready to respond, continue waiting
-        // Optionally, add a timeout or handle this scenario as needed
+        InB(PS2_DATA_PORT);
     }
 
-    uint8_t TestResult = InB(0x60);
-    
-    // Some PS/2 controllers send 0xFA, 0xAA
-    if (TestResult == 0xFA)
-    {
-        TestResult = InB(0x60);
-    }
+
+
+    // --- STEP 5 ---
+    // Set the PS/2 controller's command byte
+    TerminalDrawString("[INFO] >> Configuring PS/2 controller's command byte...\n\r");
+    PS2Wait(0x02, false);
+    OutB(PS2_CMD_STATUS_PORT, 0x20);
+
+    PS2Wait(0x01, true);
+    uint8_t CommandByte = InB(PS2_DATA_PORT);
+    CommandByte &= ~((1 << 0) | (1 << 4) | (1 << 6));
+
+    PS2Wait(0x02, false);
+    OutB(PS2_CMD_STATUS_PORT, 0x60);
+
+    PS2Wait(0x02, false);
+    OutB(PS2_DATA_PORT, CommandByte);
+
+
+
+    // --- STEP 6 ---
+    // Run a self test for the PS/2 controller
+    TerminalDrawString("[INFO] >> Running PS/2 controller self test...\n\r");
+    PS2Wait(0x02, false);
+    OutB(PS2_CMD_STATUS_PORT, 0xAA);
+
+    PS2Wait(0x01, true);
+    uint8_t TestResult = InB(PS2_DATA_PORT);
 
     if (TestResult != 0x55)
     {
-        char Response[4];
-        char EXCBuffer[32];
-        IntToStr(TestResult, Response, 16);
-        StrCat("PS/2 self test failed, got 0x", Response, EXCBuffer);
-        KernelPanic(0, EXCBuffer);
+        KernelPanic(0, "PS/2 Controller self test failed: got 0x");
     }
 
-    // Check if this is a dual-channel PS/2 controller
-    TerminalDrawString("[INFO] >> Checking if the PS/2 controller has 2 channels...\n\r");
-    OutB(0x64, 0xA8);
 
-    uint8_t DualChannelController = InB(0x20);
-    
-    if (DualChannelController & (1 << 5))
-    {
-        KernelPanic(0, "This is not a dual-channel PS/2 controller!");
-    }
 
-    // Test each port
+    // --- STEP 7 ---
+    // Perform interface tests for ports (1 and 2 in order, assume a dual-channel controller)
     // Port 1
     TerminalDrawString("[INFO] >> Testing PS/2 port 1...\n\r");
-    OutB(0x64, 0xAB);
+    PS2Wait(0x02, false);
+    OutB(PS2_CMD_STATUS_PORT, 0xAB);
 
-    while ((InB(0x64) & 0x01) == 0)
-    {
-        TerminalDrawString("Waiting for response...\r");
-        // The controller is not ready to respond, continue waiting
-        // Optionally, add a timeout or handle this scenario as needed
-    }
+    PS2Wait(0x01, true);
+    TestResult = InB(PS2_DATA_PORT);
 
-    if (InB(0x60) != 0x00)
+    if (TestResult != 0x00)
     {
-        KernelPanic(0, "PS/2 Port 1 test failed!");
+        KernelPanic(0, "PS/2 Controller port 1 test failed: got 0x");
     }
 
     // Port 2
     TerminalDrawString("[INFO] >> Testing PS/2 port 2...\n\r");
-    OutB(0x64, 0xA9);
+    PS2Wait(0x02, false);
+    OutB(PS2_CMD_STATUS_PORT, 0xA9);
 
-    while ((InB(0x64) & 0x01) == 0)
-    {
-        TerminalDrawString("Waiting for response...\r");
-        // The controller is not ready to respond, continue waiting
-        // Optionally, add a timeout or handle this scenario as needed
-    }
+    PS2Wait(0x01, true);
+    TestResult = InB(PS2_DATA_PORT);
 
-    if (InB(0x60) != 0x00)
+    if (TestResult != 0x00)
     {
-        KernelPanic(0, "PS/2 Port 2 test failed!");
+        KernelPanic(0, "PS/2 Controller port 2 test failed: got 0x");
     }
 
 
 
-
-
-
-
-
-
-
-    // Enable both ports again (1 and 2 in order)
+    // --- STEP 8 ---
+    // Enable ports and IRQs (1 and 2 in order)
+    // Ports
     TerminalDrawString("[INFO] >> Enabling PS/2 ports...\n\r");
-    OutB(0x64, 0xAE);
-    //OutB(0x64, 0xA8);
+    PS2Wait(0x02, false);
+    OutB(PS2_CMD_STATUS_PORT, 0xAE);
 
-    //while ((InB(0x64) & 0x01) == 0);
-    uint8_t Response = InB(0x60);
-    
-    if (Response != 0xFA) {
-        // Handle error: no ACK response for enabling port 1
-        //KernelPanic(-1, "Failed to enable PS/2 keyboard port.");
-        char ResponseBuffer[4];
-        char EXCBuffer[32];
-        IntToStr(Response, ResponseBuffer, 16);
-        StrCat("PS/2 KBINIT failed, got 0x", ResponseBuffer, EXCBuffer);
-        KernelPanic(0, EXCBuffer);
-    }
+    PS2Wait(0x02, false);
+    OutB(PS2_CMD_STATUS_PORT, 0xA8);
 
-    OutB(0x64, 0xA8);
-    //while ((InB(0x64) & 0x01) == 0);
-    Response = InB(0x60);
-    
-    if (Response != 0xFA) {
-        // Handle error: no ACK response for enabling port 1
-        //KernelPanic(-1, "Failed to enable PS/2 keyboard port.");
-        char ResponseBuffer[4];
-        char EXCBuffer[32];
-        IntToStr(Response, ResponseBuffer, 16);
-        StrCat("PS/2 MouseINIT failed, got 0x", ResponseBuffer, EXCBuffer);
-        KernelPanic(0, EXCBuffer);
-    }
-
-
-
-
-
-
-    
-
-
-
-
-
-    // Enable IRQs for both ports by settings bits 0 (first port) and 1 (second port) in the controller's config byte
+    // IRQs
     TerminalDrawString("[INFO] >> Enabling PS/2 IRQs...\n\r");
-    ConfigByte = InB(0x20) | 0x03;
-    OutB(0x60, ConfigByte);
+    PS2Wait(0x02, false);
+    OutB(PS2_CMD_STATUS_PORT, 0x20);
 
-    // Reset all PS/2 devices (1 and 2 in order)
-    TerminalDrawString("[INFO] >> Resetting all PS/2 devices...\n\r");
-    OutB(0x60, 0xFF);
+    PS2Wait(0x01, true);
+    CommandByte = InB(PS2_DATA_PORT);
+    CommandByte |= (1 << 0) | (1 << 1);
 
-    //while ((InB(0x64) & (1 << 1)) != 0);
-    while ((InB(0x64) & 0x01) == 0)
+    PS2Wait(0x02, false);
+    OutB(PS2_CMD_STATUS_PORT, 0x60);
+
+    PS2Wait(0x02, false);
+    OutB(PS2_DATA_PORT, CommandByte);
+
+
+
+    // --- STEP 9 ---
+    // Reset PS/2 devices
+    // Port 1
+    TerminalDrawString("[INFO] >> Resetting PS/2 device on port 1...\n\r");
+    PS2Wait(0x02, false);
+    OutB(PS2_DATA_PORT, 0xFF);
+
+    PS2Wait(0x01, true);
+    uint8_t ResetResult = InB(0x60);
+
+    // Sometimes keyboards will send a 0xFA first before the result of the reset
+    if (ResetResult == 0xFA)
     {
-        TerminalDrawString("Waiting for response...\r");
-        // The controller is not ready to respond, continue waiting
-        // Optionally, add a timeout or handle this scenario as needed
+        PS2Wait(0x01, true);
+        ResetResult = InB(0x60);
     }
 
-    uint8_t ResetResponse = InB(0x64);
-
-    if (ResetResponse == 0xFC)
+    if (ResetResult != 0xAA)
     {
-        KernelPanic(0, "Failed to reset PS/2 device at port 1!");
+        char RRBuffer[4];
+        char RRBString[48];
+
+        IntToStr(ResetResult, RRBuffer, 16);
+        StrCat("PS/2 KBINIT failed: got 0x", RRBuffer, RRBString);
+        KernelPanic(0, RRBString);
     }
-    else if (ResetResponse == 0x00)
+
+    InB(0x60);
+
+    // Port 2
+    TerminalDrawString("[INFO] >> Resetting PS/2 device on port 2...\n\r");
+    PS2Wait(0x02, false);
+    OutB(PS2_CMD_STATUS_PORT, 0xD4);
+    
+    PS2Wait(0x02, false);
+    OutB(PS2_DATA_PORT, 0xFF);
+
+    PS2Wait(0x01, true);
+    ResetResult = InB(0x60);
+
+    if (ResetResult == 0xFA)
     {
-        TerminalDrawString("[WARN] >> No devices responded to the reset command on PS/2 port 1, there may not be anything connected.");
+        PS2Wait(0x01, true);
+        ResetResult = InB(0x60);
     }
 
-    OutB(0x64, 0xD4);
-    OutB(0x60, 0xFF);
-
-    while ((InB(0x64) & (1 << 1)) != 0);
-
-    ResetResponse = InB(0x64);
-
-    if (ResetResponse == 0xFC)
+    if (ResetResult != 0xAA)
     {
-        KernelPanic(0, "Failed to reset PS/2 device at port 2!");
+        char RRBuffer[4];
+        char RRBString[48];
+
+        IntToStr(ResetResult, RRBuffer, 16);
+        StrCat("PS/2 MOUSEINIT failed: got 0x", RRBuffer, RRBString);
+        KernelPanic(0, RRBString);
     }
-    else if (ResetResponse == 0x00)
-    {
-        TerminalDrawString("[WARN] >> No devices responded to the reset command on PS/2 port 2, there may not be anything connected.");
-    }
+
+    InB(0x60);
 }
 
 /*bool PS2ControllerExists()
@@ -204,8 +210,3 @@ void InitPS2Controller()
 
     return false;
 }*/
-
-void PS2Wait()
-{
-    while ((InB(0x64) & 1 << 1) != 0);
-}

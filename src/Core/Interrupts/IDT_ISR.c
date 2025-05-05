@@ -15,9 +15,6 @@
 #include "Kernel.h"
 #include "GDT.h"
 
-/* DEFINITIONS */
-#define IDT_MAX_DESCRIPTORS 48
-
 
 /* VARIABLES */
 typedef struct {
@@ -111,11 +108,7 @@ void IRQHandler(StackState* CurrentStackState)
 	{
 		// Keyboard (IRQ 1)
 		case 33:
-			int Scancode = GetPS2Scancode();
-
-			PS2KBHandleScancode(Scancode);
-
-			LastInput = Scancode;
+			PS2KBHandleScancode(GetPS2Scancode());
 			break;
 
 		// Mouse (IRQ 12)
@@ -125,7 +118,7 @@ void IRQHandler(StackState* CurrentStackState)
 			// Make sure data is actually available by checking bit 0; it should always be 1 if the packet has data.
 			if ((Status & 0x01) != 1)
 			{
-				DrawString(0, 0, "No mouse data.", 0xFFFFFF, 0x161616);
+				//DrawString(0, 0, "No mouse data.", 0xFFFFFF, 0x161616);
 				break;
 			}
 
@@ -134,7 +127,7 @@ void IRQHandler(StackState* CurrentStackState)
 			// https://wiki.osdev.org/Mouse_Input#Additional_Useless_Mouse_Commands
 			if ((Status & 0x20) == 0)
 			{
-				DrawString(0, 0, "Invalid PS/2 mouse packet.", 0xFFFFFF, 0x161616);
+				//DrawString(0, 0, "Invalid PS/2 mouse packet.", 0xFFFFFF, 0x161616);
 				break;
 			}
 
@@ -156,7 +149,7 @@ void IRQHandler(StackState* CurrentStackState)
 
 					if (!(State & 0x08))
 					{
-						DrawString(0, 0, "PS/2 mouse state byte verification failure:", 0xFFFFFF, 0x161616);
+						//DrawString(0, 0, "PS/2 mouse state byte verification failure:", 0xFFFFFF, 0x161616);
 						
 						for (int i = sizeof(State) - 1; i >= 0; i--)
 						{
@@ -177,7 +170,7 @@ void IRQHandler(StackState* CurrentStackState)
 					// Discard the packet if the X and/or Y overflow bits are set.
 					if ((State & 0x80) != 0 || (State & 0x40) != 0)
 					{
-						DrawString(0, 0, "PS/2 mouse packet discarded due to X/Y overflow.", 0xFFFFFF, 0x161616);
+						//DrawString(0, 0, "PS/2 mouse packet discarded due to X/Y overflow.", 0xFFFFFF, 0x161616);
 						break;
 					}
 
@@ -215,24 +208,6 @@ void IRQHandler(StackState* CurrentStackState)
 					else
 					{
 						MouseCycle++;
-					}
-
-					if (CurrentMouseState.DeltaSigns[0] > 0)
-					{
-						DrawString(ScreenWidth - 40, 48, "XP:", 0xFFFFFF, 0x1D485F);
-					}
-					else
-					{
-						DrawString(ScreenWidth - 40, 48, "XN:", 0xFFFFFF, 0x1D485F);
-					}
-
-					if (CurrentMouseState.DeltaSigns[1] > 0)
-					{
-						DrawString(ScreenWidth - 16, 48, "YP", 0xFFFFFF, 0x1D485F);
-					}
-					else
-					{
-						DrawString(ScreenWidth - 16, 48, "YN", 0xFFFFFF, 0x1D485F);
 					}
 
 					break;
@@ -289,11 +264,13 @@ void TestIDT(uint8_t ExceptionSelector)
 
 		// Throw a software breakpoint
 		case 3:
+		TerminalDrawString("[INFO] >> Testing IDT with a software breakpoint...\n\r");
 			__asm__("int $3");
 			break;
 
 		// Attempt to run an invalid opcode
 		case 6:
+			TerminalDrawString("[INFO] >> Testing IDT with an invalid opcode ()...\n\r");
 			__asm__("ud2");
 			break;
 

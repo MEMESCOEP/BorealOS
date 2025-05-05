@@ -5,6 +5,10 @@
 #include <stdint.h>
 
 
+/* DEFINITIONS */
+#define IDT_MAX_DESCRIPTORS 48
+
+
 /* VARIABLES */
 typedef struct {
     uint64_t r15;

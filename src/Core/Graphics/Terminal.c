@@ -98,14 +98,18 @@ void SetScrollRow(int Row)
 
 void ScrollTerminal(int Rows __attribute__((unused)))
 {
-    for (int Row = ScrollRow; Row < ScreenHeight; Row++)
-    {
-        for (int Column = 0; Column < ScreenWidth; Column++)
-        {
-            CurrentFB[(Row - FONT_HEIGHT) * FBPitchOffset + Column] = CurrentFB[Row * FBPitchOffset + Column];
+    // Scroll up by X rows
+    for (int Row = ScrollRow; Row < ScreenHeight; Row++) {
+        for (int Column = 0; Column < ScreenWidth; Column++) {
+            CurrentFB[(Row - FONT_HEIGHT) * FBPitchOffset + Column] =
+                CurrentFB[Row * FBPitchOffset + Column];
         }
+    }
 
-        //MemCPY(&CurrentFB[Row * (Framebuffer->pitch / 4)], &CurrentFB[(Row + FONT_HEIGHT) * (Framebuffer->pitch / 4)], ScreenWidth);
-        //PS2WaitForKey();
+    // Clear the bottom row
+    for (int Row = ScreenHeight - FONT_HEIGHT; Row < ScreenHeight; Row++) {
+        for (int Column = 0; Column < ScreenWidth; Column++) {
+            CurrentFB[Row * FBPitchOffset + Column] = 0x00000000;
+        }
     }
 }
