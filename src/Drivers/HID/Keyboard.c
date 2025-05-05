@@ -12,6 +12,7 @@
 
 
 /* VARIABLES */
+bool NewKeyIsAvailable = false;
 bool ScrollLockToggled = false;
 bool CapsLockToggled = false;
 bool NumLockToggled = false;
@@ -21,7 +22,6 @@ bool RightAltPressed = false;
 bool LeftControlPressed = false;
 bool LeftShiftPressed = false;
 bool LeftAltPressed = false;
-bool KeyPressed = false;
 int LastReleasedInput = 0;
 int LastInput = 0;
 
@@ -108,6 +108,58 @@ unsigned char KBScanmapShifted[128] =
 
 
 /* FUNCTIONS */
+// Convert a scancode from set 1 into a value in the keymap, taking shifting into account
+unsigned char GetMappedKey(bool WaitForData)
+{
+    if (WaitForData == true)
+    {
+        PS2KBWaitForData();
+    }
+
+    if (CapsLockToggled == true || LeftShiftPressed == true || RightShiftPressed == true)
+    {
+        return KBScanmapShifted[LastInput];
+    }
+    else
+    {
+        return KBScanmapUnshifted[LastInput];
+    }
+}
+
+// Check if the scancode corresponds to a valid character key for scancode map 1
+// Check the scancode set 1 at https://wiki.osdev.org/PS/2_Keyboard for more info
+bool IsCharacterKey(uint8_t Scancode)
+{
+    // Remove 0x80 from the scancode if it's over that in order to handle released keys
+    int CorrectedScancode = Scancode > 0x80 ? (Scancode - 0x80) : (Scancode);
+
+    // Space bar - keypad *
+    if (Scancode == 0x37 || Scancode == 0x39)
+        return true;
+
+    // 1-=
+    if (Scancode >= 0x02 && Scancode <= 0x0D)
+        return true;
+
+    // Q-]
+    if (Scancode >= 0x10 && Scancode <= 0x1B)
+        return true;
+
+    // A-`
+    if (Scancode >= 0x1E && Scancode <= 0x29)
+        return true;
+
+    // \-/
+    if (Scancode >= 0x2B && Scancode <= 0x35)
+        return true;
+
+    // Keypad 7 - keypad .
+    if (Scancode >= 0x47 && Scancode <= 0x53)
+        return true;
+
+    return false;  // Not a character key
+}
+
 // Change the scancode set that the PS/2 keyboard uses. Valid values are: 0x01, 0x02, 0x03
 int PS2SetScancodeSet(int ScancodeSet)
 {
@@ -170,6 +222,8 @@ void InitPS2Keyboard()
 
     TerminalDrawString("[INFO] >> Unmasking PS/2 keyboard interrupt #1...\n\r");
     PICClearIRQMask(1);
+    LastReleasedInput = 0;
+    LastInput = 0;
     
     //TerminalDrawString("[INFO] >> Setting PS/2 keyboard LEDs...\n\r");
     //PS2KBSetLEDs(NumLockToggled, CapsLockToggled, ScrollLockToggled);
@@ -205,6 +259,8 @@ void PS2KBSetLEDs(bool NumLock, bool CapsLock, bool ScrollLock)
 // Handle a scancode that a PS/2 keyboard generated
 void PS2KBHandleScancode(int Scancode)
 {
+    NewKeyIsAvailable = true;
+
     switch (Scancode)
     {
         // Left control press/release.
@@ -306,6 +362,7 @@ void PS2KBHandleScancode(int Scancode)
             break;
 
         default:
+            LastInput = 0;
             break;
     }
 
@@ -313,6 +370,11 @@ void PS2KBHandleScancode(int Scancode)
     if (Scancode < 0x80)
     {
         LastInput = Scancode;
+    }
+    else if (Scancode - 0x80 == LastInput)
+    {
+        
+        LastReleasedInput = LastInput;
     }
     else
     {

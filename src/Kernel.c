@@ -13,6 +13,7 @@
 #include "Drivers/HID/Keyboard.h"
 #include "Drivers/HID/Mouse.h"
 #include "Drivers/IO/Serial.h"
+#include "Core/Applications/Shell.h"
 #include "Core/Interrupts/IDT_ISR.h"
 #include "Core/Interrupts/GDT.h"
 #include "Core/Graphics/Terminal.h"
@@ -383,8 +384,8 @@ void KernelStart(void)
         TerminalDrawString("\n\r");
     }
 
-    /*TerminalDrawString("\n\r[INFO] >> Testing emulated OR non-emulated SSE (METHOD=\"I * 2.5\", 1->8)...\n\r");
-    char SSEBuffer[8];
+    TerminalDrawString("\n\r[INFO] >> Testing emulated OR non-emulated SSE (METHOD=\"I * 2.5\", 1->8)...\n\r");
+    /*char SSEBuffer[8];
 
     for (float I = 1.0f; I <= 8.0f; I++)
     {
@@ -445,6 +446,9 @@ void KernelStart(void)
     TerminalDrawString(FirmwareType);
     TerminalDrawString("\"\n\r[INFO] >> Init process finished.\n\r");
 
+    ClearTerminal();
+    TerminalDrawString("[== Welcome to BorealOS! ==]\n\r");
+
     // The main system initialization has finished, so the kernel loop can be entered.
     KernelLoop();
 }
@@ -453,13 +457,7 @@ void KernelStart(void)
 // there's nothing else that the computer should be doing.
 void KernelLoop()
 {
-    TerminalDrawString("[INFO] >> Kernel loop started.\n\r");
-
-    // This is a fake loop to be used only in testing
-    while (LastInput != 0x01)
-    {
-        asm volatile ("hlt");   
-    }
-
+    TerminalDrawString("[INFO] >> Kernel loop started, starting shell...\n\r");
+    StartShell();
     KernelPanic(0, "End of kernel loop reached (no more running processes)");
 }

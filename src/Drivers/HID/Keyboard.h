@@ -29,6 +29,8 @@ extern int LastInput;
 
 
 /* FUNCTIONS */
+unsigned char GetMappedKey(bool WaitForData);
+bool IsCharacterKey(uint8_t Scancode);
 int PS2SetScancodeSet(int ScancodeSet);
 int GetPS2Scancode();
 void PS2KBWaitForData();
