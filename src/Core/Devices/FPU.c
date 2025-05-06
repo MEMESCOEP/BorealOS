@@ -1,6 +1,7 @@
 /* LIBRARIES */
 #include <stdbool.h>
 #include <stddef.h>
+#include <cpuid.h>
 #include "Core/Graphics/Terminal.h"
 #include "Kernel.h"
 #include "FPU.h"
@@ -29,6 +30,10 @@ void InitFPU()
     FPUInitialized = true;
 }
 
+// Initialize SSE. An important thing to note is that we don't need to bother with FXSAVE or FXRSTOR because the OS is still
+// currently single-threaded. Once support for threading and task switching are added, we have to make use of FXSAVE and FXRSTOR
+// regardless of user mode threads or kernel mode threads. You need to save and restore the FPU/SSE state upon switching tasks
+// See https://forum.osdev.org/viewtopic.php?p=302401&sid=d76ccb72a3bd70b81e075a8d22343826#p302401
 void InitSSE()
 {
     // Make sure the FPU is initialized before trying to initialize SSE.
@@ -37,43 +42,84 @@ void InitSSE()
         KernelPanic(-10, "The FPU must be initialized before SSE can be initialized!");
     }
 
-    int eax, edx;
-    
-    // Make sure SSE is supported before we try to initialize it.
-    __asm__ (
-        "movl $1, %%eax;"
-        "cpuid;"
-        "testl $0x2000000, %%edx;"
-        "jz .noSSE;"
-        ".noSSE:"
-        : "=d" (edx)
-        :
-        : "%eax"
-    );
+    // --- STEP 1 ---
+    // Check if SSE v1+ is supported
+    unsigned int eax, ebx, ecx, edx;
+    TerminalDrawString("[INFO] >> Checking for SSE v1+ support...\n\r");
 
-    if ((edx & (1 << 25)) == 0)
+    // CPUID function 1 gets the processor info and feature bits
+    // Setting EAX to 1 tells ther CPU to return its features
+    eax = 1;  
+    __cpuid(1, eax, ebx, ecx, edx);
+
+    // CPUID.01h:EDX.SSE (bit 25) is set when SSE v1+ is supported
+    TerminalDrawString("\tCPUID.01h:EDX.SSE\n\r");
+
+    if (!(edx & (1 << 25)))
     {
-        KernelPanic(-11, "SSE is not supported!");
+        KernelPanic(-11, "SSE v1+ is not supported!");
     }
 
-    // SSE is supported by the CPU, now we can initialize it.
-    // Read CR4
-    unsigned long cr4;
-    asm volatile ("mov %%cr4, %0" : "=r"(cr4));
+    TerminalDrawString("[INFO] >> SSE v1+ is supported.\n\r");
 
-    // Set OSFXSR bit in CR4
-    cr4 |= (1 << 10);
 
-    // Write back CR4
-    asm volatile ("mov %0, %%cr4" : : "r"(cr4));
 
-    // Read CR0
-    unsigned long cr0;
-    asm volatile ("mov %%cr0, %0" : "=r"(cr0));
+    // --- STEP 2 ---
+    // Initialize SSE
+    unsigned long cr0, cr4;
 
-    // Clear EM bit in CR0
-    cr0 &= ~(1 << 2);
+    // Read CR0 into RAX and into (CVAR)CR4
+    TerminalDrawString("\tCR0 -> RAX -> (C_VAR)CR0\n\r");
+    __asm__ volatile (
+        "mov %%cr0, %%rax\n\t"
+        "mov %%rax, %0"
+        : "=r"(cr0)
+        :
+        : "rax"
+    );
 
-    // Write back CR0
-    asm volatile ("mov %0, %%cr0" : : "r"(cr0));
+    // Disable emulation by clearing the EM bit (bit 2)
+    // Tell the CPU to check for proper FPU usage upon switching tasks by setting the MP bit (bit 1)
+    TerminalDrawString("\tCLEAR EM (BIT 2)\n\r");
+    cr0 &= ~(1UL << 2); // Clear EM (bit 2)
+
+    TerminalDrawString("\tSET MP (BIT 1)\n\r");
+    cr0 |=  (1UL << 1); // Set MP (bit 1)
+
+    // Write the updated CR0 value back into RAX & CR0
+    TerminalDrawString("\tUPDATED CR0 -> RAX\n\r");
+    __asm__ volatile (
+        "mov %0, %%rax\n\t"
+        "mov %%rax, %%cr0"
+        :
+        : "r"(cr0)
+        : "rax"
+    );
+
+    // Read CR4 into RAX and into (CVAR)CR4
+    TerminalDrawString("\tCR4 -> RAX -> (C_VAR)CR4\n\r");
+    __asm__ volatile (
+        "mov %%cr4, %%rax\n\t"
+        "mov %%rax, %0"
+        : "=r"(cr4)
+        :
+        : "rax"
+    );
+
+    // Enable FXSAVE and FXRSTOR for saving the state of the FPU/SSE (OSFXSR, bit 9)
+    // Unmask SSE exceptions (OSXMMEXCPT, bit 10)
+    TerminalDrawString("\tSET CR4 OSFXSR/OSXMMEXCPT BITS\n\r");
+    cr4 |= (1UL << 9) | (1UL << 10); // Set OSFXSR and OSXMMEXCPT
+
+    // Write the updated CR4 value back into RAX & CR4
+    TerminalDrawString("\tSET CR4 OSFXSR/OSXMMEXCPT BITS\n\r");
+    __asm__ volatile (
+        "mov %0, %%rax\n\t"
+        "mov %%rax, %%cr4"
+        :
+        : "r"(cr4)
+        : "rax"
+    );
+
+    TerminalDrawString("\n\n\r");
 }

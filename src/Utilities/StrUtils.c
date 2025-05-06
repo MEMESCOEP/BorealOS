@@ -87,9 +87,18 @@ void IntToStr(uint64_t Num, char *Buffer, int Base)
 // Convert a decimal number of type float to a string to X decimal places.
 void FloatToStr(float Num, char *Buffer, int DecimalPlaces)
 {
+    bool NegativeNum = false;
+
     if (FPUInitialized == false)
     {
         KernelPanic(0, "FPU must be initialized before using floating point math operations!");
+    }
+
+    if (Num < 0.0f)
+    {
+        Buffer[0] = '-';
+        NegativeNum = true;
+        Num = -Num;
     }
 
     // Zero is a special case, so we'll handle this manually.
@@ -107,9 +116,11 @@ void FloatToStr(float Num, char *Buffer, int DecimalPlaces)
         IntToStr(IntegerPart, Buffer, 10);
 
         // If there's a decimal part, process it
+        
+
         if (DecimalPlaces > 0)
         {
-            int CharIndex = 0;
+            int CharIndex = NegativeNum == false ? 0 : 1;
 
             while (Buffer[CharIndex] != '\0')
                 CharIndex++; // Find the length of the integer part

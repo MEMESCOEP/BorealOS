@@ -5,6 +5,7 @@
 
 
 /* LIBRARIES */
+#include <xmmintrin.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
@@ -78,6 +79,7 @@ static volatile LIMINE_REQUESTS_END_MARKER;
 
 /* FUNCTIONS */
 // Prototypes so GCC stops complaining
+void DisplaySystemInfo();
 void KernelLoop();
 
 // Halts the system in case of a failure, this will usually only be called by KernelPanic.
@@ -364,38 +366,54 @@ void KernelStart(void)
     InitACPI();
 
     TerminalDrawString("[INFO] >> Initializing monitors...\n\r");
-    // TODO: Implement monitor EDID checking / other monitor stuff
+    // TODO: Implement monitor EDID checking & other monitor stuff
 
-    // The current SSE init implementation is VERY broken, so we'll skip initializing that for now because
-    // floating-point math can still be done, just slower. The current method breaks loops somehow?
-    TerminalDrawString("[WARN] >> SSE initialization will be skipped due to a broken implementation.\n\r");
-    //InitSSE();
+    // The current SSE init implementation is a bit new, so there will likely still be a few bugs
+    TerminalDrawString("[INFO] >> Initializing SSE...\n\r");
+    InitSSE();
 
-    TerminalDrawString("[INFO] >> Testing FPU (METHOD=\"I * 2.5\", 1->8)...\n\r");
-    char FPUBuffer[8];
+    // This might look a bit backwards, remember that SSE uses the little endian format
+    TerminalDrawString("\n\r[INFO] >> Testing SSE (METHOD=\"_mm_set_ps -> _mm_add_ps\")...\n\r");
+    float ExpectedResults[4] = {-4.0f, 4.0f, 8.0f, 6.0f}; // Remember, SSE uses little-endian
+    float StoredResult[4];
+    char SSEExpectedBuffer[8];
+    char SSEResultBuffer[8];
+    __m128 SSESet1 = _mm_set_ps(1.0f, 2.0f, 7.0f, 4.0f);
+    __m128 SSESet2 = _mm_set_ps(5.0f, 6.0f, -3.0f, -8.0f);
 
-    for (float I = 1.0f; I <= 8.0f; I++)
+    // Perform an SSE addition operation and store the result back to a float array
+    __m128 SSEAddResult = _mm_add_ps(SSESet1, SSESet2);
+    _mm_store_ps(StoredResult, SSEAddResult);
+
+    // Print and compare the results of each SSE test
+    for (int I = 0; I < 4; I++)
     {
-        FloatToStr(I * 2.5f, FPUBuffer, 2);
-        TerminalDrawString("\tFPU value for loop iteration #");
-        TerminalDrawChar((int)I + '0', true);
-        TerminalDrawString(" is: ");
-        TerminalDrawString(FPUBuffer);
-        TerminalDrawString("\n\r");
-    }
-
-    TerminalDrawString("\n\r[INFO] >> Testing emulated OR non-emulated SSE (METHOD=\"I * 2.5\", 1->8)...\n\r");
-    /*char SSEBuffer[8];
-
-    for (float I = 1.0f; I <= 8.0f; I++)
-    {
-        FloatToStr(I * 2.5f, SSEBuffer, 2);
+        FloatToStr(ExpectedResults[I], SSEExpectedBuffer, 2);
+        FloatToStr(StoredResult[I], SSEResultBuffer, 2);
         TerminalDrawString("\tSSE value for loop iteration #");
-        TerminalDrawChar((int)I + '0', true);
+        TerminalDrawChar((I + 1) + '0', true);
         TerminalDrawString(" is: ");
-        TerminalDrawString(SSEBuffer);
-        TerminalDrawString("\n\r");
-    }*/
+        TerminalDrawString(SSEResultBuffer);
+        TerminalDrawString(" (expected ");
+        TerminalDrawString(SSEExpectedBuffer);
+        TerminalDrawString(")\n\r");
+
+        // We don't simply do a != check here because there can be small float errors
+        // that it wouldn't catch. These float errors are generally acceptable
+        float Diff = StoredResult[I] - ExpectedResults[I];
+
+        if (Diff < -0.01f || Diff > 0.01f)
+        {
+            char FailureStr1[64] = "";
+            char FailureStr2[64] = "";
+            char ReasonStr[64] = "";
+
+            StrCat("SSE test failed, got ", SSEResultBuffer, FailureStr1);
+            StrCat(" instead of ", SSEExpectedBuffer, FailureStr2);
+            StrCat(FailureStr1, FailureStr2, ReasonStr);
+            KernelPanic(0, ReasonStr);
+        }
+    }
 
     TerminalDrawString("\n\r[INFO] >> Initializing PS/2 controller, keyboard, and mouse...\n\r");
     InitPS2Controller();
@@ -409,6 +427,26 @@ void KernelStart(void)
     // Init code here
     
     // Display system information before the init finishes.
+    DisplaySystemInfo();
+    TerminalDrawString("\n\r[INFO] >> Init process finished.\n\r");
+
+    // The main system initialization has finished, so the kernel loop can be entered.
+    KernelLoop();
+}
+
+// There should always be something running, if we reach the end of this function, throw a kernel panic because
+// there's nothing else that the computer should be doing.
+void KernelLoop()
+{
+    TerminalDrawString("[INFO] >> Kernel loop started, starting shell...\n\r");
+    ClearTerminal();
+    TerminalDrawString("[== Welcome to BorealOS! ==]\n\r[INFO] >> Type \"help\" for a command list.\n\r");
+    StartShell();
+    KernelPanic(0, "End of kernel loop reached (no more running processes)");
+}
+
+void DisplaySystemInfo()
+{
     // Get the number of processors in the system.
     ProcessorCount = MPRequest.response->cpu_count;
 
@@ -444,20 +482,5 @@ void KernelStart(void)
 
     TerminalDrawString("\n\r[INFO] >> Firmware type is \"");
     TerminalDrawString(FirmwareType);
-    TerminalDrawString("\"\n\r[INFO] >> Init process finished.\n\r");
-
-    ClearTerminal();
-    TerminalDrawString("[== Welcome to BorealOS! ==]\n\r");
-
-    // The main system initialization has finished, so the kernel loop can be entered.
-    KernelLoop();
-}
-
-// There should always be something running, if we reach the end of this function, throw a kernel panic because
-// there's nothing else that the computer should be doing.
-void KernelLoop()
-{
-    TerminalDrawString("[INFO] >> Kernel loop started, starting shell...\n\r");
-    StartShell();
-    KernelPanic(0, "End of kernel loop reached (no more running processes)");
+    TerminalDrawString("\"\n\r");
 }

@@ -85,7 +85,6 @@ int MouseDelta[2] = {0, 0};
 
 /* FUNCTIONS */
 // Throw a kernel panic when the CPU encounters an exception.
-//__attribute__((noreturn))
 void CPUExceptionHandler(StackState* CurrentStackState)
 {
 	CrashStackState = CurrentStackState;

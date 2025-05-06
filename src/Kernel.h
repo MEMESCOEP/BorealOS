@@ -18,6 +18,7 @@ extern int ProcessorCount;
 
 /* FUNCTIONS */
 void KernelPanic(uint64_t ErrorCode, char* Message);
+void DisplaySystemInfo(void);
 void HaltSystem(void);
 
 #endif

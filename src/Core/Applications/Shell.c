@@ -7,6 +7,7 @@
 #include "Drivers/HID/Keyboard.h"
 #include "Core/Graphics/Graphics.h"
 #include "Core/Graphics/Terminal.h"
+#include "Kernel.h"
 #include "Shell.h"
 
 
@@ -32,6 +33,15 @@ void ParseCommand(char* Command)
     {
         TerminalDrawString("[== ABOUT ==]\n\rBorealOS, by MEMESCOEP & MartinPrograms\n\r");
         TerminalDrawString("Github repo: https://github.com/memescoep/BorealOS\n\n\r");
+    }
+    else if(StrCmp(Command, "help") == 0)
+    {
+        TerminalDrawString("No help yet lol\n\n\r");
+    }
+    else if(StrCmp(Command, "sysinfo") == 0)
+    {
+        DisplaySystemInfo();
+        TerminalDrawString("\n\r");
     }
     else
     {

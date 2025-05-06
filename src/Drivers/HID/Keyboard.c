@@ -22,6 +22,7 @@ bool RightAltPressed = false;
 bool LeftControlPressed = false;
 bool LeftShiftPressed = false;
 bool LeftAltPressed = false;
+int InvalidScancodeCount = 2;
 int LastReleasedInput = 0;
 int LastInput = 0;
 
@@ -113,7 +114,8 @@ unsigned char GetMappedKey(bool WaitForData)
 {
     if (WaitForData == true)
     {
-        PS2KBWaitForData();
+        while (NewKeyIsAvailable == false) asm volatile ("hlt");
+        NewKeyIsAvailable = false;
     }
 
     if (CapsLockToggled == true || LeftShiftPressed == true || RightShiftPressed == true)
@@ -222,6 +224,7 @@ void InitPS2Keyboard()
 
     TerminalDrawString("[INFO] >> Unmasking PS/2 keyboard interrupt #1...\n\r");
     PICClearIRQMask(1);
+    NewKeyIsAvailable = false;
     LastReleasedInput = 0;
     LastInput = 0;
     
@@ -260,6 +263,13 @@ void PS2KBSetLEDs(bool NumLock, bool CapsLock, bool ScrollLock)
 void PS2KBHandleScancode(int Scancode)
 {
     NewKeyIsAvailable = true;
+
+    // Unknown data that seems to be sent only once after init
+    if ((Scancode == 0x03 || Scancode == 0x07) && InvalidScancodeCount > 0)
+    {
+        InvalidScancodeCount--;
+        return;
+    }
 
     switch (Scancode)
     {
