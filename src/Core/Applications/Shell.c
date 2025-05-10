@@ -9,11 +9,12 @@
 #include "Core/Graphics/Terminal.h"
 #include "Kernel.h"
 #include "Shell.h"
+#include "Core/Devices/CPU.h"
 
 
 /* VARIABLES */
 char Command[MAX_CMD_LEN] = "";
-int PromptLength = 3;
+int PromptLength = 23;
 int CharIndex = 0;
 
 
@@ -43,17 +44,67 @@ void ParseCommand(char* Command)
         DisplaySystemInfo();
         TerminalDrawString("\n\r");
     }
+    else if(StrCmp(Command, "cpuinfo") == 0)
+    {
+        char CPUVendorBuffer[13] = "";
+        char CPUBrandString[48] = "";
+        char CPUCountBuffer[8] = "";
+    
+        IntToStr(ProcessorCount, CPUCountBuffer, 10);
+        GetCPUVendorID(CPUVendorBuffer);
+        GetCPUBrandStr(CPUBrandString);
+        TerminalDrawString("[== CPU INFORMATION (CPUID) ==]\n\r");
+        TerminalDrawString("Available processors: ");
+        TerminalDrawString(CPUCountBuffer);
+        TerminalDrawString("\n\r");
+
+        TerminalDrawString("Vendor ID: \"");
+        TerminalDrawString(CPUVendorBuffer);
+        TerminalDrawString("\"\n\r");
+
+        TerminalDrawString("Brand string: \"");
+        TerminalDrawString(CPUBrandString);
+        TerminalDrawString("\"\n\n\r");
+    }
     else
     {
-        TerminalDrawString("Invalid command \"");
+        TerminalDrawMessage("Invalid command \"", ERROR);
         TerminalDrawString(Command);
-        TerminalDrawString("\".\n\n\r");
+        TerminalDrawString("\"\n\n\r");
     }
+}
+
+void DrawPrompt()
+{
+    int PreviousFGColor = TerminalFGColor;
+
+    TerminalFGColor = 0xFF00FF;
+    TerminalDrawString("root");
+
+    TerminalFGColor = 0xFFFFFF;
+    TerminalDrawChar('@', true);
+
+    TerminalFGColor = 0x55FFFF;
+    TerminalDrawString("BorealOS");
+
+    TerminalFGColor = 0xFF0000;
+    TerminalDrawChar('[', true);
+
+    TerminalFGColor = 0xFFFFFF;
+    TerminalDrawString("NoFS");
+
+    TerminalFGColor = 0xFF0000;
+    TerminalDrawChar(']', true);
+
+    TerminalFGColor = 0x00FF00;
+    TerminalDrawString(" >> ");
+
+    TerminalFGColor = PreviousFGColor;
 }
 
 void StartShell()
 {
-    TerminalDrawString(">> ");
+    DrawPrompt();
     DrawFilledRect(CursorColumn * FONT_WIDTH, CursorRow * FONT_HEIGHT, FONT_WIDTH, FONT_HEIGHT, TerminalFGColor);
 
     while (true)
@@ -68,7 +119,7 @@ void StartShell()
                 DrawFilledRect(CursorColumn * FONT_WIDTH, CursorRow * FONT_HEIGHT, FONT_WIDTH, FONT_HEIGHT, TerminalBGColor);
                 TerminalDrawString("\n\r");
                 ParseCommand(Command);
-                TerminalDrawString(">> ");
+                DrawPrompt();
                 Command[0] = '\0';
                 CharIndex = 0;
                 break;
@@ -95,8 +146,9 @@ void StartShell()
                     CharIndex = IntMin(CharIndex + 1, MAX_CMD_LEN);
                 }
 
-                DrawFilledRect(CursorColumn * FONT_WIDTH, CursorRow * FONT_HEIGHT, FONT_WIDTH, FONT_HEIGHT, TerminalFGColor);
                 break;
         }
+
+        DrawFilledRect(CursorColumn * FONT_WIDTH, CursorRow * FONT_HEIGHT, FONT_WIDTH, FONT_HEIGHT, TerminalFGColor);
     }
 }

@@ -13,7 +13,6 @@
 /* VARIABLES */
 extern unsigned char KBScanmapUnshifted[128];
 extern unsigned char KBScanmapShifted[128];
-extern int InputBuffer[8];
 extern bool ScrollLockToggled;
 extern bool CapsLockToggled;
 extern bool NumLockToggled;
@@ -24,6 +23,7 @@ extern bool LeftControlPressed;
 extern bool LeftShiftPressed;
 extern bool LeftAltPressed;
 extern bool KeyPressed;
+extern int InputBuffer[2];
 extern int LastReleasedInput;
 extern int LastInput;
 
@@ -31,6 +31,7 @@ extern int LastInput;
 /* FUNCTIONS */
 unsigned char GetMappedKey(bool WaitForData);
 bool IsCharacterKey(uint8_t Scancode);
+int NumpadScancodeToCharScancode(int ScancodeToChange, unsigned char* Keymap);
 int PS2SetScancodeSet(int ScancodeSet);
 int GetPS2Scancode();
 void PS2KBWaitForData();

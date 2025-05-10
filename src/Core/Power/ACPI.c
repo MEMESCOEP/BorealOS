@@ -81,18 +81,18 @@ void InitACPI()
     // Ensure that the HHDM and RSDP values are valid
     if (StrCmp(FirmwareType, "BIOS") == 0)
     {
-        TerminalDrawString("[INFO] >> Checking if RSDP address is valid for BIOS firmware...\n\r");
+        TerminalDrawMessage("Checking if RSDP address is valid for BIOS firmware...\n\r", INFO);
 
         if (RSDPRequest.response->address < 0xE0000 || RSDPRequest.response->address > 0xFFFFF)
         {
             KernelPanic(0, "RSDP address is out of range for BIOS firmware (RANGE IS 0xE0000-0xFFFFF)!");
         }
 
-        TerminalDrawString("[INFO] >> RSDP address is withing the valid range for BIOS firmware (0xE0000-0xFFFFF).\n\r");
+        TerminalDrawMessage("RSDP address is withing the valid range for BIOS firmware (0xE0000-0xFFFFF).\n\r", INFO);
     }
     else if (StrCmp(FirmwareType, "64-bit UEFI") == 0)
     {
-        TerminalDrawString("[INFO] >> Checking if RSDP address is valid for 64-bit UEFI firmware...\n\r");
+        TerminalDrawMessage("Checking if RSDP address is valid for 64-bit UEFI firmware...\n\r", INFO);
     }
     else
     {
@@ -110,24 +110,24 @@ void InitACPI()
     // Sometimes Limine doesn't provide this on 64-bit UEFI firmware
     if (HHOffsetBuffer[0] == '\0')
     {
-        TerminalDrawString("[WARN] >> Higher half offset was notprovided from bootloader.\n\r");
+        TerminalDrawMessage("Higher half offset was notprovided from bootloader.\n\r", WARNING);
     }
     else
     {
-        TerminalDrawString("[INFO] >> Higher half offset (provided from bootloader): 0x");
+        TerminalDrawMessage("Higher half offset (provided from bootloader): 0x", INFO);
         TerminalDrawString(HHOffsetBuffer);
         TerminalDrawString("\n\r");
     }
 
-    TerminalDrawString("[INFO] >> ACPI RSDP address (provided from bootloader): 0x");
+    TerminalDrawMessage("ACPI RSDP address (provided from bootloader): 0x", INFO);
     TerminalDrawString(RSDPAddrBuffer);
     TerminalDrawString("\n\r");
 
-    TerminalDrawString("[INFO] >> Offset ACPI RSDP address: 0x");
+    TerminalDrawMessage("Offset ACPI RSDP address: 0x", INFO);
     TerminalDrawString(FixedRSDPAddrBuffer);
     TerminalDrawString("\n\r");
 
-    TerminalDrawString("[INFO] >> ACPI revision: ");
+    TerminalDrawMessage("ACPI revision: ", INFO);
 
     if (RSDPRequest.response->revision == 0)
     {
@@ -138,7 +138,7 @@ void InitACPI()
         TerminalDrawString("2.0+\n\r");
     }
 
-    TerminalDrawString("[INFO] >> Loading ACPI RSDP table into description struct...\n\r");
+    TerminalDrawMessage("Loading ACPI RSDP table into description struct...\n\r", INFO);
     struct RSDP_t* RSDPTable = (struct RSDP_t*)RSDPAddress;
 
     ACPIInitialized = true;

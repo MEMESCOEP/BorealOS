@@ -9,6 +9,11 @@
 #include "Kernel.h"
 
 
+/* VARIABLES */
+bool Port1Useable = false;
+bool Port2Useable = false;
+
+
 /* FUNCTIONS */
 void PS2Wait(uint8_t BitToCheck, bool WaitForSet)
 {
@@ -37,7 +42,7 @@ void InitPS2Controller()
     // --- STEPS 3 & 4 ---
     // Disable ports (1 and 2 in order) and then read from port 0x60 to flush the
     // PS/2 output buffer
-    TerminalDrawString("[INFO] >> Disabling PS/2 ports and flushing PS/2 output buffer...\n\r");
+    TerminalDrawMessage("Disabling PS/2 ports and flushing PS/2 output buffer...\n\r", INFO);
     PS2Wait(0x02, false);
     OutB(PS2_CMD_STATUS_PORT, 0xAD);
 
@@ -53,7 +58,7 @@ void InitPS2Controller()
 
     // --- STEP 5 ---
     // Set the PS/2 controller's command byte
-    TerminalDrawString("[INFO] >> Configuring PS/2 controller's command byte...\n\r");
+    TerminalDrawMessage("Configuring PS/2 controller's command byte...\n\r", INFO);
     PS2Wait(0x02, false);
     OutB(PS2_CMD_STATUS_PORT, 0x20);
 
@@ -71,7 +76,7 @@ void InitPS2Controller()
 
     // --- STEP 6 ---
     // Run a self test for the PS/2 controller
-    TerminalDrawString("[INFO] >> Running PS/2 controller self test...\n\r");
+    TerminalDrawMessage("Running PS/2 controller self test...\n\r", INFO);
     PS2Wait(0x02, false);
     OutB(PS2_CMD_STATUS_PORT, 0xAA);
 
@@ -80,7 +85,13 @@ void InitPS2Controller()
 
     if (TestResult != 0x55)
     {
-        KernelPanic(0, "PS/2 Controller self test failed: got 0x");
+        char ErrorBuffer[4];
+
+        IntToStr(TestResult, ErrorBuffer, 16);
+        TerminalDrawMessage("PS/2 Controller self test failed: got 0x", ERROR);
+        TerminalDrawString(ErrorBuffer);
+        TerminalDrawString("\n\r");
+        return;
     }
 
 
@@ -88,7 +99,10 @@ void InitPS2Controller()
     // --- STEP 7 ---
     // Perform interface tests for ports (1 and 2 in order, assume a dual-channel controller)
     // Port 1
-    TerminalDrawString("[INFO] >> Testing PS/2 port 1...\n\r");
+    TerminalDrawMessage("Testing PS/2 port 1...\n\r", INFO);
+    Port1Useable = true;
+    Port2Useable = true;
+
     PS2Wait(0x02, false);
     OutB(PS2_CMD_STATUS_PORT, 0xAB);
 
@@ -97,11 +111,17 @@ void InitPS2Controller()
 
     if (TestResult != 0x00)
     {
-        KernelPanic(0, "PS/2 Controller port 1 test failed: got 0x");
+        char ErrorBuffer[4];
+
+        IntToStr(TestResult, ErrorBuffer, 16);
+        TerminalDrawMessage("PS/2 Controller port 1 test failed: got 0x", ERROR);
+        TerminalDrawString(ErrorBuffer);
+        TerminalDrawString("\n\r");
+        Port1Useable = false;
     }
 
     // Port 2
-    TerminalDrawString("[INFO] >> Testing PS/2 port 2...\n\r");
+    TerminalDrawMessage("Testing PS/2 port 2...\n\r", INFO);
     PS2Wait(0x02, false);
     OutB(PS2_CMD_STATUS_PORT, 0xA9);
 
@@ -110,7 +130,13 @@ void InitPS2Controller()
 
     if (TestResult != 0x00)
     {
-        KernelPanic(0, "PS/2 Controller port 2 test failed: got 0x");
+        char ErrorBuffer[4];
+
+        IntToStr(TestResult, ErrorBuffer, 16);
+        TerminalDrawMessage("PS/2 Controller port 2 test failed: got 0x", ERROR);
+        TerminalDrawString(ErrorBuffer);
+        TerminalDrawString("\n\r");
+        Port1Useable = false;
     }
 
 
@@ -118,15 +144,29 @@ void InitPS2Controller()
     // --- STEP 8 ---
     // Enable ports and IRQs (1 and 2 in order)
     // Ports
-    TerminalDrawString("[INFO] >> Enabling PS/2 ports...\n\r");
-    PS2Wait(0x02, false);
-    OutB(PS2_CMD_STATUS_PORT, 0xAE);
-
-    PS2Wait(0x02, false);
-    OutB(PS2_CMD_STATUS_PORT, 0xA8);
+    TerminalDrawMessage("Enabling PS/2 ports...\n\r", INFO);
+    if (Port1Useable == true)
+    {
+        PS2Wait(0x02, false);
+        OutB(PS2_CMD_STATUS_PORT, 0xAE);
+    }
+    else
+    {
+        TerminalDrawMessage("PS/2 Port 1 won't be enabled, it's not useable.", WARNING);
+    }
+    
+    if (Port2Useable == true)
+    {
+        PS2Wait(0x02, false);
+        OutB(PS2_CMD_STATUS_PORT, 0xA8);
+    }
+    else
+    {
+        TerminalDrawMessage("PS/2 Port 2 won't be enabled, it's not useable.", WARNING);    
+    }
 
     // IRQs
-    TerminalDrawString("[INFO] >> Enabling PS/2 IRQs...\n\r");
+    TerminalDrawMessage("Enabling PS/2 IRQs...\n\r", INFO);
     PS2Wait(0x02, false);
     OutB(PS2_CMD_STATUS_PORT, 0x20);
 
@@ -145,60 +185,78 @@ void InitPS2Controller()
     // --- STEP 9 ---
     // Reset PS/2 devices
     // Port 1
-    TerminalDrawString("[INFO] >> Resetting PS/2 device on port 1...\n\r");
-    PS2Wait(0x02, false);
-    OutB(PS2_DATA_PORT, 0xFF);
-
-    PS2Wait(0x01, true);
-    uint8_t ResetResult = InB(0x60);
-
-    // Sometimes keyboards will send a 0xFA first before the result of the reset
-    if (ResetResult == 0xFA)
+    if (Port1Useable == true)
     {
+        TerminalDrawMessage("Resetting PS/2 device on port 1...\n\r", INFO);
+        PS2Wait(0x02, false);
+        OutB(PS2_DATA_PORT, 0xFF);
+
         PS2Wait(0x01, true);
-        ResetResult = InB(0x60);
-    }
+        uint8_t ResetResult = InB(0x60);
 
-    if (ResetResult != 0xAA)
+        // Sometimes keyboards will send a 0xFA first before the result of the reset
+        if (ResetResult == 0xFA)
+        {
+            PS2Wait(0x01, true);
+            ResetResult = InB(0x60);
+        }
+
+        if (ResetResult != 0xAA)
+        {
+            char ErrorBuffer[4];
+
+            IntToStr(ResetResult, ErrorBuffer, 16);
+            TerminalDrawMessage("PS/2 KBINIT failed: got 0x", ERROR);
+            TerminalDrawString(ErrorBuffer);
+            TerminalDrawString("\n\r");
+        }
+        else
+        {
+            InB(0x60);
+        }        
+    }
+    else
     {
-        char RRBuffer[4];
-        char RRBString[48];
-
-        IntToStr(ResetResult, RRBuffer, 16);
-        StrCat("PS/2 KBINIT failed: got 0x", RRBuffer, RRBString);
-        KernelPanic(0, RRBString);
+        TerminalDrawMessage("Can't reset device on port 1, the port isn't useable.\n\r", WARNING);
     }
-
-    InB(0x60);
 
     // Port 2
-    TerminalDrawString("[INFO] >> Resetting PS/2 device on port 2...\n\r");
-    PS2Wait(0x02, false);
-    OutB(PS2_CMD_STATUS_PORT, 0xD4);
-    
-    PS2Wait(0x02, false);
-    OutB(PS2_DATA_PORT, 0xFF);
-
-    PS2Wait(0x01, true);
-    ResetResult = InB(0x60);
-
-    if (ResetResult == 0xFA)
+    if (Port2Useable == true)
     {
+        TerminalDrawMessage("Resetting PS/2 device on port 2...\n\r", INFO);
+        PS2Wait(0x02, false);
+        OutB(PS2_CMD_STATUS_PORT, 0xD4);
+        
+        PS2Wait(0x02, false);
+        OutB(PS2_DATA_PORT, 0xFF);
+
         PS2Wait(0x01, true);
-        ResetResult = InB(0x60);
-    }
+        uint8_t ResetResult = InB(0x60);
 
-    if (ResetResult != 0xAA)
+        if (ResetResult == 0xFA)
+        {
+            PS2Wait(0x01, true);
+            ResetResult = InB(0x60);
+        }
+
+        if (ResetResult != 0xAA)
+        {
+            char ErrorBuffer[4];
+
+            IntToStr(ResetResult, ErrorBuffer, 16);
+            TerminalDrawMessage("PS/2 MOUSEINIT failed: got 0x", ERROR);
+            TerminalDrawString(ErrorBuffer);
+            TerminalDrawString("\n\r");
+        }
+        else
+        {
+            InB(0x60);
+        }    
+    }
+    else
     {
-        char RRBuffer[4];
-        char RRBString[48];
-
-        IntToStr(ResetResult, RRBuffer, 16);
-        StrCat("PS/2 MOUSEINIT failed: got 0x", RRBuffer, RRBString);
-        KernelPanic(0, RRBString);
+        TerminalDrawMessage("Can't reset device on port 2, the port isn't useable.\n\r", WARNING);
     }
-
-    InB(0x60);
 }
 
 /*bool PS2ControllerExists()

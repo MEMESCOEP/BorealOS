@@ -31,14 +31,13 @@ void InitSerialPort(int COMPort)
     if(SerialResponse != 0xAE && SerialResponse != 0x00)
     {
         char SerialResponseBuffer[4];
-        char ErrorBuffer[128];
 
         if (FBExists == false)
             return
 
         IntToStr(SerialResponse, SerialResponseBuffer, 16);
-        StrCat("[WARN] >> Serial init failed due to a faulty/non-existing serial chip. Expected 0xAE but got 0x", SerialResponseBuffer, ErrorBuffer);
-        TerminalDrawString(ErrorBuffer);
+        TerminalDrawMessage("Serial init failed due to a faulty/non-existing serial chip. Expected 0xAE but got 0x", WARNING);
+        TerminalDrawString(SerialResponseBuffer);
         TerminalDrawString("\n\r");
         return;
     }

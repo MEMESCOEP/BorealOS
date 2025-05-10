@@ -3,6 +3,7 @@
 
 
 /* LIBRARIES */
+#include "Utilities/StrUtils.h"
 #include "Core/Graphics/Terminal.h"
 #include "Core/Devices/DeviceControllers/PS2Controller.h"
 #include "Core/Devices/PIC.h"
@@ -22,6 +23,7 @@ bool RightAltPressed = false;
 bool LeftControlPressed = false;
 bool LeftShiftPressed = false;
 bool LeftAltPressed = false;
+int InputBuffer[2] = {0x00, 0x00};
 int InvalidScancodeCount = 2;
 int LastReleasedInput = 0;
 int LastInput = 0;
@@ -118,7 +120,21 @@ unsigned char GetMappedKey(bool WaitForData)
         NewKeyIsAvailable = false;
     }
 
-    if (CapsLockToggled == true || LeftShiftPressed == true || RightShiftPressed == true)
+    // Handle numpad cases
+    if (LastInput >= 0x47 && LastInput <= 0x53)
+    {
+        if (LastInput == 0x4E)
+        {
+            return NumpadScancodeToCharScancode(LastInput, KBScanmapShifted);
+        }
+        else
+        {
+            return NumpadScancodeToCharScancode(LastInput, KBScanmapUnshifted);
+        }        
+    }
+
+    // Regular keys
+    else if (CapsLockToggled == true || LeftShiftPressed == true || RightShiftPressed == true)
     {
         return KBScanmapShifted[LastInput];
     }
@@ -133,7 +149,7 @@ unsigned char GetMappedKey(bool WaitForData)
 bool IsCharacterKey(uint8_t Scancode)
 {
     // Remove 0x80 from the scancode if it's over that in order to handle released keys
-    int CorrectedScancode = Scancode > 0x80 ? (Scancode - 0x80) : (Scancode);
+    int CorrectedScancode = Scancode > 0x80 ? (Scancode - 0x80) : Scancode;
 
     // Space bar - keypad *
     if (Scancode == 0x37 || Scancode == 0x39)
@@ -157,9 +173,76 @@ bool IsCharacterKey(uint8_t Scancode)
 
     // Keypad 7 - keypad .
     if (Scancode >= 0x47 && Scancode <= 0x53)
-        return true;
+    {
+        if (NumLockToggled == true || Scancode == 0x4C || Scancode == 0x4A || Scancode == 0x4E)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
 
     return false;  // Not a character key
+}
+
+// Convert a numpad scancode into a normal scancode if numlock is pressed, or convert
+// it to an "action key" scancode (Home, End, Arrow keys, etc)
+int NumpadScancodeToCharScancode(int ScancodeToChange, unsigned char* Keymap)
+{
+    // If numlock is on, we need to handle keys like they're characters
+    if (NumLockToggled == false && ScancodeToChange != 0x4C && ScancodeToChange != 0x4A && ScancodeToChange != 0x4E)
+    {
+        return ScancodeToChange;
+    }
+    else
+    {
+        // Numpad 7-9
+        if (ScancodeToChange >= 0x47 && ScancodeToChange <= 0x49)
+        {
+            return Keymap[ScancodeToChange - 0x3F];
+        }
+
+        // Numpad 4-6
+        else if (ScancodeToChange >= 0x4B && ScancodeToChange <= 0x4D)
+        {
+            return Keymap[ScancodeToChange - 0x46];
+        }
+
+        // Numpad 1-3
+        else if (ScancodeToChange >= 0x4F && ScancodeToChange <= 0x51)
+        {
+            return Keymap[ScancodeToChange - 0x4D];
+        }
+
+        // Numpad 0
+        if (ScancodeToChange == 0x52)
+        {
+            return Keymap[ScancodeToChange - 0x47];
+        }
+
+        // Numpad .
+        if (ScancodeToChange == 0x53)
+        {
+            return Keymap[ScancodeToChange - 0x1F];
+        }
+
+        // Numpad -
+        if (ScancodeToChange == 0x4A)
+        {
+            return Keymap[ScancodeToChange - 0x3E];
+        }
+
+        // Numpad +
+        if (ScancodeToChange == 0x4E)
+        {
+            return Keymap[ScancodeToChange - 0x41];
+        }
+
+        // Unknown scancode, just return it
+        return ScancodeToChange;
+    }
 }
 
 // Change the scancode set that the PS/2 keyboard uses. Valid values are: 0x01, 0x02, 0x03
@@ -192,6 +275,14 @@ int GetPS2Scancode()
     return 0;
 }
 
+void PrintScancodeAsHex(int Scancode)
+{
+    char ScancodeBuffer[4];
+    IntToStr(Scancode, ScancodeBuffer, 16);
+    TerminalDrawString("0x");
+    TerminalDrawString(ScancodeBuffer);
+}
+
 // Wait for the status register to have bit 1 set, which means that the input buffer is full
 void PS2KBWaitForData()
 {    
@@ -222,7 +313,7 @@ void InitPS2Keyboard()
             break;
     }
 
-    TerminalDrawString("[INFO] >> Unmasking PS/2 keyboard interrupt #1...\n\r");
+    TerminalDrawMessage("Unmasking PS/2 keyboard interrupt #1...\n\r", INFO);
     PICClearIRQMask(1);
     NewKeyIsAvailable = false;
     LastReleasedInput = 0;
@@ -262,14 +353,14 @@ void PS2KBSetLEDs(bool NumLock, bool CapsLock, bool ScrollLock)
 // Handle a scancode that a PS/2 keyboard generated
 void PS2KBHandleScancode(int Scancode)
 {
-    NewKeyIsAvailable = true;
-
     // Unknown data that seems to be sent only once after init
     if ((Scancode == 0x03 || Scancode == 0x07) && InvalidScancodeCount > 0)
     {
         InvalidScancodeCount--;
         return;
     }
+
+    NewKeyIsAvailable = true;
 
     switch (Scancode)
     {

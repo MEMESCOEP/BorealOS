@@ -15,12 +15,13 @@ void DisablePIC();
 void InitPIC()
 {
     // Remap the PIC to prevent conflicts with IRQs 0 to 7.
-    TerminalDrawString("[INFO] >> Remapping PIC (0x20, 0x28)...\n\r");
+    TerminalDrawMessage("Remapping PIC (0x20, 0x28)...\n\r", INFO);
     RemapPIC(0x20, 0x28);
 
     // Disable the PIC until handlers are set up. This prevents any interrupts from causing problems
     // if their handlers haven't been set up yet.
-    TerminalDrawString("\n\r[INFO] >> Masking all PIC interrupts...\n\r");
+    TerminalDrawString("\n\r");
+    TerminalDrawMessage("Masking all PIC interrupts...\n\r", INFO);
     DisablePIC();
 }
 

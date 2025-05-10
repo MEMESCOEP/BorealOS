@@ -19,7 +19,7 @@ void SetFPUCW(uint16_t CW)
 
 void InitFPU()
 {
-    TerminalDrawString("[INFO] >> Setting up CR4 register...\n\r");
+    TerminalDrawMessage("Setting up CR4 register...\n\r", INFO);
     size_t Reg_cr4;
 
     asm volatile ("mov %%cr4, %0" : "=r"(Reg_cr4));
@@ -45,11 +45,11 @@ void InitSSE()
     // --- STEP 1 ---
     // Check if SSE v1+ is supported
     unsigned int eax, ebx, ecx, edx;
-    TerminalDrawString("[INFO] >> Checking for SSE v1+ support...\n\r");
+    TerminalDrawMessage("Checking for SSE v1+ support...\n\r", INFO);
 
     // CPUID function 1 gets the processor info and feature bits
-    // Setting EAX to 1 tells ther CPU to return its features
-    eax = 1;  
+    // Setting EAX to 1 tells the CPU to return its features
+    //eax = 1;  
     __cpuid(1, eax, ebx, ecx, edx);
 
     // CPUID.01h:EDX.SSE (bit 25) is set when SSE v1+ is supported
@@ -60,7 +60,7 @@ void InitSSE()
         KernelPanic(-11, "SSE v1+ is not supported!");
     }
 
-    TerminalDrawString("[INFO] >> SSE v1+ is supported.\n\r");
+    TerminalDrawMessage("SSE v1+ is supported.\n\r", INFO);
 
 
 

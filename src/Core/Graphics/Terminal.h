@@ -12,6 +12,13 @@
 
 
 /* VARIABLES */
+enum MessageTypes {
+    INFO,
+    ERROR,
+    WARNING,
+    DEBUG
+};
+
 extern bool TerminalDrawCursor;
 extern bool TerminalDrawCharBG;
 extern int TerminalBGColor;
@@ -286,6 +293,7 @@ static const uint8_t TerminalFont[] = {
 /* FUNCTIONS */
 void TerminalDrawChar(unsigned char Character, bool UpdateCursor);
 void TerminalDrawString(char* Message);
+void TerminalDrawMessage(char* Message, enum MessageTypes MSGType);
 void ClearTerminal();
 void SetScrollRow(int Row);
 void ScrollTerminal(int Rows);

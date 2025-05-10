@@ -44,11 +44,11 @@ void InitGDT()
     // Check if interrupts are enabled before initializing the GDT; they MUST be disabled or else the computer might do some weird stuff.
     if (InterruptsEnabled() == true)
     {
-        TerminalDrawString("[WARN] >> Interrupts are currently enabled, they will be disabled because the GDT cannot be initialized with them enabled.\n\r");
+        TerminalDrawMessage("Interrupts are currently enabled, they will be disabled because the GDT cannot be initialized with them enabled.\n\r", WARNING);
         __asm__ volatile ("cli");
     }
 
-    TerminalDrawString("[INFO] >> Setting 8 GDT entries...\n\r");
+    TerminalDrawMessage("Setting 8 GDT entries...\n\r", INFO);
     GDTSetEntry(0, 0x0000, 0x00000000, 0x00, 0x00);
     GDTSetEntry(1, 0xFFFF, 0x00000000, 0x9A, 0xCF);
     GDTSetEntry(2, 0xFFFF, 0x00000000, 0x93, 0xCF);

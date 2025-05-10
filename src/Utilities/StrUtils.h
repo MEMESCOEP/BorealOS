@@ -16,6 +16,7 @@ void IntToStr(uint64_t Num, char *Buffer, int Base);
 void FloatToStr(float Num, char *Buffer, int DecimalPlaces);
 void InsertCharIntoString(char* String, char Character, int Index);
 void InsertString(char* OriginalString, char* StringToAppend, int Index);
+void TrimTrailingWhitespace(char* String);
 int StrLen(char* String);
 int StrPixelLength(char* String);
 int StrCmp(const char *Str1, const char *Str2);

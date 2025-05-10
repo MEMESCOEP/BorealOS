@@ -20,8 +20,9 @@
 #include "Core/Graphics/Terminal.h"
 #include "Core/Graphics/Graphics.h"
 #include "Core/Devices/DeviceControllers/PS2Controller.h"
-#include "Core/Devices/PIC.h"
+#include "Core/Devices/CPU.h"
 #include "Core/Devices/FPU.h"
+#include "Core/Devices/PIC.h"
 #include "Core/Power/ACPI.h"
 #include "Core/IO/RegisterIO.h"
 #include "Core/IO/Memory.h"
@@ -43,7 +44,6 @@ char FBResHeightBuffer[8] = "";
 char FBResBPPBuffer[8] = "";
 char FBResBSBuffer[8] = "?";
 char RegBuffer[256] = "";
-int ProcessorCount = 0;
 
 
 /* ATTRIBUTES */
@@ -62,12 +62,6 @@ __attribute__((used, section(".limine_requests")))
 struct limine_firmware_type_request FWTypeRequest = {
     .id = LIMINE_FIRMWARE_TYPE_REQUEST,
     .revision = 0
-};
-
-__attribute__((used, section(".limine_requests")))
-struct limine_mp_request MPRequest = {
-    .id = LIMINE_MP_REQUEST,
-    .revision = 0,
 };
 
 __attribute__((used, section(".limine_requests_start")))
@@ -330,27 +324,31 @@ void KernelStart(void)
         IntToStr(FWTypeRequest.response->firmware_type, FirmwareType, 10);
     }
 
+    // Get the number of available processors in the system
+    GetProcessorCount();
+
     // Print boot information.
-    TerminalDrawString("[== BOREAL OPERATING SYSTEM ==]\n\r[INFO] >> Kernel started (booted from ");
+    TerminalDrawString("[== BOREAL OPERATING SYSTEM ==]\n\r");
+    TerminalDrawMessage("Kernel started (booted from ", INFO);
     TerminalDrawString(BootloaderInfoRequest.response->name);
     TerminalDrawChar(' ', true);
     TerminalDrawString(BootloaderInfoRequest.response->version);
     TerminalDrawString(").\n\r");
 
-    TerminalDrawString("[INFO] >> Kernel C language version (__STDC_VERSION__): \"");
+    TerminalDrawMessage("Kernel C language version (__STDC_VERSION__): \"", INFO);
     TerminalDrawString(PREPROCESSOR_TOSTRING(__STDC_VERSION__));
     TerminalDrawString("\".\n\r");
 
-    TerminalDrawString("[INFO] >> Initializing GDT...\n\r");
+    TerminalDrawMessage("Initializing GDT...\n\r", INFO);
     InitGDT();
 
     // The PIC must be remapped & disabled before the IDT init. There is a tiny amount of time that WILL
     // cause issues if the PIT manages to fire, which usually leads to a general protection fault. Disabling
     // the PIC will ensure that the PIT can't fire during that time.
-    TerminalDrawString("[INFO] >> Initializing PIC...\n\r");
+    TerminalDrawMessage("Initializing PIC...\n\r", INFO);
     InitPIC();
 
-    TerminalDrawString("[INFO] >> Initializing IDT...\n\r");
+    TerminalDrawMessage("Initializing IDT...\n\r", INFO);
     InitIDT();
 
     // The IDT can be tested using this for loop.
@@ -359,21 +357,22 @@ void KernelStart(void)
         TestIDT(ExceptionNum);
     }*/
 
-    TerminalDrawString("[INFO] >> Initializing FPU...\n\r");
+    TerminalDrawMessage("Initializing FPU...\n\r", INFO);
     InitFPU();
 
-    TerminalDrawString("[INFO] >> Initializing ACPI...\n\r");
+    TerminalDrawMessage("Initializing ACPI...\n\r", INFO);
     InitACPI();
 
-    TerminalDrawString("[INFO] >> Initializing monitors...\n\r");
+    TerminalDrawMessage("Initializing monitors...\n\r", INFO);
     // TODO: Implement monitor EDID checking & other monitor stuff
 
     // The current SSE init implementation is a bit new, so there will likely still be a few bugs
-    TerminalDrawString("[INFO] >> Initializing SSE...\n\r");
+    TerminalDrawMessage("Initializing SSE...\n\r", INFO);
     InitSSE();
 
     // This might look a bit backwards, remember that SSE uses the little endian format
-    TerminalDrawString("\n\r[INFO] >> Testing SSE (METHOD=\"_mm_set_ps -> _mm_add_ps\")...\n\r");
+    TerminalDrawString("\n\r");
+    TerminalDrawMessage("Testing SSE (METHOD=\"_mm_set_ps -> _mm_add_ps\")...\n\r", INFO);
     float ExpectedResults[4] = {-4.0f, 4.0f, 8.0f, 6.0f}; // Remember, SSE uses little-endian
     float StoredResult[4];
     char SSEExpectedBuffer[8];
@@ -385,7 +384,7 @@ void KernelStart(void)
     __m128 SSEAddResult = _mm_add_ps(SSESet1, SSESet2);
     _mm_store_ps(StoredResult, SSEAddResult);
 
-    // Print and compare the results of each SSE test
+    // Print and validate the results of each SSE test
     for (int I = 0; I < 4; I++)
     {
         FloatToStr(ExpectedResults[I], SSEExpectedBuffer, 2);
@@ -415,20 +414,22 @@ void KernelStart(void)
         }
     }
 
-    TerminalDrawString("\n\r[INFO] >> Initializing PS/2 controller, keyboard, and mouse...\n\r");
+    TerminalDrawString("\n\r");
+    TerminalDrawMessage("Initializing PS/2 controller, keyboard, and mouse...\n\r", INFO);
     InitPS2Controller();
     InitPS2Keyboard();
     InitPS2Mouse();
 
-    TerminalDrawString("[INFO] >> Initializing PCI...\n\r");
+    TerminalDrawMessage("Initializing PCI...\n\r", INFO);
     // Init code here
     
-    TerminalDrawString("[INFO] >> Initializing USB controller(s)\n\r");
+    TerminalDrawMessage("Initializing USB controller(s)\n\r", INFO);
     // Init code here
     
     // Display system information before the init finishes.
     DisplaySystemInfo();
-    TerminalDrawString("\n\r[INFO] >> Init process finished.\n\r");
+    TerminalDrawString("\n\r");
+    TerminalDrawMessage("Init process finished.\n\r", INFO);
 
     // The main system initialization has finished, so the kernel loop can be entered.
     KernelLoop();
@@ -438,24 +439,27 @@ void KernelStart(void)
 // there's nothing else that the computer should be doing.
 void KernelLoop()
 {
-    TerminalDrawString("[INFO] >> Kernel loop started, starting shell...\n\r");
+    TerminalDrawMessage("Kernel loop started, starting shell...\n\r", INFO);
     ClearTerminal();
-    TerminalDrawString("[== Welcome to BorealOS! ==]\n\r[INFO] >> Type \"help\" for a command list.\n\r");
+    TerminalDrawString("[== Welcome to BorealOS! ==]\n\r");
+    TerminalDrawMessage("Type \"help\" for a command list.\n\r", INFO);
     StartShell();
     KernelPanic(0, "End of kernel loop reached (no more running processes)");
 }
 
 void DisplaySystemInfo()
 {
-    // Get the number of processors in the system.
-    ProcessorCount = MPRequest.response->cpu_count;
+    char CPUCountBuffer[8];
+    char FBCountBuffer[8];
 
-    TerminalDrawString("[INFO] >> ");
-    TerminalDrawChar(ProcessorCount + '0', true);
+    IntToStr(ProcessorCount, CPUCountBuffer, 10);
+    TerminalDrawMessage("", INFO);
+    TerminalDrawString(CPUCountBuffer);
     TerminalDrawString(" available processor(s).\n\r");
 
-    TerminalDrawString("[INFO] >> ");
-    TerminalDrawChar(FBCount + '0', true);
+    IntToStr(FBCount, FBCountBuffer, 10);
+    TerminalDrawMessage("", INFO);
+    TerminalDrawString(FBCountBuffer);
     TerminalDrawString(" available framebuffer(s):\n\r");
 
     for (int FBIndex = 0; FBIndex < FBCount; FBIndex++)
@@ -480,7 +484,8 @@ void DisplaySystemInfo()
         TerminalDrawString(" MB VRAM)\n\r");
     }
 
-    TerminalDrawString("\n\r[INFO] >> Firmware type is \"");
+    TerminalDrawString("\n\r");
+    TerminalDrawMessage("Firmware type is \"", INFO);
     TerminalDrawString(FirmwareType);
     TerminalDrawString("\"\n\r");
 }

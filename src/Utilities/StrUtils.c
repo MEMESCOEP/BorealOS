@@ -178,6 +178,26 @@ void InsertString(char* OriginalString, char* StringToAppend, int Index)
     OriginalString[StrLen(OriginalString)] = '\0';
 }
 
+void TrimTrailingWhitespace(char* String)
+{
+    int StrLength = StrLen(String);
+
+    // Scan backwards, removing whitespace
+    while (StrLength > 0)
+    {
+        char CheckChar = String[StrLength - 1];
+
+        if (CheckChar == ' ' || CheckChar == '\t' || CheckChar == '\n' || CheckChar == '\r')
+        {
+            String[--StrLength] = '\0';
+        }
+        else
+        {
+            break;
+        }
+    }
+}
+
 // Determine the number of characters in a string.
 int StrLen(char* String)
 {

@@ -12,7 +12,7 @@
 bool TerminalDrawCursor = true;
 bool TerminalDrawCharBG = true;
 int TerminalBGColor = 0x000000;
-int TerminalFGColor = 0x00FF00;
+int TerminalFGColor = 0xFFFFFF;
 int CursorXPos = 0;
 int CursorYPos = 0;
 int PrevCursorColumn = 0;
@@ -82,6 +82,61 @@ void TerminalDrawString(char* Message)
 
     if (FBExists == true)
         DrawCursor();
+}
+
+void TerminalDrawMessage(char* Message, enum MessageTypes MSGType)
+{
+    int PreviousFGColor = TerminalFGColor;
+
+    switch (MSGType)
+    {
+        case INFO:
+            TerminalFGColor = 0xFFFFFF;
+            TerminalDrawChar('[', true);
+
+            TerminalFGColor = 0x00FF00;
+            TerminalDrawString("INFO");
+
+            TerminalFGColor = 0xFFFFFF;
+            TerminalDrawString("] >> ");
+            break;
+
+        case WARNING:
+            TerminalFGColor = 0xFFFFFF;
+            TerminalDrawChar('[', true);
+
+            TerminalFGColor = 0xFFFF00;
+            TerminalDrawString("WARN");
+
+            TerminalFGColor = 0xFFFFFF;
+            TerminalDrawString("] >> ");
+            break;
+
+        case ERROR:
+            TerminalFGColor = 0xFFFFFF;
+            TerminalDrawChar('[', true);
+
+            TerminalFGColor = 0xFF0000;
+            TerminalDrawString("ERROR");
+
+            TerminalFGColor = 0xFFFFFF;
+            TerminalDrawString("] >> ");
+            break;
+
+        case DEBUG:
+            TerminalFGColor = 0xFFFFFF;
+            TerminalDrawChar('[', true);
+
+            TerminalFGColor = 0xFF00FF;
+            TerminalDrawString("INFO");
+
+            TerminalFGColor = 0xFFFFFF;
+            TerminalDrawString("] >> ");
+            break;
+    }
+
+    TerminalFGColor = PreviousFGColor;
+    TerminalDrawString(Message);
 }
 
 void ClearTerminal()

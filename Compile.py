@@ -9,6 +9,7 @@ import traceback
 import curses
 import psutil
 import time
+import sys
 import os
 
 
@@ -32,6 +33,7 @@ MakeRetQueue = Queue()
 SpinnerQueue = Queue()
 SysStatusUpdateFrequency = 0.5
 SpinnerInterval = 0.1
+NoExitKeypress = False
 MakeProcDone = False
 IsBuilding = False
 Clean = False
@@ -41,8 +43,9 @@ SysStatusSubWin = None
 BuildStatusWin = None
 BuildOutputWin = None
 SysStatusWin = None
-LastUpdateSecond = 0
 BuildLog = None
+LastUpdateSecond = 0
+ExitCode = 0
 
 
 ## FUNCTIONS ##
@@ -213,7 +216,7 @@ def StartProcess(ProcessArray):
 # Copy config files to the buildroot directory and call make to build the distro
 # TODO: Add the ability to write a build log to the disk so a user can debug easier
 def StartBuild():
-    global BuildStatusWin, BuildOutputWin, SysStatusWin, DownloadPKGName, TerminalSize, BuildStartTime, IsBuilding, Clean
+    global BuildStatusWin, BuildOutputWin, SysStatusWin, DownloadPKGName, TerminalSize, BuildStartTime, IsBuilding, Clean, ExitCode
     BuildStartTime = datetime.now()
     IsBuilding = True
 
@@ -230,12 +233,13 @@ def StartBuild():
         BuildLog.write(f"\nWLN0: {WinLineNums[0]}")
         BuildLog.write(f"\nWLN1: {WinLineNums[1]}")
         BuildLog.write(f"\nWLN2: {WinLineNums[2]}")
+        ExitCode = -1
 
     IsBuilding = False
 
 # Main curses wrapper function; used to set up the terminal and start the build
 def Main(STDScr):
-    global BuildStatusSubWin, BuildOutputSubWin, SysStatusSubWin, BuildStatusWin, BuildOutputWin, SysStatusWin, TerminalSize, Clean
+    global BuildStatusSubWin, BuildOutputSubWin, SysStatusSubWin, BuildStatusWin, BuildOutputWin, SysStatusWin, TerminalSize, Clean, ExitCode
 
     try:
         # Disable the terminal cursor and mouse input
@@ -291,9 +295,11 @@ def Main(STDScr):
         StartBuild()
         
         # The build has stopped now, wait for the user to press a key and then exit the program
-        WriteStatusMsg(BuildStatusSubWin, "<== PRESS ANY KEY TO EXIT ==>\n", 0, StatusMsgTypes.NONE)
-        curses.flushinp()
-        STDScr.getch()
+        if NoExitKeypress == False:
+            WriteStatusMsg(BuildStatusSubWin, "<== PRESS ANY KEY TO EXIT ==>\n", 0, StatusMsgTypes.NONE)
+            curses.flushinp()
+            STDScr.getch()
+
         print("[INFO] >> Compilation script closed.")
 
     except Exception as EX:
@@ -303,10 +309,25 @@ def Main(STDScr):
         BuildLog.write(f"\nWLN0: {WinLineNums[0]}")
         BuildLog.write(f"\nWLN1: {WinLineNums[1]}")
         BuildLog.write(f"\nWLN2: {WinLineNums[2]}")
+        ExitCode = -1
 
 
 ## MAIN CODE ##
 if __name__ == "__main__":
+    print("[INFO] >> Opening build log file...")
     BuildLog = open("BuildLog.txt", "w")
+
+    print("[INFO] >> Parsing CMD args...")
+    # Parse command line arguments
+    for Arg in sys.argv:
+        if Arg == "--NoExitKeypress":
+            NoExitKeypress = True
+    
+    print("[INFO] >> Starting curses...")
     curses.wrapper(Main)
+
+    print("[INFO] >> Closing build log file...")
     BuildLog.close()
+
+    print(f"[INFO] >> Quitting with exit code {ExitCode}...")
+    exit(ExitCode)

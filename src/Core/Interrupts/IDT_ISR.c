@@ -257,25 +257,25 @@ void TestIDT(uint8_t ExceptionSelector)
 	{
 		// Division by zero
 		case 0:
-			TerminalDrawString("[INFO] >> Testing IDT with Div/0...\n\r");
+			TerminalDrawMessage("Testing IDT with Div/0...\n\r", INFO);
 			asm volatile("int $0");
 			break;
 
 		// Throw a software breakpoint
 		case 3:
-		TerminalDrawString("[INFO] >> Testing IDT with a software breakpoint...\n\r");
+			TerminalDrawMessage("Testing IDT with a software breakpoint...\n\r", INFO);
 			__asm__("int $3");
 			break;
 
 		// Attempt to run an invalid opcode
 		case 6:
-			TerminalDrawString("[INFO] >> Testing IDT with an invalid opcode ()...\n\r");
+			TerminalDrawMessage("Testing IDT with an invalid opcode ()...\n\r", INFO);
 			__asm__("ud2");
 			break;
 
 		// Page fault (NULL pointer deref)
 		case 14:
-			TerminalDrawString("[INFO] >> Testing IDT with page fault (NULL pointer deref)...\n\r");
+			TerminalDrawMessage("Testing IDT with page fault (NULL pointer deref)...\n\r", INFO);
 			volatile int *ptr = NULL;
 			volatile int value = *ptr;
 			break;
@@ -294,12 +294,12 @@ void InitIDT()
 		KernelPanic(-7, "The GDT must be initialized before the IDT can be initialized!");
 	}
 
-	TerminalDrawString("[INFO] >> Configuring IDTr base & limit...\n\r");
+	TerminalDrawMessage("Configuring IDTr base & limit...\n\r", INFO);
     IDTr.Base = (uintptr_t)IDTEntries;
     IDTr.Limit = (uint16_t)sizeof(IDTEntry) * IDT_MAX_DESCRIPTORS - 1;
 
 	IntToStr(IDT_MAX_DESCRIPTORS, DescriptorsBuffer, 10);
-	TerminalDrawString("[INFO] >> Configuring ");
+	TerminalDrawMessage("Configuring ", INFO);
 	TerminalDrawString(DescriptorsBuffer);
 	TerminalDrawString(" IDT descriptors...\n\r");
 
@@ -310,7 +310,7 @@ void InitIDT()
     }
 
 	// Load the new IDT and enable interrupts
-	TerminalDrawString("[INFO] >> Loading new IDT & enabling interrupts...\n\r");
+	TerminalDrawMessage("Loading new IDT & enabling interrupts...\n\r", INFO);
     __asm__ volatile ("lidt %0" : : "m"(IDTr));
     __asm__ volatile ("sti");
 
