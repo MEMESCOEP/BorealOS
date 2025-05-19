@@ -1,9 +1,15 @@
 /* LIBRARIES */
 #include <stdbool.h>
 #include "Core/Graphics/Terminal.h"
+#include "Core/Devices/CPU.h"
 #include "Core/IO/RegisterIO.h"
 #include "Kernel.h"
 #include "PIC.h"
+
+
+/* VARIABLES */
+bool PICInitialized = false;
+bool APICSupported = false;
 
 
 /* FUNCTIONS */
@@ -12,6 +18,46 @@ void RemapPIC(int Offset1, int Offset2);
 void DisablePIC();
 
 // ACTUAL functions
+bool CheckForAPIC()
+{
+    uint32_t eax, ebx, ecx, edx;
+
+    // cpuid with eax=1
+    __asm__ volatile(
+        "cpuid"
+        : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
+        : "a"(1)
+    );
+
+    // Bit 9 of EDX indicates Local APIC support
+    return (edx & (1 << 9)) != 0;
+}
+
+void InitAPIC()
+{
+    // Make sure the CPU actually supports APIC before we initialize it
+    APICSupported = CheckForAPIC();
+
+    if (APICSupported == false)
+    {
+        KernelPanic(0, "This processor doesn't support APIC");
+    }
+
+    // Make sure the CPU has module specific registers
+    if (CPUHasMSRs() == false)
+    {
+        TerminalDrawMessage("Failed to initialize APIC, this processor doesn't support module specific registers\n\r", ERROR);
+        return;
+    }
+
+    // The PIC must be disabled before APIC cna be used
+    if (PICInitialized == true)
+    {
+        TerminalDrawMessage("The PIC must be disabled before APIC can be initialized, it will be disabled now\n\r", WARNING);
+        DisablePIC();
+    }
+}
+
 void InitPIC()
 {
     // Remap the PIC to prevent conflicts with IRQs 0 to 7.
@@ -23,6 +69,8 @@ void InitPIC()
     TerminalDrawString("\n\r");
     TerminalDrawMessage("Masking all PIC interrupts...\n\r", INFO);
     DisablePIC();
+
+    PICInitialized = true;
 }
 
 // Acknowledge an interrupt by sending PIC_EOI to the master PIC chip's command register. If the IRQ is > 8, PIC_EOI

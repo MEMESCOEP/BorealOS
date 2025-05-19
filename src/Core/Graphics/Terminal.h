@@ -296,6 +296,7 @@ void TerminalDrawString(char* Message);
 void TerminalDrawMessage(char* Message, enum MessageTypes MSGType);
 void ClearTerminal();
 void SetScrollRow(int Row);
-void ScrollTerminal(int Rows);
+void ScrollTerminal(int Direction);
+void InvertColorOfTextBlock();
 
 #endif

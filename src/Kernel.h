@@ -12,13 +12,17 @@
 
 
 /* VARIABLES */
+extern uint64_t BootCR3;
+extern char SystemHostname[];
 extern char* FirmwareType;
 extern int ProcessorCount;
+extern int FirmwareTypeID;
 
 
 /* FUNCTIONS */
 void KernelPanic(uint64_t ErrorCode, char* Message);
 void DisplaySystemInfo(void);
+void DrawMEMInfo(void);
 void HaltSystem(void);
 
 #endif

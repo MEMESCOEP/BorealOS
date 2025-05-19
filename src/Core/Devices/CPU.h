@@ -112,6 +112,7 @@ extern int ProcessorCount;
 /* FUNCTIONS */
 void GetCPUVendorID(char* OutBuffer);
 void GetCPUBrandStr(char* OutBuffer);
+bool CPUHasMSRs();
 int GetProcessorCount();
 
 #endif

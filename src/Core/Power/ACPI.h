@@ -8,7 +8,10 @@
 
 
 /* VARIABLES */
+//extern struct RSDP_t* RSDPTable;
 extern uint64_t RSDPAddress;
+extern uint64_t HHOffset;
+extern float ACPIRevision;
 extern bool ACPIInitialized;
 
 

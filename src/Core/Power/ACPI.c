@@ -5,6 +5,7 @@
 #include <Limine.h>
 #include "Utilities/StrUtils.h"
 #include "Core/Graphics/Terminal.h"
+#include "Core/IO/Memory.h"
 #include "Kernel.h"
 #include "ACPI.h"
 
@@ -35,13 +36,13 @@ typedef struct {
 } ACPISDTHeader;
 
 // RSDP for ACPI 1.0
-struct RSDP_t {
-    char Signature[8];
+typedef struct {
+    uint8_t Signature[8];
     uint8_t Checksum;
-    char OEMID[6];
+    uint8_t OEMID[6];
     uint8_t Revision;
-    uint32_t RSDTAddress;
-} __attribute__ ((packed));
+    uint32_t RsdtAddress;
+} __attribute__ ((packed)) RSDP_t;
 
 // RSDP for ACPI 2.0 and later
 struct XSDP_t {
@@ -57,14 +58,21 @@ struct XSDP_t {
     uint8_t reserved[3];
 } __attribute__ ((packed));
 
-uint64_t HHOffset = 0x00;
+//struct RSDP_t* RSDPTable;
 uint64_t RSDPAddress = 0x00;
+uint64_t HHOffset = 0x00;
+float ACPIRevision = 0.0f;
 bool ACPIInitialized = false;
 
 
 /* FUNCTIONS */
+#include <stdint.h>
+//#include <string.h>
+
 void InitACPI()
 {
+    // --- STEP 1 ---
+    // Validate limine responses
     if (RSDPRequest.response == NULL)
     {
         KernelPanic(0, "No response was given for the RSDP request!");
@@ -75,20 +83,25 @@ void InitACPI()
         KernelPanic(0, "No response was given for the HHDM request!");
     }
 
+    // HHOffset is added to convert the returned RSDP address to a virtual address (limine sets up paging)
     HHOffset = HHDMRequest.response->offset;
-    RSDPAddress = RSDPRequest.response->address + HHOffset;
+    RSDPAddress = RSDPRequest.response->address;
 
-    // Ensure that the HHDM and RSDP values are valid
+    
+
+    // --- STEP 2 ---
+    // Check if ACPI responses are valid for BIOS and UEFI
+    // TODO: implement UEFI checking
     if (StrCmp(FirmwareType, "BIOS") == 0)
     {
         TerminalDrawMessage("Checking if RSDP address is valid for BIOS firmware...\n\r", INFO);
 
-        if (RSDPRequest.response->address < 0xE0000 || RSDPRequest.response->address > 0xFFFFF)
+        if (RSDPRequest.response->address < 0x000E0000 || RSDPRequest.response->address > 0x000FFFFF)
         {
-            KernelPanic(0, "RSDP address is out of range for BIOS firmware (RANGE IS 0xE0000-0xFFFFF)!");
+            KernelPanic(0, "RSDP address is out of range for BIOS firmware (RANGE IS 0x000E0000-0x000FFFFF)!");
         }
 
-        TerminalDrawMessage("RSDP address is withing the valid range for BIOS firmware (0xE0000-0xFFFFF).\n\r", INFO);
+        TerminalDrawMessage("RSDP address is within the valid range for BIOS firmware (0x000E0000-0x000FFFFF).\n\r", INFO);
     }
     else if (StrCmp(FirmwareType, "64-bit UEFI") == 0)
     {
@@ -99,18 +112,22 @@ void InitACPI()
         KernelPanic(0, "No ACPI support is available yet for non-BIOS / 64-bit UEFI firmwares.");
     }
 
+    
+
+    // --- STEP 3 ---
+    // Get the RSDP address and the higher half offset
     char FixedRSDPAddrBuffer[32] = "";
     char HHOffsetBuffer[32] = "";
     char RSDPAddrBuffer[16] = "";
 
-    IntToStr(RSDPAddress, FixedRSDPAddrBuffer, 16);
+    IntToStr(RSDPAddress + HHOffset, FixedRSDPAddrBuffer, 16);
     IntToStr(RSDPRequest.response->address, RSDPAddrBuffer, 16);
     IntToStr(HHOffset, HHOffsetBuffer, 16);
 
     // Sometimes Limine doesn't provide this on 64-bit UEFI firmware
     if (HHOffsetBuffer[0] == '\0')
     {
-        TerminalDrawMessage("Higher half offset was notprovided from bootloader.\n\r", WARNING);
+        TerminalDrawMessage("Higher half offset was not provided from bootloader.\n\r", WARNING);
     }
     else
     {
@@ -127,26 +144,33 @@ void InitACPI()
     TerminalDrawString(FixedRSDPAddrBuffer);
     TerminalDrawString("\n\r");
 
+
+
+    // --- STEP 4 ---
+    // Get the ACPI revision
     TerminalDrawMessage("ACPI revision: ", INFO);
+    TerminalDrawChar(RSDPRequest.response->revision + '0', true);
+    TerminalDrawString("\n\r");
+    ACPIRevision = RSDPRequest.response->revision + 1.0f;
 
-    if (RSDPRequest.response->revision == 0)
-    {
-        TerminalDrawString("1.0\n\r");
-    }
-    else
-    {
-        TerminalDrawString("2.0+\n\r");
-    }
+    
 
+    // --- STEP 5 ---
+    // Load the RSDP table into a description struct
     TerminalDrawMessage("Loading ACPI RSDP table into description struct...\n\r", INFO);
-    struct RSDP_t* RSDPTable = (struct RSDP_t*)RSDPAddress;
+    RSDP_t* RSDPTable = (RSDP_t *)(uintptr_t)(RSDPAddress);
 
+    TerminalDrawMessage("Can this please work\n\r", INFO);
+    for (int CharIndex = 0; CharIndex < 7; CharIndex++)
+    {
+        TerminalDrawChar(RSDPTable->Signature[CharIndex], true);
+    }
+
+    TerminalDrawString("\n\r");
     ACPIInitialized = true;
-
-    //TerminalDrawChar(RSDPTable->Signature[0], true);
 }
 
-bool ChecksumValidateSDT(ACPISDTHeader *SDTTableHeader)
+bool ChecksumValidateSDT(ACPISDTHeader* SDTTableHeader)
 {
     unsigned char Sum = 0;
 

@@ -144,7 +144,8 @@ void MoveCursor(int Column, int Row)
 {
     if (Column < 0)
     {
-        Column = 0;
+        Column = (ScreenWidth / FONT_WIDTH) - 1;
+        Row--;
     }
 
     else if (Column > (ScreenWidth / FONT_WIDTH) - 1)

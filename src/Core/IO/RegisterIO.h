@@ -26,6 +26,20 @@ static inline uint8_t InB(uint16_t Port)
     return Ret;
 }
 
+static inline void OutL(uint16_t Port, uint32_t Value)
+{
+    __asm__ volatile("outl %0, %w1" : : "a" (Value), "Nd" (Port) : "memory");
+}
+
+static inline uint32_t InL(uint16_t Port)
+{
+    uint32_t Ret;
+
+    __asm__ volatile("inl %w1, %0" : "=a" (Ret) : "Nd" (Port) : "memory");
+    
+    return Ret;
+}
+
 static inline bool InterruptsEnabled()
 {
     unsigned long Flags;

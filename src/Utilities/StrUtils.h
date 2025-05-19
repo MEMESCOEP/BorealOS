@@ -2,6 +2,8 @@
 #define STRUTILS_H
 
 /* LIBRARIES */
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 
@@ -17,6 +19,11 @@ void FloatToStr(float Num, char *Buffer, int DecimalPlaces);
 void InsertCharIntoString(char* String, char Character, int Index);
 void InsertString(char* OriginalString, char* StringToAppend, int Index);
 void TrimTrailingWhitespace(char* String);
+size_t StrSplitByChar(char *Input, char Delimiter, char *OutParts[], size_t MaxParts);
+bool IsValidPOSIXHostname(char* Hostname);
+bool StrStartsWithSubstr(const char *StrToCheck, const char *Substr);
+bool IsASCIILetter(char CharacterToCheck);
+bool IsASCIIDigit(char CharacterToCheck);
 int StrLen(char* String);
 int StrPixelLength(char* String);
 int StrCmp(const char *Str1, const char *Str2);

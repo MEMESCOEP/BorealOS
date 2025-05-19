@@ -224,3 +224,92 @@ int StrCmp(const char *Str1, const char *Str2)
     while (*Str1 && *Str1 == *Str2) { ++Str1; ++Str2; }
     return (int)(unsigned char)(*Str1) - (int)(unsigned char)(*Str2);
 }
+
+// Does the input string start with the specifies substring?
+bool StrStartsWithSubstr(const char *StrToCheck, const char *Substr)
+{
+    while (*Substr)
+    {
+        if (*Substr != *StrToCheck) return false;
+
+        StrToCheck++;
+        Substr++;
+    }
+
+    return true;
+}
+
+// Check if a string is a POSIX-compliant ASCII hostname
+bool IsValidPOSIXHostname(char* Hostname)
+{
+    int HostnameStrLen = StrLen(Hostname);
+
+    // POSIX hostnames must be between 1 and 255 characters in length
+    if (HostnameStrLen <= 0 || HostnameStrLen > 255)
+    {
+        return false;
+    }
+
+    // POSIX hostnames cannot start or end with a hyphen
+    if (Hostname[0] == '-' || Hostname[HostnameStrLen - 1] == '-')
+    {
+        return false;
+    }
+
+    // POSIX hostnames must only contain letters, numbers, or hyphens
+    for (int CharIndex = 0; CharIndex < HostnameStrLen; CharIndex++)
+    {
+        if (Hostname[CharIndex] != '-' && IsASCIILetter(Hostname[CharIndex]) == false && IsASCIIDigit(Hostname[CharIndex]) == false)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+// Check if a character is an ASCII letter
+bool IsASCIILetter(char CharacterToCheck)
+{
+    return (CharacterToCheck >= 'A' && CharacterToCheck <= 'Z') || (CharacterToCheck >= 'a' && CharacterToCheck <= 'z');
+}
+
+// Check if a character is an ASCII digit
+bool IsASCIIDigit(char CharacterToCheck)
+{
+    return CharacterToCheck >= '0' && CharacterToCheck <= '9';
+}
+
+// Split a string by a single character
+size_t StrSplitByChar(char *Input, char Delimiter, char *OutParts[], size_t MaxParts)
+{
+    size_t Count = 0;
+
+    while (*Input != '\0' && Count < MaxParts)
+    {
+        // Skip leading delimiters
+        while (*Input == Delimiter)
+        {
+            *Input = '\0';
+            Input++;
+        }
+
+        if (*Input == '\0')
+            break;
+
+        OutParts[Count++] = Input;
+
+        // Move forward to the next delimiter
+        while (*Input != '\0' && *Input != Delimiter)
+            Input++;
+
+        // If we hit a delimiter, null it out and advance
+        if (*Input == Delimiter)
+        {
+            *Input = '\0';
+            Input++;
+        }
+    }
+
+    return Count;
+}

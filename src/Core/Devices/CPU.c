@@ -40,6 +40,10 @@ void GetCPUVendorID(char* OutBuffer)
 
 void GetCPUBrandStr(char* OutBuffer)
 {
+    unsigned int Registers[12];
+    unsigned int ETXStrCheck;
+
+    /// --- STEP 1 ---
     // Fill the output string with spaces so we can remove trailing characters later
     OutBuffer[48] = '\0';
 
@@ -48,30 +52,45 @@ void GetCPUBrandStr(char* OutBuffer)
         OutBuffer[I] = ' ';
     }
 
-    unsigned int regs[12];
 
-    unsigned int dummy;
-    __cpuid(0x80000000, dummy, regs[0], regs[1], regs[2]);
 
+    /// --- STEP 2 ---
     // Check if the extended brand string functions are supported
-    if (dummy < 0x80000004)
+    __cpuid(0x80000000, ETXStrCheck, Registers[0], Registers[1], Registers[2]);
+
+    if (ETXStrCheck < 0x80000004)
     {
         OutBuffer[0] = '\0'; // Return empty string
         return;
     }
 
-    __cpuid(0x80000002, regs[0], regs[1], regs[2], regs[3]);
-    __cpuid(0x80000003, regs[4], regs[5], regs[6], regs[7]);
-    __cpuid(0x80000004, regs[8], regs[9], regs[10], regs[11]);
+
+
+    // --- STEP 3 ---
+    // Now we read each CPUID result into the some registers
+    __cpuid(0x80000002, Registers[0], Registers[1], Registers[2], Registers[3]);
+    __cpuid(0x80000003, Registers[4], Registers[5], Registers[6], Registers[7]);
+    __cpuid(0x80000004, Registers[8], Registers[9], Registers[10], Registers[11]);
 
     // Copy each 4-byte register into OutBuffer as a char array
     for (int i = 0; i < 12; ++i)
     {
-        ((unsigned int*)OutBuffer)[i] = regs[i];
+        ((unsigned int*)OutBuffer)[i] = Registers[i];
     }
 
     // Strip any trailing whitespace characters from the final string (assuming there are any, if not we set \0 at index 48)
     TrimTrailingWhitespace(OutBuffer);
+}
+
+// Check if the CPU has model specific registers
+bool CPUHasMSRs()
+{
+    uint32_t eax, ebx, ecx, edx;
+ 
+    if (!__get_cpuid(1, &eax, &ebx, &ecx, &edx))
+        return false;
+
+    return (edx & (1 << 5)) != 0;
 }
 
 // Get the number of processors in the system

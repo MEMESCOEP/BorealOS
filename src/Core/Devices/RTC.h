@@ -7,6 +7,8 @@
 
 
 /* FUNCTIONS */
-void ReadRTC();
+void WriteRTC();
+void SelectCMOSRegister(int CMOSRegister, bool EnableNMI);
+int ReadRTC();
 
 #endif

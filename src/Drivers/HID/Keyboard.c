@@ -462,23 +462,11 @@ void PS2KBHandleScancode(int Scancode)
             LastInput = Scancode;
             break;
 
-        default:
-            LastInput = 0;
+        case 0x0:
             break;
-    }
 
-    // "Key pressed" scancodes are all less than 0x80 for scancode set 1
-    if (Scancode < 0x80)
-    {
-        LastInput = Scancode;
-    }
-    else if (Scancode - 0x80 == LastInput)
-    {
-        
-        LastReleasedInput = LastInput;
-    }
-    else
-    {
-        LastReleasedInput = Scancode;
+        default:
+            LastInput = Scancode;
+            break;
     }
 }

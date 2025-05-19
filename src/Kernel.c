@@ -1,7 +1,7 @@
 /* [== BOREALOS KERNEL ==] */
 // This is the main kernel file, responsible for initializing and configuring everything.
 // Think of it as the "master" controller of the OS; it directs everything and acts
-// as the glue that holds everything together.
+// as the "conductor of the train"
 
 
 /* LIBRARIES */
@@ -38,12 +38,29 @@ char* FirmwareTypes[4] = {
     "SBI"
 };
 
+char* PageFaultBitMeanings[5] = {
+    "P",
+    "W/R",
+    "U/S",
+    "RSVD",
+    "I-Fetch"
+};
+
+uint64_t BootCR3;
+size_t KernelArgCount = 0;
+char* KernelArgs[64];
 char* FirmwareType = "Unknown";
 char FBResWidthBuffer[8] = "";
 char FBResHeightBuffer[8] = "";
 char FBResBPPBuffer[8] = "";
 char FBResBSBuffer[8] = "?";
+char CR3Buffer[16] = "";
 char RegBuffer[256] = "";
+char SystemHostname[256] = "BorealOS";
+bool SkipPCIeInit = false;
+bool SkipPCIInit = false;
+bool SkipSSEInit = false;
+int FirmwareTypeID = -1;
 
 
 /* ATTRIBUTES */
@@ -62,6 +79,12 @@ __attribute__((used, section(".limine_requests")))
 struct limine_firmware_type_request FWTypeRequest = {
     .id = LIMINE_FIRMWARE_TYPE_REQUEST,
     .revision = 0
+};
+
+__attribute__((used, section(".limine_requests")))
+struct limine_executable_cmdline_request KernelArgsRequest = {
+    .id = LIMINE_EXECUTABLE_CMDLINE_REQUEST,
+    .revision = 0,
 };
 
 __attribute__((used, section(".limine_requests_start")))
@@ -192,6 +215,46 @@ void KernelPanic(uint64_t ErrorCode, char* Message)
             {
                 TerminalDrawString("\n\rSS_RSP = NULL");
             }
+
+            if (CrashStackState->InterruptNum == 0xE)
+            {
+                uint64_t CR3;
+                unsigned long CR0;
+                unsigned long CR2;
+                char CRRegBuffer[64];
+
+                __asm__ volatile("mov %%cr0, %0" : "=r"(CR0));
+                __asm__ volatile("mov %%cr2, %0" : "=r"(CR2));
+                __asm__ volatile("mov %%cr3, %0" : "=r"(CR3));
+
+                IntToStr(CR3, CRRegBuffer, 16);
+                TerminalDrawString("\n\rCURRENT_CR3 = 0x");
+                TerminalDrawString(CRRegBuffer);
+
+                IntToStr(BootCR3, CRRegBuffer, 16);
+                TerminalDrawString("\n\rBOOT_CR3 = 0x");
+                TerminalDrawString(CRRegBuffer);
+
+                IntToStr(CR2, CRRegBuffer, 16);
+                TerminalDrawString("\n\rCR2 = 0x");
+                TerminalDrawString(CRRegBuffer);
+
+                IntToStr(CR0, CRRegBuffer, 16);
+                TerminalDrawString("\n\rCR0 = 0x");
+                TerminalDrawString(CRRegBuffer);
+
+                TerminalDrawString("\n\rPFAULT_STATE:");
+
+                for(int BitIndex = 0; BitIndex < 5; BitIndex++)
+                {
+                    TerminalDrawString("\n\r\tBit #");
+                    TerminalDrawChar(BitIndex + '0', true);
+                    TerminalDrawString(" (");
+                    TerminalDrawString(PageFaultBitMeanings[BitIndex]);
+                    TerminalDrawString("): ");
+                    TerminalDrawChar(((CrashStackState->ErrorCode >> BitIndex) & 1) + '0', true);
+                }
+            }
         }
         else
         {
@@ -302,6 +365,8 @@ void KernelStart(void)
         KernelPanic(-1, "LIMINE_BASE_REVISION_SUPPORTED returned false!");
     }
 
+    __asm__ volatile("mov %%cr3, %0" : "=r"(BootCR3));
+
     // Play a tone for a few milliseconds to indicate that the kernel has loaded properly.
     //PCSpeakerPlayTone(900);
 
@@ -315,6 +380,8 @@ void KernelStart(void)
     // TODO: implement OS logo drawing
     
     // Get the firmware type.
+    FirmwareTypeID = FWTypeRequest.response->firmware_type;
+
     if (FWTypeRequest.response->firmware_type <= 3)
     {
         FirmwareType = FirmwareTypes[FWTypeRequest.response->firmware_type];
@@ -333,11 +400,16 @@ void KernelStart(void)
     TerminalDrawString(BootloaderInfoRequest.response->name);
     TerminalDrawChar(' ', true);
     TerminalDrawString(BootloaderInfoRequest.response->version);
-    TerminalDrawString(").\n\r");
+    TerminalDrawString(")\n\r");
 
     TerminalDrawMessage("Kernel C language version (__STDC_VERSION__): \"", INFO);
     TerminalDrawString(PREPROCESSOR_TOSTRING(__STDC_VERSION__));
-    TerminalDrawString("\".\n\r");
+    TerminalDrawString("\"\n\r");
+
+    IntToStr(BootCR3, CR3Buffer, 16);
+    TerminalDrawMessage("Pagemap value (CR3 register): 0x", INFO);
+    TerminalDrawString(CR3Buffer);
+    TerminalDrawString("\n\r");
 
     TerminalDrawMessage("Initializing GDT...\n\r", INFO);
     InitGDT();
@@ -357,6 +429,98 @@ void KernelStart(void)
         TestIDT(ExceptionNum);
     }*/
 
+    // Parse the kernel argument string
+    if (KernelArgsRequest.response != NULL && StrCmp(KernelArgsRequest.response->cmdline, "") != 0)
+    {
+        char ArgBuf[3];
+        KernelArgCount = StrSplitByChar(KernelArgsRequest.response->cmdline, ',', KernelArgs, 64);
+
+        IntToStr(KernelArgCount, ArgBuf, 10);
+        TerminalDrawMessage("Parsing ", INFO);
+        TerminalDrawString(ArgBuf);
+        TerminalDrawString(" kernel argument(s)...\n\r");
+
+        for (size_t ArgIndex = 0; ArgIndex < KernelArgCount; ArgIndex++)
+        {
+            int ArgLength = StrLen(KernelArgs[ArgIndex]);
+
+            if(StrStartsWithSubstr(KernelArgs[ArgIndex], "Hostname=") == true)
+            {
+                // Make a copy of the original hostname
+                char PreviousHostname[256];
+
+                for (int CharIndex = 0; CharIndex <= StrLen(SystemHostname); CharIndex++)
+                {
+                    PreviousHostname[CharIndex] = SystemHostname[CharIndex];
+                }
+
+                // Validate the string existance and length
+                if (StrLen(KernelArgs[ArgIndex]) < 11 || StrLen(KernelArgs[ArgIndex]) > 256)
+                {
+                    TerminalDrawMessage("A string must be passed for the hostname kernel argument, and it must be less than 256 characters\n\r", WARNING);
+                    continue;
+                }
+
+                for (int i = 9; i < ArgLength && KernelArgs[ArgIndex][i] != '\0'; i++)
+                {
+                    SystemHostname[i - 9] = KernelArgs[ArgIndex][i];
+                }
+
+                SystemHostname[ArgLength - 9] = '\0';
+
+                // Validate the hostname, it must be POSIX-compliant
+                if (IsValidPOSIXHostname(SystemHostname) == false)
+                {
+                    TerminalDrawMessage("\"", WARNING);
+                    TerminalDrawString(SystemHostname);
+                    TerminalDrawString("\" is not a POSIX-compliant hostname, it will be reset to \"");
+                    TerminalDrawString(PreviousHostname);
+                    TerminalDrawString("\"\n\r");
+                    
+                    // Reset the system hostname back to what it was originally
+                    for (int i = 0; i < StrLen(PreviousHostname) - 1; i++)
+                    {
+                        SystemHostname[i] = PreviousHostname[i];
+                    }
+
+                    continue;
+                }
+
+                TerminalDrawMessage("System hostname set to \"", INFO);
+                TerminalDrawString(SystemHostname);
+                TerminalDrawString("\"\n\r");
+            }
+            else if(StrCmp(KernelArgs[ArgIndex], "SkipPCIe") == 0)
+            {
+                SkipPCIeInit = true;
+            }
+            else if(StrCmp(KernelArgs[ArgIndex], "SkipPCI") == 0)
+            {
+                SkipPCIInit = true;
+            }
+            else if(StrCmp(KernelArgs[ArgIndex], "SkipSSE") == 0)
+            {
+                SkipSSEInit = true;
+            }
+            else
+            {
+                TerminalDrawMessage("\"", WARNING);
+                TerminalDrawString(KernelArgs[ArgIndex]);
+                TerminalDrawString("\" is not a valid kernel argument");
+            }
+        }
+    }
+    else
+    {
+        TerminalDrawMessage("No kernel arguments were provided\n\r", INFO);
+    }
+
+    TerminalDrawMessage("Initializing APIC...\n\r", INFO);
+    InitAPIC();
+
+    TerminalDrawMessage("Parsing MEMMAP...\n\r", INFO);
+    ParseMEMMap();
+
     TerminalDrawMessage("Initializing FPU...\n\r", INFO);
     InitFPU();
 
@@ -367,54 +531,83 @@ void KernelStart(void)
     // TODO: Implement monitor EDID checking & other monitor stuff
 
     // The current SSE init implementation is a bit new, so there will likely still be a few bugs
-    TerminalDrawMessage("Initializing SSE...\n\r", INFO);
-    InitSSE();
-
-    // This might look a bit backwards, remember that SSE uses the little endian format
-    TerminalDrawString("\n\r");
-    TerminalDrawMessage("Testing SSE (METHOD=\"_mm_set_ps -> _mm_add_ps\")...\n\r", INFO);
-    float ExpectedResults[4] = {-4.0f, 4.0f, 8.0f, 6.0f}; // Remember, SSE uses little-endian
-    float StoredResult[4];
-    char SSEExpectedBuffer[8];
-    char SSEResultBuffer[8];
-    __m128 SSESet1 = _mm_set_ps(1.0f, 2.0f, 7.0f, 4.0f);
-    __m128 SSESet2 = _mm_set_ps(5.0f, 6.0f, -3.0f, -8.0f);
-
-    // Perform an SSE addition operation and store the result back to a float array
-    __m128 SSEAddResult = _mm_add_ps(SSESet1, SSESet2);
-    _mm_store_ps(StoredResult, SSEAddResult);
-
-    // Print and validate the results of each SSE test
-    for (int I = 0; I < 4; I++)
+    if (SkipSSEInit == false)
     {
-        FloatToStr(ExpectedResults[I], SSEExpectedBuffer, 2);
-        FloatToStr(StoredResult[I], SSEResultBuffer, 2);
-        TerminalDrawString("\tSSE value for loop iteration #");
-        TerminalDrawChar((I + 1) + '0', true);
-        TerminalDrawString(" is: ");
-        TerminalDrawString(SSEResultBuffer);
-        TerminalDrawString(" (expected ");
-        TerminalDrawString(SSEExpectedBuffer);
-        TerminalDrawString(")\n\r");
+        TerminalDrawMessage("Initializing SSE...\n\r", INFO);
+        InitSSE();
 
-        // We don't simply do a != check here because there can be small float errors
-        // that it wouldn't catch. These float errors are generally acceptable
-        float Diff = StoredResult[I] - ExpectedResults[I];
+        // This might look a bit backwards, remember that SSE uses the little endian format
+        TerminalDrawString("\n\r");
+        TerminalDrawMessage("Testing SSE (METHOD=\"_mm_set_ps -> _mm_add_ps\")...\n\r", INFO);
+        float ExpectedResults[4] = {-2.0f, 4.0f, 6.0f, 8.0f}; // Remember, SSE uses little-endian
+        float StoredResult[4];
+        char SSEExpectedBuffer[8];
+        char SSEResultBuffer[8];
+        __m128 SSESet1 = _mm_set_ps(2.0f, 1.0f, 7.0f, 4.0f);
+        __m128 SSESet2 = _mm_set_ps(6.0f, 5.0f, -3.0f, -6.0f);
 
-        if (Diff < -0.01f || Diff > 0.01f)
+        // Perform an SSE addition operation and store the result back to a float array
+        __m128 SSEAddResult = _mm_add_ps(SSESet1, SSESet2);
+        _mm_store_ps(StoredResult, SSEAddResult);
+
+        // Print and validate the results of each SSE test
+        for (int I = 0; I < 4; I++)
         {
-            char FailureStr1[64] = "";
-            char FailureStr2[64] = "";
-            char ReasonStr[64] = "";
+            FloatToStr(ExpectedResults[I], SSEExpectedBuffer, 2);
+            FloatToStr(StoredResult[I], SSEResultBuffer, 2);
+            TerminalDrawString("\tSSE value for loop iteration #");
+            TerminalDrawChar((I + 1) + '0', true);
+            TerminalDrawString(" is: ");
+            TerminalDrawString(SSEResultBuffer);
+            TerminalDrawString(" (expected ");
+            TerminalDrawString(SSEExpectedBuffer);
+            TerminalDrawString(")\n\r");
 
-            StrCat("SSE test failed, got ", SSEResultBuffer, FailureStr1);
-            StrCat(" instead of ", SSEExpectedBuffer, FailureStr2);
-            StrCat(FailureStr1, FailureStr2, ReasonStr);
-            KernelPanic(0, ReasonStr);
+            // We don't simply do a != check here because there can be small float errors
+            // that it wouldn't catch. These float errors are generally acceptable
+            float Diff = StoredResult[I] - ExpectedResults[I];
+
+            if (Diff < -0.01f || Diff > 0.01f)
+            {
+                char FailureStr1[64] = "";
+                char FailureStr2[64] = "";
+                char ReasonStr[64] = "";
+
+                StrCat("SSE test failed, got ", SSEResultBuffer, FailureStr1);
+                StrCat(" instead of ", SSEExpectedBuffer, FailureStr2);
+                StrCat(FailureStr1, FailureStr2, ReasonStr);
+                KernelPanic(0, ReasonStr);
+            }
+        }
+
+        TerminalDrawString("\n\r");
+    }
+    else
+    {
+        TerminalDrawMessage("SSE INIT/TEST has been skipped because the \"SkipSSE\" kernel argument was passed\n\r", INFO);
+    }
+
+    if (SkipPCIInit == true)
+    {
+        TerminalDrawMessage("PCI & PCIe INIT has been skipped because the \"SkpiPCI\" kernel argument was passed\n\r", INFO);
+    }
+    else
+    {
+        // Scanning the PCI bus using the brute force method is very innefficient because we do a lot of extra work. Because we check 256 buses with 32
+        // devices each, we'd end up checking 8192 times. The recursive method scans only existing buses, which eliminates a metric fuck ton of work :)
+        //InitPCI();
+        //ScanAllPCIBuses(PCI_BUSSCAN_BRUTE_FORCE);
+
+        if (SkipPCIeInit == true)
+        {
+            TerminalDrawMessage("PCIe INIT has been skipped because the \"SkpiPCIe\" kernel argument was passed\n\r", INFO);
+        }
+        else
+        {
+            //InitPCIExpress();
         }
     }
 
-    TerminalDrawString("\n\r");
     TerminalDrawMessage("Initializing PS/2 controller, keyboard, and mouse...\n\r", INFO);
     InitPS2Controller();
     InitPS2Keyboard();
@@ -442,11 +635,13 @@ void KernelLoop()
     TerminalDrawMessage("Kernel loop started, starting shell...\n\r", INFO);
     ClearTerminal();
     TerminalDrawString("[== Welcome to BorealOS! ==]\n\r");
-    TerminalDrawMessage("Type \"help\" for a command list.\n\r", INFO);
+    TerminalDrawMessage("Type \"help\" for a command list.\n\r", INFO);    
     StartShell();
     KernelPanic(0, "End of kernel loop reached (no more running processes)");
 }
 
+
+// Display system information like processor count, framebuffer count, framebuffer details, etc
 void DisplaySystemInfo()
 {
     char CPUCountBuffer[8];
@@ -471,7 +666,7 @@ void DisplaySystemInfo()
         IntToStr(FBInfo->bpp, FBResBPPBuffer, 10);
         FloatToStr((FBInfo->width * FBInfo->height * (FBInfo->bpp / 8.0f)) / (1024.0f * 1024.0f), FBResBSBuffer, 2);
 
-        TerminalDrawString("  Framebuffer #");
+        TerminalDrawString("\tFramebuffer #");
         TerminalDrawChar(FBIndex + '0', true);
         TerminalDrawString(": ");
         TerminalDrawString(FBResWidthBuffer);
@@ -488,4 +683,46 @@ void DisplaySystemInfo()
     TerminalDrawMessage("Firmware type is \"", INFO);
     TerminalDrawString(FirmwareType);
     TerminalDrawString("\"\n\r");
+    DrawMEMInfo();
+}
+
+// Display total memory and each mem subcategory
+void DrawMEMInfo()
+{
+    char MEMBuffer[32];
+
+    IntToStr(TotalRAMKB, MEMBuffer, 10);
+    TerminalDrawMessage("Detected ", INFO);
+    TerminalDrawString(MEMBuffer);
+    TerminalDrawString("KB of RAM\n\r");
+
+    IntToStr(BootLDRReclaimableRAMKB, MEMBuffer, 10);
+    TerminalDrawString("\t");
+    TerminalDrawString(MEMBuffer);
+    TerminalDrawString("KB bootloader reclaimable\n\r");
+
+    IntToStr(ACPIReclaimableRAMKB, MEMBuffer, 10);
+    TerminalDrawString("\t");
+    TerminalDrawString(MEMBuffer);
+    TerminalDrawString("KB ACPI reclaimable\n\r");
+
+    IntToStr(DeclaredUsableRAMKB, MEMBuffer, 10);
+    TerminalDrawString("\t");
+    TerminalDrawString(MEMBuffer);
+    TerminalDrawString("KB declared safe for allocation\n\r");
+
+    IntToStr(EXECAndModsRAMKB, MEMBuffer, 10);
+    TerminalDrawString("\t");
+    TerminalDrawString(MEMBuffer);
+    TerminalDrawString("KB executables / modules\n\r");
+
+    IntToStr(ReservedRAMKB, MEMBuffer, 10);
+    TerminalDrawString("\t");
+    TerminalDrawString(MEMBuffer);
+    TerminalDrawString("KB reserved\n\r");
+
+    IntToStr(ACPINVSRAMKB, MEMBuffer, 10);
+    TerminalDrawString("\t");
+    TerminalDrawString(MEMBuffer);
+    TerminalDrawString("KB ACPI non-volatile storage\n\r");
 }

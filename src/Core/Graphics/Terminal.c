@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <Limine.h>
+#include "Utilities/MathUtils.h"
 #include "Drivers/HID/Keyboard.h"
 #include "Drivers/IO/Serial.h"
 #include "Terminal.h"
@@ -151,20 +152,69 @@ void SetScrollRow(int Row)
     ScrollRow = (FONT_HEIGHT * Row) + FONT_HEIGHT;
 }
 
-void ScrollTerminal(int Rows __attribute__((unused)))
+void ScrollTerminal(int Direction)
 {
-    // Scroll up by X rows
-    for (int Row = ScrollRow; Row < ScreenHeight; Row++) {
-        for (int Column = 0; Column < ScreenWidth; Column++) {
-            CurrentFB[(Row - FONT_HEIGHT) * FBPitchOffset + Column] =
-                CurrentFB[Row * FBPitchOffset + Column];
-        }
+    if (AbsValue(Direction) != 1)
+    {
+        return;
     }
 
-    // Clear the bottom row
-    for (int Row = ScreenHeight - FONT_HEIGHT; Row < ScreenHeight; Row++) {
-        for (int Column = 0; Column < ScreenWidth; Column++) {
-            CurrentFB[Row * FBPitchOffset + Column] = 0x00000000;
+    if (Direction > 0)
+    {
+        // Scroll up by X rows
+        for (int Row = ScrollRow; Row < ScreenHeight; Row++)
+        {
+            for (int Column = 0; Column < ScreenWidth; Column++)
+            {
+                CurrentFB[(Row - FONT_HEIGHT) * FBPitchOffset + Column] = CurrentFB[Row * FBPitchOffset + Column];
+            }
+        }
+        
+        for (int Row = ScreenHeight - FONT_HEIGHT; Row < ScreenHeight; Row++)
+        {
+            for (int Column = 0; Column < ScreenWidth; Column++)
+            {
+                CurrentFB[Row * FBPitchOffset + Column] = 0x00000000;
+            }
+        }
+    }
+    else
+    {
+        // Scroll the screen DOWN by FONT_HEIGHT rows
+        // Move lines bottom to top to avoid overwriting
+        for (int Row = ScreenHeight - FONT_HEIGHT - 1; Row >= 0; Row--)
+        {
+            for (int Column = 0; Column < ScreenWidth; Column++)
+            {
+                CurrentFB[(Row + FONT_HEIGHT) * FBPitchOffset + Column] = CurrentFB[Row * FBPitchOffset + Column];
+            }
+        }
+
+        // Clear the TOP FONT_HEIGHT rows (they're now new whitespace)
+        for (int Row = 0; Row < FONT_HEIGHT; Row++)
+        {
+            for (int Column = 0; Column < ScreenWidth; Column++)
+            {
+                CurrentFB[Row * FBPitchOffset + Column] = TerminalBGColor;
+            }
+        }
+    }
+}
+
+void InvertColorOfTextBlock()
+{
+    for (int Y = 0; Y < FONT_HEIGHT; Y++)
+    {
+        for (int X = 0; X < FONT_WIDTH; X++)
+        {
+            if (GetPixel(X + CursorXPos, Y + CursorYPos) == TerminalBGColor)
+            {
+                SetPixel(X + CursorXPos, Y + CursorYPos, TerminalFGColor);
+            }
+            else if (GetPixel(X + CursorXPos, Y + CursorYPos) == TerminalFGColor)
+            {
+                SetPixel(X + CursorXPos, Y + CursorYPos, TerminalBGColor);
+            }
         }
     }
 }
