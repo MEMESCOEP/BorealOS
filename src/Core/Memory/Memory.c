@@ -160,6 +160,22 @@ void ParseMEMMap()
     TotalRAMKB = BootLDRReclaimableRAMKB + ACPIReclaimableRAMKB + DeclaredUsableRAMKB + EXECAndModsRAMKB + ReservedRAMKB + ACPINVSRAMKB;
 }
 
+// Get the first best memory map entry for a given size and type
+struct limine_memmap_entry * GetBestMEMMapEntry(uint64_t size, uint32_t type) {
+    for (uint64_t i = 0; i < MEMMapRequest.response->entry_count; i++) {
+        struct limine_memmap_entry *entry = MEMMapRequest.response->entries[i];
+        if (entry->type == type && entry->length >= size) {
+            return entry;
+        }
+    }
+
+    return NULL;
+}
+
+struct limine_memmap_response * GetMEMMapResponse() {
+    return MEMMapRequest.response;
+}
+
 // GCC and Clang reserve the right to generate calls to the following
 // 4 functions even if they are not directly called.
 // Implement them as the C specification mandates.

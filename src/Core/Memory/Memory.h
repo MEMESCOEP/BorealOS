@@ -54,6 +54,8 @@ extern uint64_t TotalRAMKB;
 
 /* FUNCTIONS */
 void ParseMEMMap();
+struct limine_memmap_entry* GetBestMEMMapEntry(uint64_t size, uint32_t type);
+struct limine_memmap_response* GetMEMMapResponse();
 void *MemCPY(void *dest, const void *src, size_t n);
 void *MemSet(void *s, int c, size_t n);
 void *MemMove(void *dest, const void *src, size_t n);
