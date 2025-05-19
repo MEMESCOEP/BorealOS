@@ -26,8 +26,8 @@
 #include "Core/Power/ACPI.h"
 #include "Core/IO/RegisterIO.h"
 #include "Core/Memory/Memory.h"
+ #include "Core/Memory/PhysicalAllocator.h"
 #include "Kernel.h"
-
 
 /* VARIABLES */
 struct limine_framebuffer* FBInfo;
@@ -520,6 +520,10 @@ void KernelStart(void)
 
     TerminalDrawMessage("Parsing MEMMAP...\n\r", INFO);
     ParseMEMMap();
+
+    TerminalDrawMessage("Initializing Physical Memory Allocator...\n\r", INFO);
+    InitPhysicalMemoryAllocator();
+    TestPhysicalMemoryAllocator(); // Make sure it works, this is fine for prod shouldn't take too long at all. Unless you run this on some ancient toaster
 
     TerminalDrawMessage("Initializing FPU...\n\r", INFO);
     InitFPU();
