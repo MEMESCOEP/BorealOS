@@ -25,7 +25,7 @@
 #include "Core/Devices/PIC.h"
 #include "Core/Power/ACPI.h"
 #include "Core/IO/RegisterIO.h"
-#include "Core/IO/Memory.h"
+#include "Core/Memory/Memory.h"
 #include "Kernel.h"
 
 

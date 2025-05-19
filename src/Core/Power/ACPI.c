@@ -5,7 +5,7 @@
 #include <Limine.h>
 #include "Utilities/StrUtils.h"
 #include "Core/Graphics/Terminal.h"
-#include "Core/IO/Memory.h"
+#include "../Memory/Memory.h"
 #include "Kernel.h"
 #include "ACPI.h"
 
