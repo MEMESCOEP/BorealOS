@@ -1,10 +1,10 @@
 /* LIBRARIES */
-#include <xmmintrin.h>
-#include "MathUtils.h"
+#include <Utilities/MathUtils.h>
+//#include <xmmintrin.h>
 
 
 /* FUNCTIONS */
-void SSEVectorAdd(float *A, float *B, float *Result, int Size)
+/*void SSEVectorAdd(float *A, float *B, float *Result, int Size)
 {
     for (int i = 0; i < Size; i += 4)
     {
@@ -18,7 +18,7 @@ void SSEVectorAdd(float *A, float *B, float *Result, int Size)
         // Store the result back into the result array
         _mm_storeu_ps(&Result[i], VResult);
     }
-}
+}*/
 
 // Return a decimal base raised to an integer exponent.
 float IntExpPow(float Base, int Exponent)

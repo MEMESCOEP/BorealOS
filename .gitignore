@@ -1,10 +1,9 @@
 
-/.vscode
-/bin
-BorealOS.iso
-HDD.img
-/ISORoot
-/obj
+/build
+*.d
+*.o
+.vscode/settings.json
+*.iso
 BuildLog.txt
-SerialOutput.txt
-/limine
+/Logs
+*.img

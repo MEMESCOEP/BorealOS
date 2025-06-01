@@ -225,7 +225,6 @@ def StartBuild():
         Thread(target=DrawSpinner, args=(SpinnerQueue,), daemon=True).start()
         StartProcess(["make", "clean"])
         StartProcess("make")
-        StartProcess("./MakeISO.sh")
 
     except Exception as EX:
         WriteStatusMsg(BuildStatusSubWin, f"Build failed: {EX}", 0, StatusMsgTypes.ERROR)

@@ -1,21 +1,136 @@
 /* LIBRARIES */
-#include "Utilities/StrUtils.h"
-#include "Core/Graphics/Terminal.h"
-#include "Core/Devices/PIC.h"
-#include "Core/IO/RegisterIO.h"
-#include "Kernel.h"
-#include "Mouse.h"
+#include <Utilities/StrUtils.h>
+#include <Drivers/HID/Mouse.h>
+#include <Core/Graphics/Console.h>
+#include <Core/IO/RegisterIO.h>
 
 
 /* VARIABLES */
+struct MouseState CurrentMouseState;
 uint8_t ACKResponse;
+uint8_t MouseCycle = 0;
+uint8_t MaxDelta = 200;
 uint8_t MouseID = 0;
+int ScreenDimensions[2] = {0, 0};
 int MousePos[2] = {0, 0};
 int XSensitivity = 1;
 int YSensitivity = 1;
 
 
 /* FUNCTIONS */
+uint8_t MouseRead()
+{
+	MouseWait(0);
+	return InB(PS2_MOUSE_DATA_REG);
+}
+
+void PS2MouseHandler()
+{
+    uint8_t Status = InB(PS2_MOUSE_STATUS_REG);
+
+    // Make sure data is actually available by checking bit 0; it should always be 1 if the packet has data.
+    if ((Status & 0x01) != 1)
+    {
+        return;
+    }
+
+    // Validate the packet by checking if bit 5 is set, as it always should be.
+    // See the status byte section of the osdev mouse input wiki page:
+    // https://wiki.osdev.org/Mouse_Input#Additional_Useless_Mouse_Commands
+    if ((Status & 0x20) == 0)
+    {
+        return;
+    }
+
+    switch (MouseCycle)
+    {
+        // Mouse byte #1, state byte.
+        case 0:
+            uint8_t State = MouseRead();
+
+            //CurrentMouseState.ScrollDelta = 0;
+            CurrentMouseState.DeltaX = 0;
+            CurrentMouseState.DeltaY = 0;
+
+            // Verify the state byte.
+            if (State == 0x00)
+            {
+                break;
+            }
+
+            if (!(State & 0x08))
+            {
+                /*DrawString(0, 0, "PS/2 mouse state byte verification failure:", 0xFFFFFF, 0x161616);
+                
+                for (int i = sizeof(State) - 1; i >= 0; i--)
+                {
+                    // Check the ith bit of num
+                    if ((State >> i) & 1)
+                    {
+                        DrawString(i * 8, 16, "1", 0xFFFFFF, 0x161616);
+                    }
+                    else
+                    {
+                        DrawString(i * 8, 16, "0", 0xFFFFFF, 0x161616);
+                    }
+                }*/
+
+                break;
+            }
+
+            // Discard the packet if the X and/or Y overflow bits are set.
+            if ((State & 0x80) != 0 || (State & 0x40) != 0)
+            {
+                break;
+            }
+
+            // Check bits 00000111 (In order from right to left: left, right, middle).
+            CurrentMouseState.LeftButtonPressed = (State & 0x01) != 0;
+            CurrentMouseState.RightButtonPressed = (State & 0x02) != 0;
+            CurrentMouseState.MiddleButtonPressed = (State & 0x04) != 0;
+            MouseCycle++;
+
+            break;
+
+        // Mouse byte #2, X delta.
+        case 1:
+            CurrentMouseState.DeltaX = MouseRead();
+            CurrentMouseState.DeltaSigns[0] = (CurrentMouseState.DeltaX > 0) - (CurrentMouseState.DeltaX < 0);
+            MouseCycle++;
+            break;
+
+        // Mouse byte #3, Y delta.
+        case 2:
+            CurrentMouseState.DeltaY = MouseRead();
+            CurrentMouseState.DeltaSigns[1] = (CurrentMouseState.DeltaY > 0) - (CurrentMouseState.DeltaY < 0);
+
+            // Clamp the mouse delta to any int between -MaxDelta and MaxDelta, and add it to the current mouse position
+            MousePos[0] += IntMin(IntMax(CurrentMouseState.DeltaX, -MaxDelta), MaxDelta) * XSensitivity;
+            MousePos[1] -= IntMin(IntMax(CurrentMouseState.DeltaY, -MaxDelta), MaxDelta) * YSensitivity;
+
+            // Ensure the mouse position is inside of the screen boundaries.
+            MousePos[0] = IntMin(IntMax(MousePos[0], 0), ScreenDimensions[0]);
+            MousePos[1] = IntMin(IntMax(MousePos[1], 0), ScreenDimensions[1]);
+            
+            if (MouseID != 3)
+            {
+                MouseCycle = 0;
+            }
+            else
+            {
+                MouseCycle++;
+            }
+
+            break;
+
+        // Optional mouse byte #4.
+        case 3:
+            CurrentMouseState.ScrollDelta = MouseRead();
+            MouseCycle = 0;
+            break;
+    }
+}
+
 void MouseWait(uint8_t MType)
 {
 	uint32_t Timeout = PS2_MOUSE_TIMEOUT;
@@ -30,7 +145,7 @@ void MouseWait(uint8_t MType)
 			}
 		}
 
-		TerminalDrawMessage("PS/2 mouse did not respond (BBIT)\n\r", WARNING);
+		//LOG_KERNEL_MSG("PS/2 mouse did not respond (BBIT)\n\r", WARN);
 	}
     else
     {
@@ -42,7 +157,7 @@ void MouseWait(uint8_t MType)
 			}
 		}
 
-		TerminalDrawMessage("PS/2 mouse did not respond (ABIT)\n\r", WARNING);
+		//LOG_KERNEL_MSG("PS/2 mouse did not respond (ABIT)\n\r", WARN);
 	}
 }
 
@@ -55,14 +170,11 @@ void MouseWrite(uint8_t Data)
 	OutB(PS2_MOUSE_DATA_REG, Data);
 }
 
-uint8_t MouseRead()
-{
-	MouseWait(0);
-	return InB(PS2_MOUSE_DATA_REG);
-}
-
 void InitPS2Mouse()
 {
+    LOG_KERNEL_MSG("\tConfiguring interrupt handler...\n\r", NONE);
+    IDTSetIRQHandler(12, PS2MouseHandler);
+
     MouseWait(1);
     OutB(PS2_MOUSE_STATUS_REG, 0xA8);
 
@@ -79,110 +191,96 @@ void InitPS2Mouse()
 	OutB(PS2_MOUSE_DATA_REG, Status);
 
     // Change the mouse ID to 0x03 from 0x00.
-    TerminalDrawMessage("Changing PS/2 mouse ID to 0x03 from 0x00...\n\r\tM_ID STAGE 1/1.\n\r", INFO);
+    LOG_KERNEL_MSG("\tChanging mouse ID to 0x03 from 0x00...\n\r", NONE);
     MouseWrite(0xF3);
     MouseRead();
     MouseWrite(200);
     MouseRead();
 
-    TerminalDrawString("\tM_ID STAGE 1/2.\n\r");
     MouseWrite(0xF3);
     MouseRead();
     MouseWrite(100);
     MouseRead();
 
-    TerminalDrawString("\tM_ID STAGE 1/3.\n\r");
     MouseWrite(0xF3);
     MouseRead();
     MouseWrite(80);
     MouseRead();
 
-    TerminalDrawString("\tM_ID STAGE 1/4.\n\r");
     MouseWrite(0xF2);
     MouseWait(1);
     MouseRead();
     MouseID = MouseRead();
     char MIDBuffer[8];
 
-    IntToStr(MouseID, MIDBuffer, 16);
-    TerminalDrawString("\n\r");
-    TerminalDrawMessage("Mouse ID is: 0x", INFO);
-    TerminalDrawString(MIDBuffer);
-    TerminalDrawString("\n\r");
-
     if (MouseID == 0x03)
     {
         // Now change the mouse ID from 0x03 to 0x04 with 4 1-byte packets.
-        TerminalDrawMessage("Changing PS/2 mouse ID to 0x04 form 0x03...\n\r", INFO);
-        TerminalDrawString("\tM_ID STAGE 2/1.\n\r");
+        LOG_KERNEL_MSG("\tChanging mouse ID to 0x04 from 0x03...\n\r", NONE);
         MouseWrite(0xF3);
         MouseRead();
         MouseWrite(200);
         MouseRead();
 
-        TerminalDrawString("\tM_ID STAGE 2/2.\n\r");
         MouseWrite(0xF3);
         MouseRead();
         MouseWrite(200);
         MouseRead();
 
-        TerminalDrawString("\tM_ID STAGE 2/3.\n\r");
         MouseWrite(0xF3);
         MouseRead();
         MouseWrite(80);
         MouseRead();
 
-        //MouseID = 0;
         MouseWrite(0xF2);
         MouseWait(1);
         MouseRead();
         MouseID = MouseRead();
 
-        IntToStr(MouseID, MIDBuffer, 16);
-        TerminalDrawString("\n\r");
-        TerminalDrawMessage("Mouse ID is: 0x", INFO);
-        TerminalDrawString(MIDBuffer);
-        TerminalDrawString("\n\r");
-
         if (MouseID != 0x04)
         {
-            TerminalDrawMessage("PS/2 Mouse ID did not change from 0x03 to 0x04, this is probably a 3-button mouse.\n\r", WARNING);
+            LOG_KERNEL_MSG("\tPS/2 Mouse ID did not change from 0x03 to 0x04, this is probably a 3-button mouse.\n\r", WARN);
         }
     }
     else
     {
-        TerminalDrawMessage("PS/2 Mouse ID did not change from 0x00 to 0x03, this mouse probably has no scroll wheel.\n\r", WARNING);
+        LOG_KERNEL_MSG("\tPS/2 Mouse ID did not change from 0x00 to 0x03, this mouse probably has no scroll wheel.\n\r", WARN);
     }
 
     // Set the mouse sample rate to 60/s.
-    TerminalDrawMessage("Setting mouse sample rate to 60/s...\n\r", INFO);
+    LOG_KERNEL_MSG("\tSetting mouse sample rate to 60/s...\n\r", NONE);
     MouseWrite(0xF3);
     MouseRead();
     MouseWrite(60);
     MouseRead();
 
     // Set the mouse resolution to 4 counts per millimeter.
-    TerminalDrawMessage("Setting mouse resolution to 4 counts/mm...\n\r", INFO);
+    LOG_KERNEL_MSG("\tSetting mouse resolution to 4 counts/mm...\n\r", NONE);
     MouseWrite(0xE8);
     MouseRead();
     MouseWrite(0x02);
     MouseRead();
 
     // Enable the mouse's data reporting (command 0xF4) and check for ACK response.
-    TerminalDrawMessage("Enabling PS/2 mouse packet streaming...\n\r", INFO);
+    LOG_KERNEL_MSG("\tEnabling packet streaming...\n\r", NONE);
     MouseWrite(0xF4);
 
     ACKResponse = MouseRead();
 
     if (ACKResponse != PS2_MOUSE_ACK)
     {
-        TerminalDrawMessage("PS/2 mouse failed to acknowledge packet streaming command (0xF4).\n\r", INFO);
+        LOG_KERNEL_MSG("\tPS/2 mouse failed to acknowledge packet streaming command (0xF4), init will be stopped.\n\r", WARN);
         return;
     }
 
-    TerminalDrawMessage("Unmasking PS/2 mouse IRQs (#2 & #12)...\n\r", INFO);
+    LOG_KERNEL_MSG("\tGetting framebuffer dimensions...\n\r", NONE);
+    GfxGetDimensions(&ScreenDimensions[0], &ScreenDimensions[1]);
+
+    LOG_KERNEL_MSG("\tUnmasking mouse IRQs (#2 & #12)...\n\r", NONE);
     PICClearIRQMask(2);
     PICClearIRQMask(12);
+
+    LOG_KERNEL_MSG("\tPS/2 mouse init done.\n\n\r", NONE);
 }
 
 void PS2SetSampleRate(int SampleRate)

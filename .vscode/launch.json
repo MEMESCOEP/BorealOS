@@ -1,0 +1,38 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Compile and run in Bochs",
+            "type": "f5anything",
+            "request": "launch",
+            "command": "clear && ${workspaceFolder}/VSCCmpDbg.sh --Bochs",
+        },
+        {
+            "name": "Compile and run in QEMU",
+            "type": "f5anything",
+            "request": "launch",
+            "command": "clear && ${workspaceFolder}/VSCCmpDbg.sh --QEMU",
+        },
+        {
+            "name": "Compile only",
+            "type": "f5anything",
+            "request": "launch",
+            "command": "clear && ${workspaceFolder}/VSCCmpDbg.sh --NoDBG",
+        },
+        {
+            "name": "Run in Bochs only",
+            "type": "f5anything",
+            "request": "launch",
+            "command": "clear && ${workspaceFolder}/VSCCmpDbg.sh --Bochs --OnlyDBG",
+        },
+        {
+            "name": "Run in QEMU only",
+            "type": "f5anything",
+            "request": "launch",
+            "command": "clear && ${workspaceFolder}/VSCCmpDbg.sh --QEMU --OnlyDBG",
+        },
+    ]
+}

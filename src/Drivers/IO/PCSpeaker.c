@@ -1,13 +1,13 @@
 /* LIBRARIES */
+#include <Core/IO/RegisterIO.h>
 #include <stdint.h>
-#include "Core/IO/RegisterIO.h"
-#include "Core/Devices/PIT.h"
+//#include <Core/Devices/PIT.h>
 
 
 /* FUNCTIONS */
 void PCSpeakerPlayTone(uint32_t FrequencyHz)
 {
-    SetPITFrequency(FrequencyHz);
+    //SetPITFrequency(FrequencyHz);
  
     // Play the sound.
     uint8_t TReg = InB(0x61);

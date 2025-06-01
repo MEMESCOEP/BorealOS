@@ -1,11 +1,11 @@
 /* LIBRARIES */
+#include <Utilities/StrUtils.h>
+#include <Core/Graphics/Console.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
-#include "Core/Graphics/Terminal.h"
-#include "Core/Devices/FPU.h"
-#include "StrUtils.h"
-#include "Kernel.h"
+//#include "Core/Devices/FPU.h"
+//#include "Kernel.h"
 
 
 /* FUNCTIONS */
@@ -30,7 +30,7 @@ void StrCat(char* Str1, char* Str2, char* Buffer)
     Buffer[i + j] = '\0';
 }
 
-void IntToStr(uint64_t Num, char *Buffer, int Base)
+void IntToStr(uint32_t Num, char *Buffer, int Base)
 {
     // Zero is a special case, so we'll handle this manually.
     if (Num == 0)
@@ -89,10 +89,10 @@ void FloatToStr(float Num, char *Buffer, int DecimalPlaces)
 {
     bool NegativeNum = false;
 
-    if (FPUInitialized == false)
+    /*if (FPUInitialized == false)
     {
         KernelPanic(0, "FPU must be initialized before using floating point math operations!");
-    }
+    }*/
 
     if (Num < 0.0f)
     {
@@ -198,6 +198,43 @@ void TrimTrailingWhitespace(char* String)
     }
 }
 
+void PrintNum(int Number, int Base)
+{
+    if (Base < 2 || Base > 36) return;  // Safety check
+    
+    if (Number == 0)
+    {
+        ConsolePutChar('0');
+        return;
+    }
+    
+    int TMP = Number;
+    int Div = 1;
+
+    if (TMP < 0)
+    {
+        ConsolePutChar('-');
+        TMP = -TMP;
+    }
+    
+    while (TMP / Div >= Base)
+        Div *= Base;
+
+    while (Div > 0)
+    {
+        int Digit = TMP / Div;
+        
+        if (Digit < 10)
+            ConsolePutChar(Digit + '0');
+
+        else
+            ConsolePutChar(Digit - 10 + 'A');
+        
+        TMP %= Div;
+        Div /= Base;
+    }
+}
+
 // Determine the number of characters in a string.
 int StrLen(char* String)
 {
@@ -223,6 +260,26 @@ int StrCmp(const char *Str1, const char *Str2)
 {
     while (*Str1 && *Str1 == *Str2) { ++Str1; ++Str2; }
     return (int)(unsigned char)(*Str1) - (int)(unsigned char)(*Str2);
+}
+
+int LastIndexOfChar(const char* Str, const char CharToLookFor)
+{
+    // Make sure the string is not null
+    if (Str == NULL)
+    {
+        return -1;
+    }
+
+    for (int CharIndex = StrLen(Str) - 1; CharIndex > 0; CharIndex--)
+    {
+        if (Str[CharIndex] == CharToLookFor)
+        {
+            return CharIndex;
+        }
+    }
+
+    // The char wasn't found int the string, it's common to return -1 in this case
+    return -1;
 }
 
 // Does the input string start with the specifies substring?

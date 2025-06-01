@@ -3,13 +3,13 @@
 
 
 /* LIBRARIES */
-#include "Utilities/StrUtils.h"
-#include "Core/Graphics/Terminal.h"
-#include "Core/Devices/DeviceControllers/PS2Controller.h"
-#include "Core/Devices/PIC.h"
-#include "Core/IO/RegisterIO.h"
-#include "Keyboard.h"
-#include "Kernel.h"
+#include <Utilities/StrUtils.h>
+#include <Drivers/HID/Keyboard.h>
+#include <Core/Graphics/Console.h>
+#include <Core/IO/PS2Controller.h>
+#include <Core/IO/RegisterIO.h>
+#include <Core/IO/PIC.h>
+//#include "Kernel.h"
 
 
 /* VARIABLES */
@@ -279,19 +279,32 @@ void PrintScancodeAsHex(int Scancode)
 {
     char ScancodeBuffer[4];
     IntToStr(Scancode, ScancodeBuffer, 16);
-    TerminalDrawString("0x");
-    TerminalDrawString(ScancodeBuffer);
+    ConsolePutString("0x");
+    ConsolePutString(ScancodeBuffer);
 }
 
 // Wait for the status register to have bit 1 set, which means that the input buffer is full
 void PS2KBWaitForData()
-{    
-    while ((InB(KEYBOARD_COMMAND_REG) & 0x01) == 0);
+{
+    int Timeout = 10000;
+
+    while ((InB(KEYBOARD_COMMAND_REG) & 0x01) == 0)
+    {
+        if (Timeout <= 0)
+        {
+            break;
+        }
+
+        Timeout--;
+    }
 }
 
 // Set the PS/2 keyboard's scancode set to 1 and unmask PIC IRQ 1
 void InitPS2Keyboard()
 {
+    LOG_KERNEL_MSG("\tConfiguring interrupt handler...\n\r", NONE);
+    IDTSetIRQHandler(1, PS2KBHandleScancode);
+
     // Set the keyboard scancode set to 1 and unmask IRQ1
     int ScancodeSetResult = PS2SetScancodeSet(0x01);
 
@@ -313,14 +326,18 @@ void InitPS2Keyboard()
             break;
     }
 
-    TerminalDrawMessage("Unmasking PS/2 keyboard interrupt #1...\n\r", INFO);
+    
+    //ConsolePutString("[INFO] >> Setting PS/2 keyboard LEDs...\n\r");
+    //PS2KBSetLEDs(NumLockToggled, CapsLockToggled, ScrollLockToggled);
+
+    LOG_KERNEL_MSG("\tUnmasking keyboard interrupt #1...\n\r", NONE);
     PICClearIRQMask(1);
+    
     NewKeyIsAvailable = false;
     LastReleasedInput = 0;
     LastInput = 0;
-    
-    //TerminalDrawString("[INFO] >> Setting PS/2 keyboard LEDs...\n\r");
-    //PS2KBSetLEDs(NumLockToggled, CapsLockToggled, ScrollLockToggled);
+
+    LOG_KERNEL_MSG("\tPS/2 keyboard init finished.\n\n\r", NONE);
 }
 
 // Turn the keyboard LEDs on/off with booleans
@@ -351,16 +368,26 @@ void PS2KBSetLEDs(bool NumLock, bool CapsLock, bool ScrollLock)
 }
 
 // Handle a scancode that a PS/2 keyboard generated
-void PS2KBHandleScancode(int Scancode)
+void PS2KBHandleScancode()
 {
-    // Unknown data that seems to be sent only once after init
-    if ((Scancode == 0x03 || Scancode == 0x07) && InvalidScancodeCount > 0)
+    uint8_t status = InB(0x64);
+
+    if (!(status & 0x20)) // Keyboard data ready
     {
-        InvalidScancodeCount--;
-        return;
+        uint8_t Scancode = InB(0x60);
+
+        // Unknown data that seems to be sent only once after init
+        if ((Scancode == 0x03 || Scancode == 0x07) && InvalidScancodeCount > 0)
+        {
+            InvalidScancodeCount--;
+            return;
+        }
+
+        if (Scancode < 0x80)
+            ConsolePutChar(KBScanmapUnshifted[Scancode]);
     }
 
-    NewKeyIsAvailable = true;
+    /*NewKeyIsAvailable = true;
 
     switch (Scancode)
     {
@@ -468,5 +495,5 @@ void PS2KBHandleScancode(int Scancode)
         default:
             LastInput = Scancode;
             break;
-    }
+    }*/
 }
