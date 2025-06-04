@@ -183,6 +183,7 @@ void LogWithStackTrace(char *str, enum LogLevel level, int LineNumber, char* Fil
     // Send the same data over serial
     SendCharSerial(ActiveSerialPort, '[');
     SendStringSerial(ActiveSerialPort, Filename);
+    SendCharSerial(ActiveSerialPort, ']');
     SendCharSerial(ActiveSerialPort, ':');
 
 
