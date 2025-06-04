@@ -16,6 +16,7 @@
 #include <Core/Power/ACPI.h>
 #include <Core/IO/PS2Controller.h>
 #include <Core/IO/PIC.h>
+#include <Core/Memory/PhysicalMemoryManager.h>
 #include <stdint.h>
 
 
@@ -54,8 +55,17 @@ void KernelStart(uint32_t Magic, uint32_t InfoPtr)
         }
     }
 
+    // Initialize the Physical Memory Manager
+    PhysicalMemoryManagerInit((void*)InfoPtr);
+
     // Find the framebuffer and initialize graphics with the specified address, dimension, BPP and pitch
     MB2Framebuffer_t* MB2FramebufferTag = FindMB2Tag(MB2_TAG_FRAMEBUFFER, (void*)InfoPtr);
+
+    SendStringSerial(SERIAL_COM1, "Graphics address: 0x");
+    char framebufferAddrStr[25];
+    IntToStr(MB2FramebufferTag->Addr, framebufferAddrStr, 16);
+    SendStringSerial(SERIAL_COM1, framebufferAddrStr);
+    SendStringSerial(SERIAL_COM1, "\n\r");
 
     GfxInit(
         (void *)(uintptr_t)MB2FramebufferTag->Addr,
@@ -124,6 +134,15 @@ void KernelStart(uint32_t Magic, uint32_t InfoPtr)
 
 void KernelPanic(int ErrorCode, char* ErrorMessage)
 {
+    SendStringSerial(SERIAL_COM1, "Kernel panic!\n\r");
+    SendStringSerial(SERIAL_COM1, "Reason: ");
+    SendStringSerial(SERIAL_COM1, ErrorMessage);
+    SendStringSerial(SERIAL_COM1, "\n\rCode: ");
+    char ErrorCodeStr[25];
+    IntToStr(ErrorCode, ErrorCodeStr, 10);
+    SendStringSerial(SERIAL_COM1, ErrorCodeStr);
+    SendStringSerial(SERIAL_COM1, "\n\r");
+
     uint8_t X, Y;
 
     // Print the panic details

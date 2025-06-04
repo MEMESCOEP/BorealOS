@@ -11,5 +11,16 @@ if [ ! -f "./HDD.img" ]; then
 fi
 
 make clean
+if [ $? -ne 0 ]; then
+    echo "Make clean failed!"
+    exit 1
+fi
+
 make
+
+if [ $? -ne 0 ]; then
+    echo "Make failed!"
+    exit 1
+fi
+
 ./QEMU.sh
