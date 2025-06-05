@@ -1,8 +1,14 @@
 #ifndef MATHUTILS_H
 #define MATHUTILS_H
 
+/* LIBRARIES */
 #include <stddef.h>
 #include <stdint.h>
+
+
+/* DEFINITIONS*/
+#define OffsetOf(type, member) ((size_t)&(((type *)0)->member))
+
 
 /* FUNCTIONS */
 //float Log10(float Number);

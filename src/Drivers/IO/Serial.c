@@ -22,7 +22,7 @@ void InitSerialPort(int COMPort)
 
     LOG_KERNEL_MSG("Initializing serial port...", INFO);
     ConsolePutString("\tSerial port to initialize is at address 0x");
-    PrintNum(COMPort, 16);
+    PrintSignedNum(COMPort, 16);
     ConsolePutString(".\n\r");
 
     LOG_KERNEL_MSG("\tEnabling divisor mode and setting baud rate to 38400...", NONE);
@@ -46,14 +46,8 @@ void InitSerialPort(int COMPort)
 
     if(SerialResponse != 0xAE)
     {
-        char SerialResponseBuffer[4];
-
-        /*if (FBExists == false)
-            return*/
-
-        IntToStr(SerialResponse, SerialResponseBuffer, 16);
         LOG_KERNEL_MSG("Serial init failed due to a faulty/non-existing serial chip. Expected 0xAE but got 0x", WARN);
-        ConsolePutString(SerialResponseBuffer);
+        PrintUnsignedNum(SerialResponse, 16);
         ConsolePutString("\n\r");
         return;
     }

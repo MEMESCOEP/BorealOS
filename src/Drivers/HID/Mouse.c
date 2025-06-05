@@ -2,6 +2,7 @@
 #include <Utilities/StrUtils.h>
 #include <Drivers/HID/Mouse.h>
 #include <Core/Graphics/Console.h>
+#include <Core/IO/PS2Controller.h>
 #include <Core/IO/RegisterIO.h>
 
 
@@ -121,6 +122,7 @@ void PS2MouseHandler()
                 MouseCycle++;
             }
 
+            GfxDrawChar('$', MousePos[0], MousePos[1], 0xFFFFFF, 0x000000);
             break;
 
         // Optional mouse byte #4.
@@ -172,6 +174,12 @@ void MouseWrite(uint8_t Data)
 
 void InitPS2Mouse()
 {
+    if (PS2Initialized == false)
+    {
+        LOG_KERNEL_MSG("\tThe PS/2 controller was not initialized properly, the PS/2 mouse cannot be initialized.\n\n\r", WARN);  
+        return;
+    }
+
     LOG_KERNEL_MSG("\tConfiguring interrupt handler...\n\r", NONE);
     IDTSetIRQHandler(12, PS2MouseHandler);
 

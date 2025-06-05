@@ -1,20 +1,23 @@
 /* LIBRARIES */
+#include <Utilities/MathUtils.h>
+#include <Utilities/BitUtils.h>
 #include <Utilities/StrUtils.h>
 #include <Drivers/HID/Keyboard.h>
 #include <Core/Graphics/Console.h>
-//#include <Core/Power/ACPI.h>
+#include <Core/Power/ACPI.h>
 #include <Core/IO/PS2Controller.h>
-#include "Core/IO/RegisterIO.h"
+#include <Core/IO/RegisterIO.h>
 #include <stdint.h>
 
 
 /* VARIABLES */
+bool PS2Initialized = false;
 bool Port1Useable = false;
 bool Port2Useable = false;
 
 
 /* FUNCTIONS */
-void PS2Wait(uint8_t BitToCheck, bool WaitForSet)
+bool PS2Wait(uint8_t BitToCheck, bool WaitForSet)
 {
     int Timeout = 10000;
 
@@ -24,7 +27,7 @@ void PS2Wait(uint8_t BitToCheck, bool WaitForSet)
         {
             if (Timeout <= 0)
             {
-                break;
+                return false;
             }
 
             Timeout--;
@@ -36,12 +39,14 @@ void PS2Wait(uint8_t BitToCheck, bool WaitForSet)
         {
             if (Timeout <= 0)
             {
-                break;
+                return false;
             }
 
             Timeout--;
         }
     }
+
+    return true;
 }
 
 void InitPS2Controller()
@@ -52,7 +57,43 @@ void InitPS2Controller()
 
 
     // --- STEP 2 ---
-    // Determine if the PS/2 controller actually exists
+    // Determine if the PS/2 controller actually exists. This check is only valid for ACPI revisions 2.0 and later
+    if (FADTStruct->SDTHeader.Length >= OffsetOf(FADT, BootArchitectureFlags) + sizeof(uint16_t))
+    {
+        LOG_KERNEL_MSG("\tChecking if PS/2 controller exists...\n\r", NONE);
+
+        if (IS_BIT_SET(GetBootArchFlags(), 1) == false)
+        {
+            LOG_KERNEL_MSG("\tPS/2 controller does not exist according to FADT, attempting to check via probing...\n\r", WARN);
+
+            // Wait for the PS/2 input buffer to be empty
+            PS2Wait(0x02, false);
+
+            // Send self-test command
+            OutB(PS2_CMD_STATUS_PORT, 0xAA);
+
+            // Wait for the PS/2 output buffer to be full
+            PS2Wait(0x01, true);
+
+            int ProbeResult = InB(PS2_DATA_PORT);
+
+            if (ProbeResult != 0x55)
+            {
+                LOG_KERNEL_MSG("\tPS/2 controller does not exist, it will be skipped. Probing returned 0x", WARN);
+                PrintSignedNum(ProbeResult, 10);
+                ConsolePutString(".\n\n\r");
+                return;
+            }
+            else
+            {
+                LOG_KERNEL_MSG("\tPS/2 controller probing succeeded (controller exists).\n\r", NONE);
+            }
+        }
+    }
+    else
+    {
+        LOG_KERNEL_MSG("\tFADT is too old or invalid, assuming PS/2 controller exists...\n\r", WARN);
+    }
 
 
 
@@ -102,11 +143,8 @@ void InitPS2Controller()
 
     if (TestResult != 0x55)
     {
-        char ErrorBuffer[4];
-
-        IntToStr(TestResult, ErrorBuffer, 16);
         LOG_KERNEL_MSG("\tPS/2 Controller self test failed: got 0x", ERROR);
-        ConsolePutString(ErrorBuffer);
+        PrintUnsignedNum(TestResult, 16);
         ConsolePutString("\n\r");
         return;
     }
@@ -128,11 +166,8 @@ void InitPS2Controller()
 
     if (TestResult != 0x00)
     {
-        char ErrorBuffer[4];
-
-        IntToStr(TestResult, ErrorBuffer, 16);
         LOG_KERNEL_MSG("\tPS/2 Controller port 1 test failed: got 0x", ERROR);
-        ConsolePutString(ErrorBuffer);
+        PrintUnsignedNum(TestResult, 16);
         ConsolePutString("\n\r");
         Port1Useable = false;
     }
@@ -147,11 +182,8 @@ void InitPS2Controller()
 
     if (TestResult != 0x00)
     {
-        char ErrorBuffer[4];
-
-        IntToStr(TestResult, ErrorBuffer, 16);
         LOG_KERNEL_MSG("\tPS/2 Controller port 2 test failed: got 0x", ERROR);
-        ConsolePutString(ErrorBuffer);
+        PrintUnsignedNum(TestResult, 16);
         ConsolePutString("\n\r");
         Port1Useable = false;
     }
@@ -211,27 +243,42 @@ void InitPS2Controller()
 
         PS2Wait(0x01, true);
         uint8_t ResetResult = InB(0x60);
+        bool GotSelfTest = false;
+        bool PassedLoop = false;
+        bool GotACK = false;
 
-        // Sometimes keyboards will send a 0xFA first before the result of the reset
-        if (ResetResult == 0xFA)
+        for (int i = 0; i < 3; i++)
         {
-            PS2Wait(0x01, true);
+            PS2Wait(0x01, true);  // wait for output buffer full
+
             ResetResult = InB(0x60);
+
+            if (ResetResult == 0xFA)
+            {
+                GotACK = true;
+            }
+            else if (ResetResult == 0xAA)
+            {
+                GotSelfTest = true;
+            }
+            else
+            {
+                LOG_KERNEL_MSG("\tUnexpected response: 0x", WARN);
+                PrintUnsignedNum(ResetResult, 16);
+                ConsolePutString("\n\r");
+            }
+
+            if (GotACK && GotSelfTest)
+            {
+                PassedLoop = true;
+                break;
+            }
         }
 
-        if (ResetResult != 0xAA)
+        if (PassedLoop == false && GotSelfTest == false && GotACK == false)
         {
-            char ErrorBuffer[4];
-
-            IntToStr(ResetResult, ErrorBuffer, 16);
-            LOG_KERNEL_MSG("\tPS/2 KBINIT failed: got 0x", ERROR);
-            ConsolePutString(ErrorBuffer);
-            ConsolePutString("\n\r");
+            LOG_KERNEL_MSG("\tFailed to reset PS/2 keyboard!\n\r", ERROR);
         }
-        else
-        {
-            InB(0x60);
-        }        
     }
     else
     {
@@ -259,11 +306,8 @@ void InitPS2Controller()
 
         if (ResetResult != 0xAA)
         {
-            char ErrorBuffer[4];
-
-            IntToStr(ResetResult, ErrorBuffer, 16);
             LOG_KERNEL_MSG("\tPS/2 MOUSEINIT failed: got 0x", ERROR);
-            ConsolePutString(ErrorBuffer);
+            PrintUnsignedNum(ResetResult, 16);
             ConsolePutString("\n\r");
         }
         else
@@ -276,15 +320,6 @@ void InitPS2Controller()
         LOG_KERNEL_MSG("\tCan't reset device on port 2, the port isn't useable.\n\r", WARN);
     }
 
+    PS2Initialized = true;
     LOG_KERNEL_MSG("\tPS/2 controller init finished.\n\n\r", NONE);
 }
-
-/*bool PS2ControllerExists()
-{
-    if (ACPIInitialized == false)
-    {
-        KernelPanic(0, "ACPI must be properly initialized before checking if the PS/2 controller exists!");
-    }
-
-    return false;
-}*/

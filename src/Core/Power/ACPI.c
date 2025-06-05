@@ -1,63 +1,25 @@
 /* LIBRARIES */
-#include <stddef.h>
-#include <stdbool.h>
-#include <stdint.h>
 #include <Utilities/StrUtils.h>
+#include <Core/Interrupts/IDT.h>
 #include <Core/Multiboot/MB2Parser.h>
 #include <Core/Graphics/Console.h>
 #include <Core/Hardware/Firmware.h>
 #include <Core/Memory/Memory.h>
 #include <Core/Kernel/Panic.h>
 #include <Core/Power/ACPI.h>
+#include <stddef.h>
+#include <stdbool.h>
+#include <stdint.h>
 
 
 /* VARIABLES */
-// These structs don't always follow the kernel code convention, but this makes it easier to load them from an address
-typedef struct {
-  char Signature[4];
-  uint32_t Length;
-  uint8_t Revision;
-  uint8_t Checksum;
-  char OEMID[6];
-  char OEMTableID[8];
-  uint32_t OEMRevision;
-  uint32_t CreatorID;
-  uint32_t CreatorRevision;
-} ACPISDTHeader;
-
-typedef struct {
-    char     Signature[8];        // "RSD PTR "
-    uint8_t  Checksum;            // ACPI 1.0 checksum
-    char     OEMID[6];            // OEM ID
-    uint8_t  Revision;            // 0 = ACPI 1.0, 2 = ACPI 2.0+
-    uint32_t RSDTAddress;         // 32-bit RSDT pointer
-
-    // ACPI 2.0+ fields
-    uint32_t Length;              // Total length of this struct
-    uint64_t XSDTAddress;         // 64-bit XSDT pointer
-    uint8_t  ExtendedChecksum;    // Checksum of entire table
-    uint8_t  Reserved[3];
-} __attribute__((packed)) RSDPDescriptor20;
-
-typedef struct {
-    MB2Tag_t MBTag;
-    uint8_t SDP[];
-} RSDPTag;
-
-typedef struct {
-  ACPISDTHeader SDTHeader;
-  uint32_t PointerToOtherSDT[];
-} RSDT;
-
-typedef struct {
-  ACPISDTHeader SDTHeader;
-  uint64_t PointerToOtherSDT[];
-} XSDT;
-
 RSDPDescriptor20* SDPDescriptor;
 RSDPTag* NewSDP;
+FADT* FADTStruct;
 RSDT* RSDTStruct;
 XSDT* XSDTStruct;
+uint64_t SDTEntryCount = 0;
+uint64_t FACPAddress = 0x00;
 uint64_t RSDPAddress = 0x00;
 uint8_t ACPIRevision = 0;
 bool ACPIInitialized = false;
@@ -80,15 +42,15 @@ void InitACPI(void* MB2InfoPtr)
         LOG_KERNEL_MSG("\tMULTIBOOT_TAG_TYPE_ACPI_NEW returned null, falling back to ACPI rev 1.0...\n\r", WARN);
         NewSDP = (RSDPTag*)FindMB2Tag(MULTIBOOT_TAG_TYPE_ACPI_OLD, MB2InfoPtr);
     }
+
+    if (NewSDP == NULL)
+    {
+        KernelPanic(0, "ACPI is not supported on this system!");
+    }
     
     // Now we need to convert this to a descriptor that makes things easier to access for us. We also need to check if the descriptor is null here because a null descriptor means that this system does not support ACPI
     LOG_KERNEL_MSG("\tCreating SDP dscriptor...\n\r", NONE);
     SDPDescriptor = (RSDPDescriptor20*)NewSDP->SDP;
-
-    if (SDPDescriptor == NULL)
-    {
-        KernelPanic(0, "ACPI is not supported on this system!");
-    }
 
     // Now we verify the SDP descriptor to see if it can be relied on
     ValidateSDP();
@@ -100,7 +62,7 @@ void InitACPI(void* MB2InfoPtr)
     if (SDPDescriptor->Revision >= 2)
     {
         LOG_KERNEL_MSG("\tLoading XSDT from address 0x", NONE);
-        PrintNum(SDPDescriptor->XSDTAddress, 16);
+        PrintUnsignedNum(SDPDescriptor->XSDTAddress, 16);
         ConsolePutString("...\n\r");
         XSDTStruct = (XSDT*)SDPDescriptor->XSDTAddress;
 
@@ -113,16 +75,12 @@ void InitACPI(void* MB2InfoPtr)
         }
 
         // Now we need to find the number of entries in the RSDT
-        uint64_t EntryCount = (XSDTStruct->SDTHeader.Length - sizeof(ACPISDTHeader)) / sizeof(uint64_t);
-
-        LOG_KERNEL_MSG("\tThe XSDT contains ", NONE);
-        PrintNum(EntryCount, 10);
-        ConsolePutString(" entries.\n\r");
+        SDTEntryCount = (XSDTStruct->SDTHeader.Length - sizeof(ACPISDTHeader)) / sizeof(uint64_t);
     }
     else
     {
         LOG_KERNEL_MSG("\tLoading RSDT from address 0x", NONE);
-        PrintNum(SDPDescriptor->RSDTAddress, 16);
+        PrintUnsignedNum(SDPDescriptor->RSDTAddress, 16);
         ConsolePutString("...\n\r");
 
         RSDTStruct = (RSDT*)SDPDescriptor->RSDTAddress;
@@ -136,12 +94,118 @@ void InitACPI(void* MB2InfoPtr)
         }
 
         // Now we need to find the number of entries in the RSDT
-        uint32_t EntryCount = (RSDTStruct->SDTHeader.Length - sizeof(ACPISDTHeader)) / sizeof(uint32_t);
-
-        LOG_KERNEL_MSG("\tThe RSDT contains ", NONE);
-        PrintNum(EntryCount, 10);
-        ConsolePutString(" entries.\n\r");
+        SDTEntryCount = (RSDTStruct->SDTHeader.Length - sizeof(ACPISDTHeader)) / sizeof(uint32_t);
     }
+
+    LOG_KERNEL_MSG("\tThe SDT contains ", NONE);
+    PrintSignedNum(SDTEntryCount, 10);
+    ConsolePutString(" entries.\n\r");
+
+
+
+    // --- STEP 3 ---
+    // Find the FADT from the relavant SDT
+    if (SDPDescriptor->Revision >= 2)
+    {
+        for (int EntryIndex = 0; EntryIndex < SDTEntryCount; EntryIndex++)
+        {
+            ACPISDTHeader* SDTHeader = (ACPISDTHeader*)XSDTStruct->PointerToOtherSDT[EntryIndex];
+
+            if (MemCmp(SDTHeader->Signature, "FACP", 4) == true)
+            {
+                FACPAddress = (uint64_t*)SDTHeader;
+
+                LOG_KERNEL_MSG("\tFound FACP at address 0x", NONE);
+                PrintUnsignedNum(FACPAddress, 16);
+                ConsolePutString(" and at entry #");
+                PrintSignedNum(EntryIndex, 10);
+                ConsolePutString(".\n\r");
+                break;
+            }
+        }
+    }
+    else
+    {
+        for (int EntryIndex = 0; EntryIndex < SDTEntryCount; EntryIndex++)
+        {
+            ACPISDTHeader* SDTHeader = (ACPISDTHeader*)RSDTStruct->PointerToOtherSDT[EntryIndex];
+
+            if (MemCmp(SDTHeader->Signature, "FACP", 4) == true)
+            {
+                FACPAddress = (uint64_t*)SDTHeader;
+
+                LOG_KERNEL_MSG("\tFound FACP at address 0x", NONE);
+                PrintUnsignedNum(FACPAddress, 16);
+                ConsolePutString(" and at entry #");
+                PrintSignedNum(EntryIndex, 10);
+                ConsolePutString(".\n\r");
+                break;
+            }
+        }
+    }
+
+    // Make sure the FACP was found
+    if (FACPAddress == 0x00)
+    {
+        KernelPanic(0, "The FACP could not be found!");
+    }
+
+    // Now take the address we just found and create a FADT struct with it
+    FADTStruct = (FADT*)FACPAddress;
+
+    LOG_KERNEL_MSG("\tPreferred power management profile mode is \"", NONE);
+    ConsolePutString(ConvertPPMPToStr(FADTStruct->PreferredPowerManagementProfile));
+    ConsolePutString("\" (mode #");
+    PrintUnsignedNum(FADTStruct->PreferredPowerManagementProfile, 10);
+    ConsolePutString(").\n\r");
+
+
+
+    // --- STEP 4 ---
+    // Set up the IRQ handler for the system control interrupt (sometimes called SCI)
+    LOG_KERNEL_MSG("\tSCI IRQ pin is ", NONE);
+    PrintUnsignedNum(FADTStruct->SCI_Interrupt, 10);
+    ConsolePutString(".\n\r");
+
+    LOG_KERNEL_MSG("\tSetting up IRQ handler for SCI...\n\r", NONE);
+    IDTSetIRQHandler(FADTStruct->SCI_Interrupt, ACPIShutdown);
+    PICClearIRQMask(FADTStruct->SCI_Interrupt);
+
+
+
+    // --- STEP 5 ---
+    // Enable ACPI mode
+    LOG_KERNEL_MSG("\tSCI command I/O port is 0x", NONE);
+    PrintUnsignedNum(FADTStruct->SMI_CommandPort, 16);
+    ConsolePutString(".\n\r");
+
+    if (FADTStruct->SMI_CommandPort != 0 && FADTStruct->AcpiEnable != 0)
+    {
+        int Timeout = 1000000;
+        LOG_KERNEL_MSG("\tSending ACPI enable command to SCI command port...\n\r", NONE);
+        OutB(FADTStruct->SMI_CommandPort, FADTStruct->AcpiEnable);
+        while ((InW(FADTStruct->PM1aControlBlock) & 1) == 0)
+        {
+            Timeout--;
+
+            if (Timeout < 0)
+            {
+                LOG_KERNEL_MSG("\tACPI initialization failed, PM1aControlBlock timeout exceeded.\n\r", ERROR);
+                return;
+            }
+        }
+    }
+    else
+    {
+        LOG_KERNEL_MSG("\tSMI command port or AcpiEnable data is 0, it's not safe to try enabling ACPI at this time.\n\r", WARN);
+    }
+
+    // Make the power button generate an IRQ what it gets pressed by clearing any pending power button events and then writing 1 to the PM1_EN power button status bit
+    uint16_t Enable = InW(FADTStruct->PM1aEventBlock + 2);
+    Enable |= PM1_EN_POWER_BUTTON_BIT;
+
+    OutW(FADTStruct->PM1aEventBlock, PM1_EN_POWER_BUTTON_BIT);
+    OutW(FADTStruct->PM1aEventBlock + 2, Enable);
 
     LOG_KERNEL_MSG("\tACPI initialized.\n\n\r", NONE);
     ACPIRevision = SDPDescriptor->Revision;
@@ -162,7 +226,7 @@ bool ValidateSDP()
     }
 
     LOG_KERNEL_MSG("\tRSDP checksum is ", NONE);
-    PrintNum(FieldSum & 0xFF, 10);
+    PrintUnsignedNum(FieldSum & 0xFF, 10);
     ConsolePutString(".\n\r");
 
     if ((FieldSum & 0xFF) != 0)
@@ -183,7 +247,7 @@ bool ValidateSDP()
         }
 
         LOG_KERNEL_MSG("\tXSDP checksum is ", NONE);
-        PrintNum(FieldSum & 0xFF, 10);
+        PrintUnsignedNum(FieldSum & 0xFF, 10);
         ConsolePutString(".\n\r");
 
         if ((FieldSum & 0xFF) != 0)
@@ -194,6 +258,45 @@ bool ValidateSDP()
     }
 
     return true;
+}
+
+// Convert the FADT's "PreferredPowerManagementProfile" value to a string
+char* ConvertPPMPToStr(uint8_t PPMP)
+{
+    switch(PPMP)
+    {
+        case FADT_POWER_MGMT_MODE_UNSPECIFIED:
+            return "Unspecified";
+
+        case FADT_POWER_MGMT_MODE_DESKTOP:
+            return "Desktop";
+
+        case FADT_POWER_MGMT_MODE_MOBILE:
+            return "Mobile";
+
+        case FADT_POWER_MGMT_MODE_WORKSTATION:
+            return "Workstation";
+
+        case FADT_POWER_MGMT_MODE_ENTERPRISE_SERVER:
+            return "Enterprise server";
+
+        case FADT_POWER_MGMT_MODE_SOHO_SERVER:
+            return "SOHO server";
+
+        case FADT_POWER_MGMT_MODE_APPLIANCE_PC:
+            return "Appliance PC";
+    
+        case FADT_POWER_MGMT_MODE_PERFORMANCE_SERVER:
+            return "Performance server";
+
+        default:
+            return "Reserved or unknown";
+    }
+}
+
+uint16_t GetBootArchFlags()
+{
+    return FADTStruct->BootArchitectureFlags;
 }
 
 void ACPIShutdown()

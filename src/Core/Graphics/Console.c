@@ -157,7 +157,7 @@ void LogWithStackTrace(char *str, enum LogLevel level, int LineNumber, char* Fil
 {
     ConsoleResetColor();
 
-    if (str[0] == '\t') //level == NONE && 
+    if (str[0] == '\t')
     {
         ConsolePutString("\t");
         str++;
@@ -173,7 +173,7 @@ void LogWithStackTrace(char *str, enum LogLevel level, int LineNumber, char* Fil
     ConsolePutChar(':');
     
     ConsoleSetColor(CYAN, BLACK);
-    PrintNum(LineNumber, 10);
+    PrintSignedNum(LineNumber, 10);
     
     ConsoleResetColor();
     

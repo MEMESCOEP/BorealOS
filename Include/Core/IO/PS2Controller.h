@@ -7,9 +7,12 @@
 #define PS2_DATA_PORT 0x60
 
 
+/* VARIABLES */
+extern bool PS2Initialized;
+
+
 /* FUNCTIONS */
 void InitPS2Controller();
-void PS2Wait(uint8_t BitToCheck, bool WaitForSet);
-//bool PS2ControllerExists();
+bool PS2Wait(uint8_t BitToCheck, bool WaitForSet);
 
 #endif

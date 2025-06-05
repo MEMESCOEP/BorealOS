@@ -2,13 +2,25 @@
 
 void *MemSet(void *ptr, int value, size_t num)
 {
-    unsigned char *p = ptr;
-    while (num--)
-    {
-        *p++ = (unsigned char)value;
-    }
-    return ptr;
+    size_t dwords = num / 4;
+    size_t bytes  = num % 4;
+    uint32_t fill = 0x01010101U * (uint8_t)value;
+
+    void *original = ptr;
+
+    __asm__ volatile (
+        "cld\n\t"
+        "rep stosl\n\t"
+        "movl %3, %%ecx\n\t"
+        "rep stosb"
+        : "+D" (ptr), "+c" (dwords)
+        : "a" (fill), "r" (bytes)
+        : "memory"
+    );
+
+    return original;
 }
+
 
 void *MemCpy(void *dest, const void *src, size_t num)
 {

@@ -1,3 +1,4 @@
+#include <Drivers/IO/Serial.h>
 #include <Core/Graphics/Graphics.h>
 
 static uint32_t *framebuffer = NULL;
@@ -8,6 +9,12 @@ static uint32_t fbPitch = 0;
 
 void GfxInit(void *address, uint32_t width, uint32_t height, uint32_t bpp, uint32_t pitch)
 {
+    SendStringSerial(SERIAL_COM1, "Graphics address: 0x");
+    char framebufferAddrStr[25];
+    IntToStr(&address, framebufferAddrStr, 16);
+    SendStringSerial(SERIAL_COM1, framebufferAddrStr);
+    SendStringSerial(SERIAL_COM1, "\n\r");
+
     framebuffer = (uint32_t *)address;
     fbWidth = width;
     fbHeight = height;

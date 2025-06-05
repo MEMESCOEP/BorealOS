@@ -1,4 +1,5 @@
 /* LIBRARIES */
+#include <Utilities/ArchUtils.h>
 #include <Utilities/StrUtils.h>
 #include <Drivers/HID/Keyboard.h>
 #include <Drivers/HID/Mouse.h>
@@ -10,13 +11,12 @@
 #include <Core/Graphics/Graphics.h>
 #include <Core/Graphics/Console.h>
 #include <Core/Hardware/Firmware.h>
-#include <Core/Memory/WatermarkAlloc.h>
+#include <Core/Memory/PhysicalMemoryManager.h>
 #include <Core/Memory/Memory.h>
 #include <Core/Kernel/Panic.h>
 #include <Core/Power/ACPI.h>
 #include <Core/IO/PS2Controller.h>
 #include <Core/IO/PIC.h>
-#include <Core/Memory/PhysicalMemoryManager.h>
 #include <stdint.h>
 
 
@@ -43,7 +43,7 @@ void KernelStart(uint32_t Magic, uint32_t InfoPtr)
     // Initialize serial port COM1 before graphics, so kernel panic messages are visible via a serial console.
     InitSerialPort(SERIAL_COM1);
 
-    // Make sure the bootloader actually runs the kernel using multiboot (the magic number should be 0x2BADB002)
+    // Make sure the bootloader actually runs the kernel using multiboot2 (the magic number should be 0x36D76289)
     if (Magic != MULTIBOOT2_BOOTLOADER_MAGIC)
     {
         SendStringSerial(ActiveSerialPort, "Bootloader provided an invalid magic number!");
@@ -61,12 +61,6 @@ void KernelStart(uint32_t Magic, uint32_t InfoPtr)
     // Find the framebuffer and initialize graphics with the specified address, dimension, BPP and pitch
     MB2Framebuffer_t* MB2FramebufferTag = FindMB2Tag(MB2_TAG_FRAMEBUFFER, (void*)InfoPtr);
 
-    SendStringSerial(SERIAL_COM1, "Graphics address: 0x");
-    char framebufferAddrStr[25];
-    IntToStr(MB2FramebufferTag->Addr, framebufferAddrStr, 16);
-    SendStringSerial(SERIAL_COM1, framebufferAddrStr);
-    SendStringSerial(SERIAL_COM1, "\n\r");
-
     GfxInit(
         (void *)(uintptr_t)MB2FramebufferTag->Addr,
         MB2FramebufferTag->Width,
@@ -83,6 +77,10 @@ void KernelStart(uint32_t Magic, uint32_t InfoPtr)
     ConsoleSetColor(LIGHT_GRAY, BLACK);
     ConsolePutString("[== BOREALOS ==]\n\r");
 
+    LOG_KERNEL_MSG("Kernel architecure: \"", INFO);
+    ConsolePutString(ARCH_NAME);
+    ConsolePutString("\".\n\r");
+    
     LOG_KERNEL_MSG("Kernel C language version (__STDC_VERSION__): \"", INFO);
     ConsolePutString(PREPROCESSOR_TOSTRING(__STDC_VERSION__));
     ConsolePutString("\".\n\r");
@@ -92,13 +90,13 @@ void KernelStart(uint32_t Magic, uint32_t InfoPtr)
     ConsolePutString("\".\n\r");
 
     LOG_KERNEL_MSG("Framebuffer at address 0x", INFO);
-    PrintNum(MB2FramebufferTag->Addr, 16);
+    PrintUnsignedNum(MB2FramebufferTag->Addr, 16);
     ConsolePutString(" is running at ");
-    PrintNum(MB2FramebufferTag->Width, 10);
+    PrintSignedNum(MB2FramebufferTag->Width, 10);
     ConsolePutChar('x');
-    PrintNum(MB2FramebufferTag->Height, 10);
+    PrintSignedNum(MB2FramebufferTag->Height, 10);
     ConsolePutChar('@');
-    PrintNum(MB2FramebufferTag->Bpp, 10);
+    PrintSignedNum(MB2FramebufferTag->Bpp, 10);
     ConsolePutString("bpp.\n\r");
 
     // Initialize the PICs so we can use interupts
@@ -110,10 +108,6 @@ void KernelStart(uint32_t Magic, uint32_t InfoPtr)
     // Initialize the interrupts so the system can handle input and error events. The GDT is set up in multiboot.asm, so we assume it's already working correctly
     LOG_KERNEL_MSG("Initializing IDT...\n\r", INFO);
     IDTInit();
-    
-    // Initialize ACPI
-    LOG_KERNEL_MSG("Initializing ACPI...\n\r", INFO);
-    InitACPI((void*)InfoPtr);
 
     // Initialize the PS/2 controller, keyboard, and mouse for user input
     LOG_KERNEL_MSG("Initializing PS/2 controller...\n\r", INFO);
@@ -124,6 +118,10 @@ void KernelStart(uint32_t Magic, uint32_t InfoPtr)
 
     LOG_KERNEL_MSG("Initializing PS/2 mouse...\n\r", INFO);
     InitPS2Mouse();
+    
+    // Initialize ACPI
+    LOG_KERNEL_MSG("Initializing ACPI...\n\r", INFO);
+    InitACPI((void*)InfoPtr);
 
     // The core init steps have finished, now the shell can be started
     LOG_KERNEL_MSG("Init finished, starting shell process...\n\r", INFO);
@@ -145,8 +143,15 @@ void KernelPanic(int ErrorCode, char* ErrorMessage)
 
     uint8_t X, Y;
 
-    // Print the panic details
+    // Move the kernel panic down if the cursor is not at the start of the line
     ConsoleGetCursorPos(&X, &Y);
+    
+    if (X != 0)
+    {
+        ConsoleSetCursor(0, Y + 1);
+    }
+
+    // Print the panic details
     ConsolePutString("[==              ==]\n\r");
     ConsoleChangeCursorPos(4, Y);
     ConsoleSetColor(RED, BLACK);
@@ -155,7 +160,7 @@ void KernelPanic(int ErrorCode, char* ErrorMessage)
     ConsolePutString("Reason: ");
     ConsolePutString(ErrorMessage);
     ConsolePutString("\n\rCode: ");
-    PrintNum(ErrorCode, 10);
+    PrintSignedNum(ErrorCode, 10);
     
     // We don't want the kernel to keep doing other things. Disable all interrupts before dropping into an infinite loop
     asm volatile("cli");

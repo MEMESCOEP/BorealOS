@@ -4,8 +4,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
-//#include "Core/Devices/FPU.h"
-//#include "Kernel.h"
 
 
 /* FUNCTIONS */
@@ -198,7 +196,36 @@ void TrimTrailingWhitespace(char* String)
     }
 }
 
-void PrintNum(int Number, int Base)
+void PrintUnsignedNum(uint32_t Number, uint8_t Base)
+{
+    uint32_t Div = 1;
+    int Digit = 0;
+
+    if (Base < 2 || Base > 36) return;
+
+    if (Number == 0)
+    {
+        ConsolePutChar('0');
+        return;
+    }
+
+    // Compute the highest power of Base less than or equal to Number
+    while (Number / Div >= (uint32_t)Base)
+    {
+        Div *= Base;
+    }
+
+    while (Div > 0)
+    {
+        Digit = Number / Div;
+        Number %= Div;
+        Div /= Base;
+
+        ConsolePutChar((Digit < 10) ? (Digit + '0') : (Digit - 10 + 'A'));
+    }
+}
+
+void PrintSignedNum(int Number, int Base)
 {
     if (Base < 2 || Base > 36) return;  // Safety check
     

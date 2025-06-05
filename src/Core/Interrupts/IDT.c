@@ -95,7 +95,7 @@ void IDTSetIRQHandler(uint8_t irq, void (*handler)(void))
         LOG_KERNEL_MSG("Invalid IRQ #", ERROR);
         ConsoleGetCursorPos(&X, &Y);
         ConsoleSetCursor(23, Y - 1);
-        PrintNum(irq, 10);
+        PrintUnsignedNum(irq, 10);
         ConsolePutString("\n\r");
     }
 }
@@ -133,15 +133,19 @@ void IRQHandler(uint8_t irq)
         uint8_t lowNibble = (irq - 0x20) & 0x0F;
 
         LOG_KERNEL_MSG("Unhandled IRQ ", ERROR);
-        PrintNum(irq - 0x20, 10);
+        PrintUnsignedNum(irq - 0x20, 10);
         ConsolePutString(" (HN=0x");
-        PrintNum(highNibble, 16);
+        PrintUnsignedNum(highNibble, 16);
         ConsolePutString(", LN=0x");
-        PrintNum(lowNibble, 16);
+        PrintUnsignedNum(lowNibble, 16);
         ConsolePutString(")\n\r");
     }
 
-    PICSendEOI(irq);
+    PICSendEOI(irq - 0x20);
+
+	/*LOG_KERNEL_MSG("IRQ fired: ", INFO);
+    PrintUnsignedNum(irq, 10);
+    ConsolePutString("\n\r");*/
 }
 
 // Test the IDT by triggering various CPU exceptions. This should throw a kernel panic and not cause a triple fault.

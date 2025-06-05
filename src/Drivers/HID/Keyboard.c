@@ -9,7 +9,6 @@
 #include <Core/IO/PS2Controller.h>
 #include <Core/IO/RegisterIO.h>
 #include <Core/IO/PIC.h>
-//#include "Kernel.h"
 
 
 /* VARIABLES */
@@ -249,14 +248,28 @@ int NumpadScancodeToCharScancode(int ScancodeToChange, unsigned char* Keymap)
 int PS2SetScancodeSet(int ScancodeSet)
 {
     // Start scancode set selection
+    if (!PS2Wait(0x02, false)) return -1;
     OutB(0x60, 0xF0);
-    PS2Wait(0x01, true);
-    if (InB(0x60) != 0xFA) return -1;
+    
+    if (!PS2Wait(0x01, true)) return -1;
+    uint8_t Result = InB(0x60);
+
+    PrintUnsignedNum(Result, 16);
+    ConsolePutString("\n\r");
+
+    if (Result != 0xFA) return -1;
 
     // Send the scancode set
+    PS2Wait(0x02, true);
     OutB(0x60, ScancodeSet);
     PS2Wait(0x01, true);
-    if (InB(0x60) != 0xFA) return -2;
+    
+    Result = InB(0x60);
+
+    PrintUnsignedNum(Result, 16);
+    ConsolePutString("\n\r");
+
+    if (Result != 0xFA) return -2;
 
     // The operation suceeded, return a success code
     return 0;
@@ -302,22 +315,38 @@ void PS2KBWaitForData()
 // Set the PS/2 keyboard's scancode set to 1 and unmask PIC IRQ 1
 void InitPS2Keyboard()
 {
+    if (PS2Initialized == false)
+    {
+        LOG_KERNEL_MSG("\tThe PS/2 controller was not initialized properly, the PS/2 keyboard cannot be initialized.\n\n\r", WARN);
+        return;
+    }
+
+    // Clear the keyboard buffer
+    while (InB(0x64) & 0x01)
+    {
+        InB(PS2_DATA_PORT);
+    }
+
     LOG_KERNEL_MSG("\tConfiguring interrupt handler...\n\r", NONE);
     IDTSetIRQHandler(1, PS2KBHandleScancode);
 
     // Set the keyboard scancode set to 1 and unmask IRQ1
     int ScancodeSetResult = PS2SetScancodeSet(0x01);
 
+    LOG_KERNEL_MSG("\tPS2SetScancodeSet responded with ", NONE);
+    PrintSignedNum(ScancodeSetResult, 10);
+    ConsolePutString(".\n\r");
+
     switch (ScancodeSetResult)
     {
         case 0:
             break;
 
-        case 1:
+        case -1:
             KernelPanic(ScancodeSetResult, "PS/2 keyboard init failed, couldn't enter scancode selection mode.");
             break;
 
-        case 2:
+        case -2:
             KernelPanic(ScancodeSetResult, "PS/2 keyboard init failed, couldn't set scancode.");
             break;
 
@@ -325,7 +354,6 @@ void InitPS2Keyboard()
             KernelPanic(ScancodeSetResult, "PS/2 keyboard init failed, unknown error.");
             break;
     }
-
     
     //ConsolePutString("[INFO] >> Setting PS/2 keyboard LEDs...\n\r");
     //PS2KBSetLEDs(NumLockToggled, CapsLockToggled, ScrollLockToggled);
