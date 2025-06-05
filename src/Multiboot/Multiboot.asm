@@ -20,6 +20,9 @@ multiboot2_header:
     dw 0                         ; Padding 2 bytes
     dw 0                         ; Padding 2 bytes
 
+    dw 6                         ; Tag type 6 = memory map
+    dw 0                         ; Flags (0 = optional)
+    dw 8
 
     ; End tag (required)
     dw 0                         ; Tag type 0 = end
