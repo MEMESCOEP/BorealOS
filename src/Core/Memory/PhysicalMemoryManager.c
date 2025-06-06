@@ -5,8 +5,8 @@
 #include <Core/Multiboot/MB2Parser.h>
 #include <Drivers/IO/Serial.h>
 
-#include "Utilities/MathUtils.h"
-#include "Utilities/StrUtils.h"
+#include <Utilities/MathUtils.h>
+#include <Utilities/StrUtils.h>
 
 extern void *_KernelEndMarker;
 

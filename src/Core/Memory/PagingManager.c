@@ -1,9 +1,8 @@
 #include <Core/Memory/PagingManager.h>
-
-#include "Core/Graphics/Console.h"
-#include "Core/Kernel/Panic.h"
-#include "Drivers/IO/Serial.h"
-#include "Utilities/MathUtils.h"
+#include <Core/Graphics/Console.h>
+#include <Core/Kernel/Panic.h>
+#include <Drivers/IO/Serial.h>
+#include <Utilities/MathUtils.h>
 
 extern void *_KernelEndMarker;
 extern void *_KernelStartMarker;

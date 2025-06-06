@@ -10,8 +10,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
-
-#include "Core/Memory/PagingManager.h"
+#include <Core/Memory/PagingManager.h>
 
 
 /* VARIABLES */

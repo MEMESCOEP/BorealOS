@@ -18,8 +18,7 @@
 #include <Core/IO/PS2Controller.h>
 #include <Core/IO/PIC.h>
 #include <stdint.h>
-
-#include "Core/Memory/PagingManager.h"
+#include <Core/Memory/PagingManager.h>
 
 
 /* VARIABLES */
