@@ -8,7 +8,7 @@ SECTIONS
     }
 
     . = 2M;
-    ._KernelStartMarker = .;
+    _KernelStartMarker = .;
 
     .text BLOCK(4K) : ALIGN(4K)
     {

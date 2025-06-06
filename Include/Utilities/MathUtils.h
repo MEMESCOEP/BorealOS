@@ -19,5 +19,6 @@ int IntMax(int Num1, int Num2);
 int IntMin(int Num1, int Num2);
 int IntSquare(int Num);
 uintptr_t AlignUp(uintptr_t Value, size_t Alignment);
+uintptr_t AlignDown(uintptr_t Value, size_t Alignment);
 
 #endif

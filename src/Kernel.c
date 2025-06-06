@@ -19,6 +19,8 @@
 #include <Core/IO/PIC.h>
 #include <stdint.h>
 
+#include "Core/Memory/PagingManager.h"
+
 
 /* VARIABLES */
 typedef struct {
@@ -61,7 +63,7 @@ void KernelStart(uint32_t Magic, uint32_t InfoPtr)
     // Find the framebuffer and initialize graphics with the specified address, dimension, BPP and pitch
     MB2Framebuffer_t* MB2FramebufferTag = FindMB2Tag(MB2_TAG_FRAMEBUFFER, (void*)InfoPtr);
 
-    GfxInit(
+    GfxConfig(
         (void *)(uintptr_t)MB2FramebufferTag->Addr,
         MB2FramebufferTag->Width,
         MB2FramebufferTag->Height,
@@ -109,6 +111,30 @@ void KernelStart(uint32_t Magic, uint32_t InfoPtr)
     LOG_KERNEL_MSG("Initializing IDT...\n\r", INFO);
     IDTInit();
 
+    LOG_KERNEL_MSG("Initializing Paging...\n\r", INFO);
+    PagingManagerInit((void*)InfoPtr);
+
+    // New framebuffer address, can be changed if needed, which should probably be done lol TODO: find a better numbr for this
+    uintptr_t NewFrameBufferAddr = (uintptr_t)0xC0000000;
+    // Map the entire frame buffer to the new address
+    size_t frameBufferSize = MB2FramebufferTag->Width * MB2FramebufferTag->Height * (MB2FramebufferTag->Bpp / 8);
+    size_t pageCount = (frameBufferSize + PAGE_SIZE - 1) / PAGE_SIZE; // Calculate the number of pages needed
+    for (size_t i = 0; i < pageCount; i++)
+    {
+        uintptr_t physAddr = MB2FramebufferTag->Addr + (i * PAGE_SIZE);
+        MapPage(NewFrameBufferAddr + (i * PAGE_SIZE), physAddr, PAGE_FLAGS_PRESENT | PAGE_FLAGS_RW);
+    }
+
+    GfxConfig(
+      (void *)NewFrameBufferAddr,
+      MB2FramebufferTag->Width,
+      MB2FramebufferTag->Height,
+      MB2FramebufferTag->Bpp,
+      MB2FramebufferTag->Pitch
+    );
+
+    LOG_KERNEL_MSG("GFX reset to use new mapped buffer.\n\r", INFO);
+
     // Initialize the PS/2 controller, keyboard, and mouse for user input
     LOG_KERNEL_MSG("Initializing PS/2 controller...\n\r", INFO);
     InitPS2Controller();
@@ -132,6 +158,9 @@ void KernelStart(uint32_t Magic, uint32_t InfoPtr)
 
 void KernelPanic(int ErrorCode, char* ErrorMessage)
 {
+    // We don't want the kernel to keep doing other things. Disable all interrupts before dropping into an infinite loop
+    asm volatile("cli");
+
     SendStringSerial(SERIAL_COM1, "Kernel panic!\n\r");
     SendStringSerial(SERIAL_COM1, "Reason: ");
     SendStringSerial(SERIAL_COM1, ErrorMessage);
@@ -161,9 +190,6 @@ void KernelPanic(int ErrorCode, char* ErrorMessage)
     ConsolePutString(ErrorMessage);
     ConsolePutString("\n\rCode: ");
     PrintSignedNum(ErrorCode, 10);
-    
-    // We don't want the kernel to keep doing other things. Disable all interrupts before dropping into an infinite loop
-    asm volatile("cli");
 
     while(true)
     {

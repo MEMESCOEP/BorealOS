@@ -11,6 +11,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "Core/Memory/PagingManager.h"
+
 
 /* VARIABLES */
 RSDPDescriptor20* SDPDescriptor;
@@ -69,6 +71,9 @@ void InitACPI(void* MB2InfoPtr)
         // Validate the XSDT now
         LOG_KERNEL_MSG("\tValidating XSDT...\n\r", NONE);
 
+        // Map the XSDT into the kernel's address space
+        MapPage((uintptr_t)XSDTStruct, SDPDescriptor->XSDTAddress, PAGE_FLAGS_PRESENT | PAGE_FLAGS_RW);
+
         if (MemCmp(XSDTStruct->SDTHeader.Signature, "XSDT", 4) == false)
         {
             KernelPanic(0, "XSDT checksum verification failed, signature is not \"XSDT\"!");
@@ -84,6 +89,9 @@ void InitACPI(void* MB2InfoPtr)
         ConsolePutString("...\n\r");
 
         RSDTStruct = (RSDT*)SDPDescriptor->RSDTAddress;
+
+        // Map the RSDT into the kernel's address space
+        MapPage((uintptr_t)RSDTStruct, SDPDescriptor->RSDTAddress, PAGE_FLAGS_PRESENT | PAGE_FLAGS_RW);
 
         // Validate the RSDT now
         LOG_KERNEL_MSG("\tValidating RSDT...\n\r", NONE);
@@ -110,6 +118,8 @@ void InitACPI(void* MB2InfoPtr)
         for (int EntryIndex = 0; EntryIndex < SDTEntryCount; EntryIndex++)
         {
             ACPISDTHeader* SDTHeader = (ACPISDTHeader*)XSDTStruct->PointerToOtherSDT[EntryIndex];
+
+            MapPage((uintptr_t)SDTHeader, (uintptr_t)SDTHeader, PAGE_FLAGS_PRESENT | PAGE_FLAGS_RW);
 
             if (MemCmp(SDTHeader->Signature, "FACP", 4) == true)
             {

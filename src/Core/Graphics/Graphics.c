@@ -1,5 +1,7 @@
 #include <Drivers/IO/Serial.h>
 #include <Core/Graphics/Graphics.h>
+#include <Utilities/StrUtils.h>
+#include <Core/Graphics/Console.h>
 
 static uint32_t *framebuffer = NULL;
 static uint32_t fbWidth = 0;
@@ -7,11 +9,11 @@ static uint32_t fbHeight = 0;
 static uint32_t fbBpp = 0;
 static uint32_t fbPitch = 0;
 
-void GfxInit(void *address, uint32_t width, uint32_t height, uint32_t bpp, uint32_t pitch)
+void GfxConfig(uint32_t* address, uint32_t width, uint32_t height, uint32_t bpp, uint32_t pitch)
 {
     SendStringSerial(SERIAL_COM1, "Graphics address: 0x");
     char framebufferAddrStr[25];
-    IntToStr(&address, framebufferAddrStr, 16);
+    IntToStr((uint32_t)address, framebufferAddrStr, 16);
     SendStringSerial(SERIAL_COM1, framebufferAddrStr);
     SendStringSerial(SERIAL_COM1, "\n\r");
 
@@ -21,7 +23,11 @@ void GfxInit(void *address, uint32_t width, uint32_t height, uint32_t bpp, uint3
     fbBpp = bpp;
     fbPitch = pitch;
 
+    SendStringSerial(SERIAL_COM1, "Clearing screen\n\r");
+
     GfxClearScreen();
+    ConsoleSetCursor(0,0);
+    SendStringSerial(SERIAL_COM1, "Cleared screen successfully\n\r");
 }
 
 void GfxClearScreen(void)

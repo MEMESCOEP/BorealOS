@@ -16,7 +16,7 @@ typedef struct
     uint32_t pitch;
 } GfxInfo;
 
-void GfxInit(void *address, uint32_t width, uint32_t height, uint32_t bpp, uint32_t pitch);
+void GfxConfig(uint32_t* address, uint32_t width, uint32_t height, uint32_t bpp, uint32_t pitch);
 
 void GfxClearScreen(void);
 void GfxClearScreenColor(uint32_t color);
