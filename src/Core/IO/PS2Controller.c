@@ -49,8 +49,27 @@ bool PS2Wait(uint8_t BitToCheck, bool WaitForSet)
     return true;
 }
 
+// Flush the input and output buffers of the PS/2 controller
+// The input buffer takes in commands, and the output buffer sends commands from the devices back into the system
+void FlushPS2Buffers()
+{
+    for (int I = 0; I < PS2_BUFFER_FLUSH_TIMER; I++)
+    {
+        // If there is still data available, discard it and reset the timer
+        if (InB(PS2_CMD_STATUS_PORT) & 0x01)
+        {
+            (void)InB(PS2_DATA_PORT);
+            I = 0;
+        }
+
+        IoDelay();
+    }
+}
+
 void InitPS2Controller()
 {
+    bool ProbePS2 = false;
+
     // --- STEP 1 ---
     // Initialize USB controllers
 
@@ -58,59 +77,63 @@ void InitPS2Controller()
 
     // --- STEP 2 ---
     // Determine if the PS/2 controller actually exists. This check is only valid for ACPI revisions 2.0 and later
-    if (FADTStruct->SDTHeader.Length >= OffsetOf(FADT, BootArchitectureFlags) + sizeof(uint16_t))
+    LOG_KERNEL_MSG("\tChecking if PS/2 controller exists...\n\r", NONE);
+    
+    if (FADTStruct->SDTHeader.Revision < 2)
     {
-        LOG_KERNEL_MSG("\tChecking if PS/2 controller exists...\n\r", NONE);
-
-        if (IS_BIT_SET(GetBootArchFlags(), 1) == false)
-        {
-            LOG_KERNEL_MSG("\tPS/2 controller does not exist according to FADT, attempting to check via probing...\n\r", WARN);
-
-            // Wait for the PS/2 input buffer to be empty
-            PS2Wait(0x02, false);
-
-            // Send self-test command
-            OutB(PS2_CMD_STATUS_PORT, 0xAA);
-
-            // Wait for the PS/2 output buffer to be full
-            PS2Wait(0x01, true);
-
-            int ProbeResult = InB(PS2_DATA_PORT);
-
-            if (ProbeResult != 0x55)
-            {
-                LOG_KERNEL_MSG("\tPS/2 controller does not exist, it will be skipped. Probing returned 0x", WARN);
-                PrintSignedNum(ProbeResult, 10);
-                ConsolePutString(".\n\n\r");
-                return;
-            }
-            else
-            {
-                LOG_KERNEL_MSG("\tPS/2 controller probing succeeded (controller exists).\n\r", NONE);
-            }
-        }
+        LOG_KERNEL_MSG("\tFADT is too old or invalid to check for PS/2 controller, it likely exists.\n\r", WARN);
+    }
+    else if (IS_BIT_SET(GetBootArchFlags(), 1) == false)
+    {
+        LOG_KERNEL_MSG("\tPS/2 controller does not exist according to FADT, it will not be initialized.\n\n\r", WARN);
+        return;
     }
     else
     {
-        LOG_KERNEL_MSG("\tFADT is too old or invalid, assuming PS/2 controller exists...\n\r", WARN);
+        LOG_KERNEL_MSG("\tAttempting to check via probing...\n\r", WARN);
+
+        // Wait for the PS/2 input buffer to be empty
+        PS2Wait(0x02, false);
+
+        // Send self-test command
+        OutB(PS2_CMD_STATUS_PORT, 0xAA);
+
+        // Wait for the PS/2 output buffer to be full
+        PS2Wait(0x01, true);
+
+        uint8_t ProbeResult = InB(PS2_DATA_PORT);
+
+        if (ProbeResult != 0x55)
+        {
+            LOG_KERNEL_MSG("\tPS/2 controller does not exist, it will be skipped. Probing returned 0x", WARN);
+            PrintSignedNum(ProbeResult, 10);
+            ConsolePutString(".\n\n\r");
+            return;
+        }
+        else
+        {
+            LOG_KERNEL_MSG("\tPS/2 controller probing succeeded (controller exists).\n\r", NONE);
+        }
     }
+
+    LOG_KERNEL_MSG("\tPS/2 controller exists. Continuing init...\n\r", NONE);
+    //while(true);
 
 
 
     // --- STEPS 3 & 4 ---
     // Disable ports (1 and 2 in order) and then read from port 0x60 to flush the
     // PS/2 output buffer
-    LOG_KERNEL_MSG("\tDisabling PS/2 ports and flushing output buffer...\n\r", NONE);
+    LOG_KERNEL_MSG("\tDisabling PS/2 port #1...\n\r", NONE);
     PS2Wait(0x02, false);
     OutB(PS2_CMD_STATUS_PORT, 0xAD);
 
+    LOG_KERNEL_MSG("\tDisabling PS/2 port #2...\n\r", NONE);
     PS2Wait(0x02, false);
     OutB(PS2_CMD_STATUS_PORT, 0xA7);
 
-    while (InB(0x64) & 0x01)
-    {
-        InB(PS2_DATA_PORT);
-    }
+    LOG_KERNEL_MSG("\tFlushing PS/2 buffers...\n\r", NONE);
+    FlushPS2Buffers();
 
 
 
@@ -185,7 +208,7 @@ void InitPS2Controller()
         LOG_KERNEL_MSG("\tPS/2 Controller port 2 test failed: got 0x", ERROR);
         PrintUnsignedNum(TestResult, 16);
         ConsolePutString("\n\r");
-        Port1Useable = false;
+        Port2Useable = false;
     }
 
 
@@ -234,6 +257,8 @@ void InitPS2Controller()
 
     // --- STEP 9 ---
     // Reset PS/2 devices
+    FlushPS2Buffers();
+
     // Port 1
     if (Port1Useable == true)
     {
@@ -241,41 +266,38 @@ void InitPS2Controller()
         PS2Wait(0x02, false);
         OutB(PS2_DATA_PORT, 0xFF);
 
-        PS2Wait(0x01, true);
-        uint8_t ResetResult = InB(0x60);
-        bool GotSelfTest = false;
-        bool PassedLoop = false;
-        bool GotACK = false;
+        uint8_t ResetResult = 0x00;
+        bool ResetWorked = false;
 
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 5; i++)
         {
-            PS2Wait(0x01, true);  // wait for output buffer full
-
+            PS2Wait(0x01, true);
             ResetResult = InB(0x60);
 
-            if (ResetResult == 0xFA)
+            if (ResetResult == 0xAA)
             {
-                GotACK = true;
+                LOG_KERNEL_MSG("\tPS/2 keyboard passed self test.\n\r", NONE);
+                ResetWorked = true;
+                break;
             }
-            else if (ResetResult == 0xAA)
+            else if (ResetResult == 0xFC)
             {
-                GotSelfTest = true;
+                LOG_KERNEL_MSG("\tPS/2 keyboard self test failed!\n\r", ERROR);
+                break;
             }
-            else
+            else if (ResetResult != 0xFA)
             {
-                LOG_KERNEL_MSG("\tUnexpected response: 0x", WARN);
+                LOG_KERNEL_MSG("\tPS/2 keyboard sent an invalid response: 0x", WARN);
                 PrintUnsignedNum(ResetResult, 16);
                 ConsolePutString("\n\r");
             }
-
-            if (GotACK && GotSelfTest)
+            else
             {
-                PassedLoop = true;
-                break;
+                LOG_KERNEL_MSG("\tPS/2 keyboard sent an acknowledgement.\n\r", NONE);
             }
         }
 
-        if (PassedLoop == false && GotSelfTest == false && GotACK == false)
+        if (ResetWorked == false)
         {
             LOG_KERNEL_MSG("\tFailed to reset PS/2 keyboard!\n\r", ERROR);
         }
@@ -295,25 +317,41 @@ void InitPS2Controller()
         PS2Wait(0x02, false);
         OutB(PS2_DATA_PORT, 0xFF);
 
-        PS2Wait(0x01, true);
-        uint8_t ResetResult = InB(0x60);
+        uint8_t ResetResult = 0x00;
+        bool ResetWorked = false;
 
-        if (ResetResult == 0xFA)
+        for (int i = 0; i < 5; i++)
         {
             PS2Wait(0x01, true);
             ResetResult = InB(0x60);
+
+            if (ResetResult == 0xAA)
+            {
+                LOG_KERNEL_MSG("\tPS/2 mouse passed self test.\n\r", NONE);
+                ResetWorked = true;
+                break;
+            }
+            else if (ResetResult == 0xFC)
+            {
+                LOG_KERNEL_MSG("\tPS/2 mouse self test failed!\n\r", ERROR);
+                break;
+            }
+            else if (ResetResult != 0xFA)
+            {
+                LOG_KERNEL_MSG("\tPS/2 mouse sent an invalid response: 0x", WARN);
+                PrintUnsignedNum(ResetResult, 16);
+                ConsolePutString("\n\r");
+            }
+            else
+            {
+                LOG_KERNEL_MSG("\tPS/2 mouse sent an acknowledgement.\n\r", NONE);
+            }
         }
 
-        if (ResetResult != 0xAA)
+        if (ResetWorked == false)
         {
-            LOG_KERNEL_MSG("\tPS/2 MOUSEINIT failed: got 0x", ERROR);
-            PrintUnsignedNum(ResetResult, 16);
-            ConsolePutString("\n\r");
+            LOG_KERNEL_MSG("\tFailed to reset PS/2 mouse!\n\r", ERROR);
         }
-        else
-        {
-            InB(0x60);
-        }    
     }
     else
     {

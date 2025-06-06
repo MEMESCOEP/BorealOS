@@ -141,6 +141,10 @@ void KernelStart(uint32_t Magic, uint32_t InfoPtr)
     );
 
     LOG_KERNEL_MSG("GFX reset to use new mapped buffer.\n\r", INFO);
+    
+    // Initialize ACPI
+    LOG_KERNEL_MSG("Initializing ACPI...\n\r", INFO);
+    InitACPI((void*)InfoPtr);
 
     // Initialize the PS/2 controller, keyboard, and mouse for user input
     LOG_KERNEL_MSG("Initializing PS/2 controller...\n\r", INFO);
@@ -151,16 +155,13 @@ void KernelStart(uint32_t Magic, uint32_t InfoPtr)
 
     LOG_KERNEL_MSG("Initializing PS/2 mouse...\n\r", INFO);
     InitPS2Mouse();
-    
-    // Initialize ACPI
-    LOG_KERNEL_MSG("Initializing ACPI...\n\r", INFO);
-    InitACPI((void*)InfoPtr);
 
     // The core init steps have finished, now the shell can be started
     LOG_KERNEL_MSG("Init finished, starting shell process...\n\r", INFO);
 
     // Ideally the shell should never exit, but we don't live in an ideal world. We want to panic here to prevent undefined behavior from causing the machine to explode and inflict 1000 damage on my sanity
-    KernelPanic(-2, "Shell process exited!");
+    //KernelPanic(-2, "Shell process exited!");
+    while(true);
 }
 
 void KernelPanic(int ErrorCode, char* ErrorMessage)
@@ -168,16 +169,17 @@ void KernelPanic(int ErrorCode, char* ErrorMessage)
     // We don't want the kernel to keep doing other things. Disable all interrupts before dropping into an infinite loop
     asm volatile("cli");
 
+    // Send the kernel panic over serial
+    uint8_t X, Y;
+    char ErrorCodeStr[25];
+
     SendStringSerial(SERIAL_COM1, "Kernel panic!\n\r");
     SendStringSerial(SERIAL_COM1, "Reason: ");
     SendStringSerial(SERIAL_COM1, ErrorMessage);
     SendStringSerial(SERIAL_COM1, "\n\rCode: ");
-    char ErrorCodeStr[25];
     IntToStr(ErrorCode, ErrorCodeStr, 10);
     SendStringSerial(SERIAL_COM1, ErrorCodeStr);
     SendStringSerial(SERIAL_COM1, "\n\r");
-
-    uint8_t X, Y;
 
     // Move the kernel panic down if the cursor is not at the start of the line
     ConsoleGetCursorPos(&X, &Y);

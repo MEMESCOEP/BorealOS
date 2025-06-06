@@ -254,9 +254,6 @@ int PS2SetScancodeSet(int ScancodeSet)
     if (!PS2Wait(0x01, true)) return -1;
     uint8_t Result = InB(0x60);
 
-    PrintUnsignedNum(Result, 16);
-    ConsolePutString("\n\r");
-
     if (Result != 0xFA) return -1;
 
     // Send the scancode set
@@ -265,9 +262,6 @@ int PS2SetScancodeSet(int ScancodeSet)
     PS2Wait(0x01, true);
     
     Result = InB(0x60);
-
-    PrintUnsignedNum(Result, 16);
-    ConsolePutString("\n\r");
 
     if (Result != 0xFA) return -2;
 
@@ -322,10 +316,7 @@ void InitPS2Keyboard()
     }
 
     // Clear the keyboard buffer
-    while (InB(0x64) & 0x01)
-    {
-        InB(PS2_DATA_PORT);
-    }
+    FlushPS2Buffers();
 
     LOG_KERNEL_MSG("\tConfiguring interrupt handler...\n\r", NONE);
     IDTSetIRQHandler(1, PS2KBHandleScancode);
