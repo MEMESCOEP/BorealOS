@@ -110,3 +110,14 @@ uintptr_t AlignUp(uintptr_t Address, size_t Alignment)
     uintptr_t Mask = Alignment - 1;
     return (Address + Mask) & ~Mask;
 }
+
+uintptr_t AlignDown(uintptr_t Address, size_t Alignment)
+{
+    if (Alignment == 0 || (Alignment & (Alignment - 1)) != 0) {
+        // Alignment must be a power of two
+        return Address;
+    }
+
+    uintptr_t Mask = Alignment - 1;
+    return Address & ~Mask;
+}
