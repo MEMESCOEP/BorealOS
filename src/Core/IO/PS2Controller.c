@@ -19,7 +19,7 @@ bool Port2Useable = false;
 /* FUNCTIONS */
 bool PS2Wait(uint8_t BitToCheck, bool WaitForSet)
 {
-    int Timeout = 10000;
+    int Timeout = 100000;
 
     if (WaitForSet == true)
     {

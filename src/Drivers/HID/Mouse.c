@@ -122,7 +122,6 @@ void PS2MouseHandler()
                 MouseCycle++;
             }
 
-            GfxDrawChar('$', MousePos[0], MousePos[1], 0xFFFFFF, 0x000000);
             break;
 
         // Optional mouse byte #4.

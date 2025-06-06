@@ -6,11 +6,11 @@
 
 /* VARIABLES */
 static GfxInfo gfxInfo;
-static uint16_t *consoleBuffer = NULL;
-static uint8_t consoleWidth = 0;
-static uint8_t consoleHeight = 0;
-static uint8_t curX = 0;
-static uint8_t curY = 0;
+static uint32_t *consoleBuffer = NULL;
+static uint16_t consoleWidth = 0;
+static uint16_t consoleHeight = 0;
+static uint16_t curX = 0;
+static uint16_t curY = 0;
 static uint8_t color = 0x00;
 
 static uint32_t colorCodes[16] =
@@ -38,7 +38,7 @@ static uint32_t colorCodes[16] =
 static inline uint8_t _MakeColor(uint8_t fg, uint8_t bg);
 static inline uint16_t _MakeEntry(unsigned char c, uint8_t color);
 
-void ConsoleInit(uint8_t width, uint8_t height)
+void ConsoleInit(uint16_t width, uint16_t height)
 {
     consoleWidth = width;
     consoleHeight = height;
@@ -78,6 +78,7 @@ void ConsolePutChar(unsigned char c)
     GfxDrawChar(c, curX * FONT_WIDTH, curY * FONT_HEIGHT, colorCodes[color & 0x0F], colorCodes[color >> 4]);
     consoleBuffer[curY * consoleWidth + curX] = _MakeEntry(c, color);
     curX++;
+
     if (curX >= consoleWidth)
     {
         curX = 0;
@@ -183,9 +184,7 @@ void LogWithStackTrace(char *str, enum LogLevel level, int LineNumber, char* Fil
     // Send the same data over serial
     SendCharSerial(ActiveSerialPort, '[');
     SendStringSerial(ActiveSerialPort, Filename);
-    SendCharSerial(ActiveSerialPort, ']');
     SendCharSerial(ActiveSerialPort, ':');
-
 
     switch (level)
     {
@@ -215,6 +214,7 @@ void LogWithStackTrace(char *str, enum LogLevel level, int LineNumber, char* Fil
 
         case NONE:
             ConsolePutString("] >> ");
+            SendStringSerial(ActiveSerialPort, "] >> ");
             break;
 
         default:

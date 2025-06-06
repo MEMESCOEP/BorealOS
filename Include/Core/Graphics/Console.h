@@ -3,8 +3,8 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-
 #include <Core/Graphics/Graphics.h>
+
 #define LOG_KERNEL_MSG(MESSAGE, LOGLEVEL) LogWithStackTrace(MESSAGE, LOGLEVEL, __LINE__, __FILE__)
 
 enum VgaColor
@@ -35,7 +35,7 @@ enum LogLevel
     ERROR
 };
 
-void ConsoleInit(uint8_t width, uint8_t height); // WxH in chars
+void ConsoleInit(uint16_t width, uint16_t height); // WxH in chars
 void ConsoleClear(void);
 void ConsoleSetColor(uint8_t fg, uint8_t bg);
 void ConsoleSetColorEx(uint8_t fg, uint8_t bg);

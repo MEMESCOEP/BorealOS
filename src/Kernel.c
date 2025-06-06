@@ -99,6 +99,14 @@ void KernelStart(uint32_t Magic, uint32_t InfoPtr)
     PrintSignedNum(MB2FramebufferTag->Bpp, 10);
     ConsolePutString("bpp.\n\r");
 
+    LOG_KERNEL_MSG("Console size is ", INFO);
+    PrintUnsignedNum(MB2FramebufferTag->Width / FONT_WIDTH, 10);
+    ConsolePutString("x");
+    PrintUnsignedNum(MB2FramebufferTag->Height / FONT_HEIGHT, 10);
+    ConsolePutString(" (");
+    PrintSignedNum((MB2FramebufferTag->Width / FONT_WIDTH) * (MB2FramebufferTag->Height / FONT_HEIGHT), 10);
+    ConsolePutString(" characters).\n\r");
+
     // Initialize the PICs so we can use interupts
     LOG_KERNEL_MSG("Initializing PIC...\n\r", INFO);
     PICInit(0x20, 0x28);
