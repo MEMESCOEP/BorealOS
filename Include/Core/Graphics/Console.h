@@ -45,9 +45,9 @@ void ConsolePutString(const unsigned char *str);
 void ConsoleScroll(void);
 void ConsoleRedraw(void);
 
-void ConsoleSetCursor(uint8_t x, uint8_t y);
-void ConsoleChangeCursorPos(uint8_t x, uint8_t y);
-void ConsoleGetCursorPos(uint8_t *x, uint8_t *y);
+void ConsoleSetCursor(uint16_t x, uint16_t y);
+void ConsoleGetCursorPos(uint16_t *x, uint16_t *y);
+void ConsoleGetDimensions(uint16_t* Width, uint16_t* Height);
 
 /// Built out console functionality
 void LogWithStackTrace(char *str, enum LogLevel level, int LineNumber, char* Filename);

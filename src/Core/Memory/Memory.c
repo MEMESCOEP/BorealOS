@@ -1,5 +1,8 @@
+/* LIBRARIES */
 #include <Core/Memory/Memory.h>
 
+
+/* FUNCTIONS */
 void *MemSet(void *ptr, int value, size_t num)
 {
     size_t dwords = num / 4;
@@ -20,7 +23,6 @@ void *MemSet(void *ptr, int value, size_t num)
 
     return original;
 }
-
 
 void *MemCpy(void *dest, const void *src, size_t num)
 {

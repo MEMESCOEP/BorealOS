@@ -19,6 +19,14 @@ int YSensitivity = 1;
 
 
 /* FUNCTIONS */
+uint8_t GetMouseID()
+{
+    MouseWrite(0xF2);
+    MouseWait(1);
+    MouseRead();
+    return MouseRead();
+}
+
 uint8_t MouseRead()
 {
 	MouseWait(0);
@@ -122,6 +130,7 @@ void PS2MouseHandler()
                 MouseCycle++;
             }
 
+            GfxDrawChar('#', MousePos[0], MousePos[1], 0xFFFFFF, 0x000000);
             break;
 
         // Optional mouse byte #4.
@@ -197,8 +206,9 @@ void InitPS2Mouse()
     MouseWait(1);
 	OutB(PS2_MOUSE_DATA_REG, Status);
 
-    // Change the mouse ID to 0x03 from 0x00.
-    LOG_KERNEL_MSG("\tChanging mouse ID to 0x03 from 0x00...\n\r", NONE);
+    // Change the mouse ID to 0x03 from 0x00. This enables the Z-axis (scroll wheel) extension
+    LOG_KERNEL_MSG("\tEnabling IntelliMouse Z-axis (scroll wheel) extension...\n\r", NONE);
+    LOG_KERNEL_MSG("\t\tChanging mouse ID to 0x03 from 0x00...\n\r", NONE);
     MouseWrite(0xF3);
     MouseRead();
     MouseWrite(200);
@@ -214,16 +224,15 @@ void InitPS2Mouse()
     MouseWrite(80);
     MouseRead();
 
-    MouseWrite(0xF2);
-    MouseWait(1);
-    MouseRead();
-    MouseID = MouseRead();
-    char MIDBuffer[8];
+    MouseID = GetMouseID();
 
     if (MouseID == 0x03)
     {
-        // Now change the mouse ID from 0x03 to 0x04 with 4 1-byte packets.
-        LOG_KERNEL_MSG("\tChanging mouse ID to 0x04 from 0x03...\n\r", NONE);
+        LOG_KERNEL_MSG("\t\tIntelliMouse Z-axis extension enabled.\n\n\r", NONE);
+
+        // Now change the mouse ID from 0x03 to 0x04 with 4 1-byte packets. This enables the 4th and 5th buttons
+        LOG_KERNEL_MSG("\tEnabling IntelliMouse 5-button extension...\n\r", NONE);
+        LOG_KERNEL_MSG("\t\tChanging mouse ID to 0x04 from 0x03...\n\r", NONE);
         MouseWrite(0xF3);
         MouseRead();
         MouseWrite(200);
@@ -239,19 +248,20 @@ void InitPS2Mouse()
         MouseWrite(80);
         MouseRead();
 
-        MouseWrite(0xF2);
-        MouseWait(1);
-        MouseRead();
-        MouseID = MouseRead();
+        MouseID = GetMouseID();
 
         if (MouseID != 0x04)
         {
-            LOG_KERNEL_MSG("\tPS/2 Mouse ID did not change from 0x03 to 0x04, this is probably a 3-button mouse.\n\r", WARN);
+            LOG_KERNEL_MSG("\t\tPS/2 Mouse ID did not change from 0x03 to 0x04, this is probably a 3-button mouse.\n\n\r", WARN);
+        }
+        else
+        {
+            LOG_KERNEL_MSG("\t\tIntelliMouse 5-button extensions enabled.\n\n\r", NONE);
         }
     }
     else
     {
-        LOG_KERNEL_MSG("\tPS/2 Mouse ID did not change from 0x00 to 0x03, this mouse probably has no scroll wheel.\n\r", WARN);
+        LOG_KERNEL_MSG("\t\tPS/2 Mouse ID did not change from 0x00 to 0x03, this mouse probably has no scroll wheel.\n\n\r", WARN);
     }
 
     // Set the mouse sample rate to 60/s.

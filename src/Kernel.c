@@ -70,6 +70,9 @@ void KernelStart(uint32_t Magic, uint32_t InfoPtr)
         MB2FramebufferTag->Pitch
     );
 
+    GfxClearScreen();
+    ConsoleSetCursor(0,0);
+
     // Get the firmware type (BIOS, UEFI, other)
     GetFirmwareType((void*)InfoPtr);
 
@@ -78,7 +81,7 @@ void KernelStart(uint32_t Magic, uint32_t InfoPtr)
     ConsoleSetColor(LIGHT_GRAY, BLACK);
     ConsolePutString("[== BOREALOS ==]\n\r");
 
-    LOG_KERNEL_MSG("Kernel architecure: \"", INFO);
+    LOG_KERNEL_MSG("Kernel compiled for: \"", INFO);
     ConsolePutString(ARCH_NAME);
     ConsolePutString("\".\n\r");
     
@@ -123,7 +126,10 @@ void KernelStart(uint32_t Magic, uint32_t InfoPtr)
 
     // New framebuffer address, can be changed if needed, which should probably be done lol TODO: find a better numbr for this
     uintptr_t NewFrameBufferAddr = (uintptr_t)0xC0000000;
+
     // Map the entire frame buffer to the new address
+    SendStringSerial("Remapping framebuffer to new address...\n\r", NONE);
+
     size_t frameBufferSize = MB2FramebufferTag->Width * MB2FramebufferTag->Height * (MB2FramebufferTag->Bpp / 8);
     size_t pageCount = (frameBufferSize + PAGE_SIZE - 1) / PAGE_SIZE; // Calculate the number of pages needed
     for (size_t i = 0; i < pageCount; i++)
@@ -140,8 +146,8 @@ void KernelStart(uint32_t Magic, uint32_t InfoPtr)
       MB2FramebufferTag->Pitch
     );
 
-    LOG_KERNEL_MSG("GFX reset to use new mapped buffer.\n\r", INFO);
-    
+    LOG_KERNEL_MSG("\tGFX configured to use new mapped buffer.\n\n\r", NONE);
+
     // Initialize ACPI
     LOG_KERNEL_MSG("Initializing ACPI...\n\r", INFO);
     InitACPI((void*)InfoPtr);
@@ -160,18 +166,21 @@ void KernelStart(uint32_t Magic, uint32_t InfoPtr)
     LOG_KERNEL_MSG("Init finished, starting shell process...\n\r", INFO);
 
     // Ideally the shell should never exit, but we don't live in an ideal world. We want to panic here to prevent undefined behavior from causing the machine to explode and inflict 1000 damage on my sanity
-    //KernelPanic(-2, "Shell process exited!");
-    while(true);
+    KernelPanic(-2, "Shell process exited!");
 }
 
 void KernelPanic(int ErrorCode, char* ErrorMessage)
 {
-    // We don't want the kernel to keep doing other things. Disable all interrupts before dropping into an infinite loop
+    uint16_t X, Y;
+    uint16_t Width, Height;
+    char ErrorCodeStr[25];
+
+    // We don't want the kernel to keep doing other things. Disable all interrupts before printing the error and dropping into an infinite loop
     asm volatile("cli");
 
     // Send the kernel panic over serial
-    uint8_t X, Y;
-    char ErrorCodeStr[25];
+    ConsoleGetDimensions(&Width, &Height);
+    ConsoleGetCursorPos(&X, &Y);
 
     SendStringSerial(SERIAL_COM1, "Kernel panic!\n\r");
     SendStringSerial(SERIAL_COM1, "Reason: ");
@@ -181,24 +190,25 @@ void KernelPanic(int ErrorCode, char* ErrorMessage)
     SendStringSerial(SERIAL_COM1, ErrorCodeStr);
     SendStringSerial(SERIAL_COM1, "\n\r");
 
-    // Move the kernel panic down if the cursor is not at the start of the line
-    ConsoleGetCursorPos(&X, &Y);
-    
-    if (X != 0)
-    {
-        ConsoleSetCursor(0, Y + 1);
-    }
-
     // Print the panic details
     ConsolePutString("[==              ==]\n\r");
-    ConsoleChangeCursorPos(4, Y);
-    ConsoleSetColor(RED, BLACK);
-    ConsolePutString("KERNEL PANIC\n\r");
-    ConsoleResetColor();
     ConsolePutString("Reason: ");
     ConsolePutString(ErrorMessage);
     ConsolePutString("\n\rCode: ");
     PrintSignedNum(ErrorCode, 10);
+
+    // Move the kernel panic down if the cursor is not at the start of the line (this needs to be updated to move to the last available line if needed)
+    if (Y >= Height - 1)
+    {
+        ConsoleSetCursor(X + 4, Height - 3);
+    }
+    else
+    {
+        ConsoleSetCursor(X + 4, Y);
+    }
+
+    ConsoleSetColor(RED, BLACK);
+    ConsolePutString("KERNEL PANIC");
 
     while(true)
     {

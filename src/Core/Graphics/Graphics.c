@@ -24,9 +24,6 @@ void GfxConfig(uint32_t* address, uint32_t width, uint32_t height, uint32_t bpp,
     fbPitch = pitch;
 
     SendStringSerial(SERIAL_COM1, "Clearing screen\n\r");
-
-    GfxClearScreen();
-    ConsoleSetCursor(0,0);
     SendStringSerial(SERIAL_COM1, "Cleared screen successfully\n\r");
 }
 

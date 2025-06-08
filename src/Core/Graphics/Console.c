@@ -5,8 +5,7 @@
 
 
 /* VARIABLES */
-static GfxInfo gfxInfo;
-static uint32_t *consoleBuffer = NULL;
+static uint32_t *consoleBuffer = NULL; // This is SOOOOOO dangerous, we have no clue where this writes to, and in some cases that might even write to BIOS or other shit D:, this is getting fixed with memory allocation later
 static uint16_t consoleWidth = 0;
 static uint16_t consoleHeight = 0;
 static uint16_t curX = 0;
@@ -45,7 +44,14 @@ void ConsoleInit(uint16_t width, uint16_t height)
     curX = 0;
     curY = 0;
 
-    GfxGetInfo(&gfxInfo);
+    for (uint16_t y = 0; y < consoleHeight; y++)
+    {
+        for (uint16_t x = 0; x < consoleWidth; x++)
+        {
+            consoleBuffer[y * consoleWidth + x] = _MakeEntry(' ', BLACK);
+        }
+    }
+
     ConsoleClear();
 }
 
@@ -54,6 +60,8 @@ void ConsoleClear(void)
     MemSet(consoleBuffer, 0, consoleWidth * consoleHeight * sizeof(uint16_t));
     ConsoleSetColor(LIGHT_GRAY, BLACK);
     GfxClearScreen();
+    curX = 0;
+    curY = 0;
 }
 
 void ConsoleSetColor(uint8_t fg, uint8_t bg)
@@ -75,6 +83,16 @@ void ConsoleResetColor(void)
 
 void ConsolePutChar(unsigned char c)
 {
+    if (c == NULL)
+    {
+        return;
+    }
+
+    if (curY >= consoleHeight)
+    {
+        ConsoleScroll();
+    }
+
     GfxDrawChar(c, curX * FONT_WIDTH, curY * FONT_HEIGHT, colorCodes[color & 0x0F], colorCodes[color >> 4]);
     consoleBuffer[curY * consoleWidth + curX] = _MakeEntry(c, color);
     curX++;
@@ -100,7 +118,11 @@ void ConsolePutString(const unsigned char *str)
         }
         else if (*str == '\t')
         {
-            curX += 4;
+            // Don't simply increase curX by 4 here, we need to trigger scrolling correctly. If we just increment by 4, the tabs for new lines are lost
+            for (int I = 0; I < 4; I++)
+            {
+                ConsolePutChar(' ');
+            }
         }
         else
         {
@@ -108,45 +130,33 @@ void ConsolePutString(const unsigned char *str)
         }
 
         str++;
-
-        if (curY >= consoleHeight)
-        {
-            ConsoleScroll();
-        }
     }
 }
 
 void ConsoleScroll(void)
 {
-    if (consoleBuffer == NULL)
+    for (uint16_t y = 1; y < consoleHeight; y++)
     {
-        ConsoleSetCursor(0, 0);
-        ConsoleClear();
-        return;
-    }
-
-    for (uint8_t y = 1; y < consoleHeight; y++)
-    {
-        for (uint8_t x = 0; x < consoleWidth; x++)
+        for (uint16_t x = 0; x < consoleWidth; x++)
         {
             consoleBuffer[(y - 1) * consoleWidth + x] = consoleBuffer[y * consoleWidth + x];
         }
     }
 
-    for (uint8_t x = 0; x < consoleWidth; x++)
+    for (uint16_t x = 0; x < consoleWidth; x++)
     {
         consoleBuffer[(consoleHeight - 1) * consoleWidth + x] = _MakeEntry(' ', color);
     }
 
-    curY--;
+    curY = consoleHeight - 1;
     ConsoleRedraw();
 }
 
 void ConsoleRedraw(void)
 {
-    for (uint8_t y = 0; y < consoleHeight; y++)
+    for (uint16_t y = 0; y < consoleHeight; y++)
     {
-        for (uint8_t x = 0; x < consoleWidth; x++)
+        for (uint16_t x = 0; x < consoleWidth; x++)
         {
             uint16_t entry = consoleBuffer[y * consoleWidth + x];
             GfxDrawChar(entry & 0xFF, x * FONT_WIDTH, y * FONT_HEIGHT, colorCodes[entry >> 8 & 0x0F], colorCodes[entry >> 12]);
@@ -158,9 +168,9 @@ void LogWithStackTrace(char *str, enum LogLevel level, int LineNumber, char* Fil
 {
     ConsoleResetColor();
 
-    if (str[0] == '\t')
+    while (*str == '\t')
     {
-        ConsolePutString("\t");
+        ConsolePutString("    ");
         str++;
     }
 
@@ -222,32 +232,35 @@ void LogWithStackTrace(char *str, enum LogLevel level, int LineNumber, char* Fil
             break;
     }
 
-    ConsolePutString(str);
-    SendStringSerial(ActiveSerialPort, str);
+    if (str != NULL && *str != '\0')
+    {
+        ConsolePutString(str);
+        SendStringSerial(ActiveSerialPort, str);
+    }
 }
 
-void ConsoleSetCursor(uint8_t x, uint8_t y)
+void ConsoleSetCursor(uint16_t x, uint16_t y)
 {
     if (x < consoleWidth && y < consoleHeight)
     {
         curX = x;
         curY = y;
     }
-}
 
-void ConsoleChangeCursorPos(uint8_t x, uint8_t y)
-{
-    if (x < consoleWidth && y < consoleHeight)
-    {
-        curX = x;
+    curX = x;
         curY = y;
-    }
 }
 
-void ConsoleGetCursorPos(uint8_t *x, uint8_t *y)
+void ConsoleGetCursorPos(uint16_t *x, uint16_t *y)
 {
     if (x != NULL) *x = curX;
     if (y != NULL) *y = curY;
+}
+
+void ConsoleGetDimensions(uint16_t* Width, uint16_t* Height)
+{
+    if (Width != NULL) *Width = consoleWidth;
+    if (Height != NULL) *Height = consoleHeight;
 }
 
 static inline uint8_t _MakeColor(uint8_t fg, uint8_t bg)
