@@ -57,5 +57,18 @@ Status KernelLoad(uint32_t InfoPtr, KernelState *out) {
     out->Printf(out, "Physical Memory Manager initialized successfully. With %z pages of memory (%z MiB).\n", out->PhysicalMemoryManager.TotalPages, (out->PhysicalMemoryManager.TotalPages * 4096) / (1024 * 1024));
     out->Printf(out, "Physical Memory Manager has %z bytes for allocation & reservation maps.\n", out->PhysicalMemoryManager.MapSize * 2);
 
+    // Load the PIC
+    if (PICLoad(0x20, 0x28, &out->PIC) != STATUS_SUCCESS) {
+        PANIC(out, "Failed to initialize PIC!\n");
+    }
+    LOG(out, "PIC initialized successfully.\n");
+
+    // Load the IDT
+    if (IDTLoad(out, &out->IDT) != STATUS_SUCCESS) {
+        PANIC(out, "Failed to initialize IDT!\n");
+    }
+
+    LOG(out, "IDT initialized successfully.\n");
+
     return STATUS_SUCCESS;
 }

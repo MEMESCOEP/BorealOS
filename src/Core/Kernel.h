@@ -5,6 +5,8 @@
 
 #include "Drivers/IO/Serial.h"
 #include "Memory/PhysicalMemoryManager.h"
+#include "Drivers/IO/PIC.h"
+#include "Interrupts/IDT.h"
 
 typedef struct KernelState KernelState;
 typedef void (*LogFn)(const KernelState*, const char*);
@@ -20,11 +22,9 @@ typedef struct KernelState {
     // Subsystem states
     SerialPort Serial;
     PhysicalMemoryManagerState PhysicalMemoryManager;
+    PICState PIC;
+    IDTState *IDT;
 } KernelState;
-
-// These macros automatically include the file and line number in the log/panic messages
-#define LOG(kernel, message) (kernel)->Log(kernel, __FILE__ ":" STR(__LINE__) " : " message)
-#define PANIC(kernel, message) (kernel)->Panic(kernel, __FILE__ ":" STR(__LINE__) " : " message)
 
 Status KernelLoad(uint32_t InfoPtr, KernelState *out);
 
