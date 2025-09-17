@@ -15,11 +15,11 @@ typedef struct {
     } entries[];
 } PACKED MB2MemoryMap_t;
 
-#define PAGE_SIZE 4096
-#define PAGE_MASK (~(PAGE_SIZE - 1))
-#define ALIGN_DOWN(x, align) ((x) & PAGE_MASK)
-#define ALIGN_UP(x, align) (((x) + (align) - 1) & PAGE_MASK)
-#define MB2_TAG_TYPE_MMAP 6
+#define PMM_PAGE_SIZE 4096
+#define PMM_PAGE_MASK (~(PMM_PAGE_SIZE - 1))
+#define PMM_ALIGN_DOWN(x, align) ((x) & PMM_PAGE_MASK)
+#define PMM_ALIGN_UP(x, align) (((x) + (align) - 1) & PMM_PAGE_MASK)
+#define PMM_MB2_TAG_TYPE_MMAP 6
 
 Status PhysicalMemoryManagerInit(uint32_t InfoPtr, PhysicalMemoryManagerState *out) {
     if (!out) {
@@ -27,7 +27,7 @@ Status PhysicalMemoryManagerInit(uint32_t InfoPtr, PhysicalMemoryManagerState *o
     }
 
     // Get the memory map from the multiboot info
-    MB2MemoryMap_t* mmap = MBGetTag(InfoPtr, MB2_TAG_TYPE_MMAP);
+    MB2MemoryMap_t* mmap = MBGetTag(InfoPtr, PMM_MB2_TAG_TYPE_MMAP);
     if (!mmap) {
         return STATUS_FAILURE;
     }
@@ -58,7 +58,7 @@ Status PhysicalMemoryManagerInit(uint32_t InfoPtr, PhysicalMemoryManagerState *o
     }
 
     // Now we need to find 2 regions for the allocation map and reserved map
-    size_t needed_pages = (total_memory / PAGE_SIZE) / 8; // 1 bit per page
+    size_t needed_pages = (total_memory / PMM_PAGE_SIZE) / 8; // 1 bit per page
     uint32_t allocation_map_addr = 0;
     uint32_t reserved_map_addr = 0;
 
@@ -75,7 +75,7 @@ Status PhysicalMemoryManagerInit(uint32_t InfoPtr, PhysicalMemoryManagerState *o
     }
 
     // Initialize the state
-    out->TotalPages = total_memory / PAGE_SIZE;
+    out->TotalPages = total_memory / PMM_PAGE_SIZE;
     out->AllocationMap = (uint8_t *)allocation_map_addr;
     out->ReservedMap = (uint8_t *)reserved_map_addr;
     out->MapSize = needed_pages;
@@ -89,8 +89,8 @@ Status PhysicalMemoryManagerInit(uint32_t InfoPtr, PhysicalMemoryManagerState *o
     }
 
     for (uint32_t i = 0; i < count; i++) {
-        uint32_t start_page = ALIGN_UP(valid_regions[i].addr, PAGE_SIZE) / PAGE_SIZE;
-        uint32_t end_page = ALIGN_DOWN(valid_regions[i].addr + valid_regions[i].len, PAGE_SIZE) / PAGE_SIZE;
+        uint32_t start_page = PMM_ALIGN_UP(valid_regions[i].addr, PMM_PAGE_SIZE) / PMM_PAGE_SIZE;
+        uint32_t end_page = PMM_ALIGN_DOWN(valid_regions[i].addr + valid_regions[i].len, PMM_PAGE_SIZE) / PMM_PAGE_SIZE;
 
         for (uint32_t page = start_page; page < end_page; page++) {
             out->AllocationMap[page / 8] &= ~(1 << (page % 8)); // Mark as free
@@ -99,15 +99,15 @@ Status PhysicalMemoryManagerInit(uint32_t InfoPtr, PhysicalMemoryManagerState *o
     }
 
     // Now mark the allocation map and reserved map regions as reserved
-    uint32_t alloc_start_page = allocation_map_addr / PAGE_SIZE;
-    uint32_t alloc_end_page = (allocation_map_addr + needed_pages) / PAGE_SIZE;
+    uint32_t alloc_start_page = allocation_map_addr / PMM_PAGE_SIZE;
+    uint32_t alloc_end_page = (allocation_map_addr + needed_pages) / PMM_PAGE_SIZE;
     for (uint32_t page = alloc_start_page; page < alloc_end_page; page++) {
         out->ReservedMap[page / 8] |= (1 << (page % 8)); // Mark as reserved
         out->AllocationMap[page / 8] |= (1 << (page % 8)); // Mark as allocated
     }
 
-    uint32_t resv_start_page = reserved_map_addr / PAGE_SIZE;
-    uint32_t resv_end_page = (reserved_map_addr + needed_pages) / PAGE_SIZE;
+    uint32_t resv_start_page = reserved_map_addr / PMM_PAGE_SIZE;
+    uint32_t resv_end_page = (reserved_map_addr + needed_pages) / PMM_PAGE_SIZE;
     for (uint32_t page = resv_start_page; page < resv_end_page; page++) {
         out->ReservedMap[page / 8] |= (1 << (page % 8)); // Mark as reserved
         out->AllocationMap[page / 8] |= (1 << (page % 8)); // Mark as allocated
@@ -130,7 +130,7 @@ void * PhysicalMemoryManagerAllocatePage(PhysicalMemoryManagerState *state) {
         if (!(state->AllocationMap[byte_index] & (1 << bit_index)) && (!(state->ReservedMap[byte_index] & (1 << bit_index)))) {
             // Found a free page, mark it as allocated
             state->AllocationMap[byte_index] |= (1 << bit_index);
-            return (void *)(i * PAGE_SIZE); // Return the address of the allocated page
+            return (void *)(i * PMM_PAGE_SIZE); // Return the address of the allocated page
         }
     }
 
@@ -139,11 +139,11 @@ void * PhysicalMemoryManagerAllocatePage(PhysicalMemoryManagerState *state) {
 
 Status PhysicalMemoryManagerFreePage(PhysicalMemoryManagerState *state, void *page) {
     size_t address = (size_t)page;
-    if (address % PAGE_SIZE != 0) {
+    if (address % PMM_PAGE_SIZE != 0) {
         return STATUS_FAILURE; // Page is not aligned to page size, cannot free
     }
 
-    size_t page_index = address / PAGE_SIZE;
+    size_t page_index = address / PMM_PAGE_SIZE;
     size_t byte_index = page_index / 8;
     size_t bit_index = page_index % 8;
 
@@ -180,13 +180,13 @@ Status PhysicalMemoryManagerTest(PhysicalMemoryManagerState *state, KernelState 
     // Write some data to the pages
     volatile uint8_t* p1 = (uint8_t*)page1;
     volatile uint8_t* p2 = (uint8_t*)page2;
-    for (size_t i = 0; i < PAGE_SIZE; i++) {
+    for (size_t i = 0; i < PMM_PAGE_SIZE; i++) {
         p1[i] = 0xAA;
         p2[i] = 0x55;
     }
 
     bool success = true;
-    for (size_t i = 0; i < PAGE_SIZE; i++) {
+    for (size_t i = 0; i < PMM_PAGE_SIZE; i++) {
         if (p1[i] != 0xAA) {
             success = false;
             break;
