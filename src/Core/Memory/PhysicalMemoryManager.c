@@ -21,7 +21,7 @@ typedef struct {
 #define ALIGN_UP(x, align) (((x) + (align) - 1) & PAGE_MASK)
 #define MB2_TAG_TYPE_MMAP 6
 
-Status PhysicalMemoryManagerLoad(uint32_t InfoPtr, PhysicalMemoryManagerState *out) {
+Status PhysicalMemoryManagerInit(uint32_t InfoPtr, PhysicalMemoryManagerState *out) {
     if (!out) {
         return STATUS_FAILURE;
     }

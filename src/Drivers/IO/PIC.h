@@ -29,7 +29,7 @@ typedef struct {
     bool Initialized;
 } PICState;
 
-Status PICLoad(uint8_t masterOffset, uint8_t slaveOffset, PICState *out);
+Status PICInit(uint8_t masterOffset, uint8_t slaveOffset, PICState *out);
 void PICDisable(PICState *state);
 void PICSetIRQMask(PICState *state, uint8_t irqLine);
 void PICClearIRQMask(PICState *state, uint8_t irq);

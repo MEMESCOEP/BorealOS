@@ -1,7 +1,7 @@
 #include "PIC.h"
 #include "Utility/SerialOperations.h"
 
-Status PICLoad(uint8_t masterOffset, uint8_t slaveOffset, PICState *out) {
+Status PICInit(uint8_t masterOffset, uint8_t slaveOffset, PICState *out) {
     out->Initialized = false;
     out->MasterOffset = masterOffset;
     out->SlaveOffset = slaveOffset;

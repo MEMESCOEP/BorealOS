@@ -82,7 +82,7 @@ static void TestingExceptionHandler(KernelState* kernel, uint32_t exceptionNumbe
     kernel->Printf(kernel, "Error string: %s\n", IDTExceptionStrings[exceptionNumber]);
 }
 
-Status IDTLoad(KernelState* kernel, IDTState **out) {
+Status IDTInit(KernelState* kernel, IDTState **out) {
     ASM ("cli"); // Disable interrupts while loading IDT
     *out = &global_idt; // Use the global IDT state
     IDTState *state = *out;
