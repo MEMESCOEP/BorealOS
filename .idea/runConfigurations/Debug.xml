@@ -1,0 +1,9 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Debug" type="CLion_Remote" version="1" remoteCommand="localhost:1234" symbolFile="$ProjectFileDir$/cmake-build-debug/BorealOS.elf" sysroot="">
+    <debugger kind="GDB" isBundled="true" />
+    <method v="2">
+      <option name="RunConfigurationTask" enabled="false" run_configuration_name="Build" run_configuration_type="CMakeRunConfiguration" />
+      <option name="ToolBeforeRunTask" enabled="true" actionId="Tool_External Tools_Run Debug" />
+    </method>
+  </configuration>
+</component>

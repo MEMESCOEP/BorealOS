@@ -1,26 +1,12 @@
-#!/usr/bin/bash
+#!/bin/bash
 
-# Check if ./Logs exists, if not create it
-if [ ! -d "./Logs" ]; then
-    mkdir ./Logs
+# Check if the debug argument is provided, if so add the -s -S flags
+FLAGS=""
+if [ "$1" == "debug" ]; then
+    echo "Running in debug mode..."
+    FLAGS="-s -S"
+else
+    echo "Running in normal mode..."
 fi
 
-# Check if a HDD.img file exists, if not create it (qemu-img create -f raw HDD.img 2G)
-if [ ! -f "./HDD.img" ]; then
-    qemu-img create -f raw HDD.img 2G
-fi
-
-make clean
-if [ $? -ne 0 ]; then
-    echo "Make clean failed!"
-    exit 1
-fi
-
-make
-
-if [ $? -ne 0 ]; then
-    echo "Make failed!"
-    exit 1
-fi
-
-./QEMU.sh
+qemu-system-i386 $FLAGS -no-shutdown -no-reboot -serial file:logs/serial.log -cpu qemu32,vendor=QEMU_VirtSys -smp 2 -d int,cpu_reset -m 128M -hda HDD.img -cdrom ./cmake-build-debug/BorealOS.iso -audiodev pa,id=snd0 -machine pcspk-audiodev=snd0 -display gtk
