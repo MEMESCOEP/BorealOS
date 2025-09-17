@@ -32,7 +32,7 @@ typedef struct IDTState {
 
 extern const char* IDTExceptionStrings[];
 
-Status IDTLoad(KernelState* kernel, IDTState *out);
+Status IDTLoad(KernelState* kernel, IDTState **out);
 void IDTSetEntry(IDTState *state, uint8_t vector, void *isr, uint8_t flags);
 void IDTSetExceptionHandler(IDTState *state, uint8_t exceptionNumber, ExceptionHandlerFn handler);
 

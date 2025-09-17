@@ -23,7 +23,7 @@ typedef struct KernelState {
     SerialPort Serial;
     PhysicalMemoryManagerState PhysicalMemoryManager;
     PICState PIC;
-    IDTState IDT;
+    IDTState *IDT;
 } KernelState;
 
 Status KernelLoad(uint32_t InfoPtr, KernelState *out);
