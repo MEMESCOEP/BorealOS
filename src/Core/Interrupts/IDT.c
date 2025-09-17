@@ -101,10 +101,6 @@ Status IDTLoad(KernelState* kernel, IDTState *out) {
         out->ExceptionHandlers[irq_handle] = nullptr; // Initialize exception handlers to nullptr
     }
 
-    for (uint8_t exc = 0; exc < 16; exc++) {
-        out->ExceptionHandlers[exc] = nullptr; // Initialize exception handlers to nullptr
-    }
-
     ASM ("lidt %0" : : "m"(out->Descriptor)); // Load IDT descriptor
     ASM ("sti");
 
