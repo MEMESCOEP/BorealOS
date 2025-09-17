@@ -7,3 +7,4 @@
 BuildLog.txt
 /logs
 *.img
+/cmake-build-debug/
