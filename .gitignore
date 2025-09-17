@@ -5,5 +5,5 @@
 .vscode/settings.json
 *.iso
 BuildLog.txt
-/Logs
+/logs
 *.img
