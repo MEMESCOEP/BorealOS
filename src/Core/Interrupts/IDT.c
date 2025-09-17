@@ -85,39 +85,39 @@ static void TestingExceptionHandler(KernelState* kernel, uint32_t exceptionNumbe
 Status IDTLoad(KernelState* kernel, IDTState **out) {
     ASM ("cli"); // Disable interrupts while loading IDT
     *out = &global_idt; // Use the global IDT state
+    IDTState *state = *out;
+    state->Kernel = kernel;
 
-    out->Kernel = kernel;
-
-    out->Descriptor.Base = (uint32_t)&out->Entries[0]; // Set the base address of the IDT entries
-    out->Descriptor.Limit = sizeof(out->Entries) - 1; // Set the limit of the IDT
+    state->Descriptor.Base = (uint32_t)&state->Entries[0]; // Set the base address of the IDT entries
+    state->Descriptor.Limit = sizeof(state->Entries) - 1; // Set the limit of the IDT
 
     for (uint8_t vec = 0; vec < 48; vec++) {
-        IDTSetEntry(out, vec, isr_stub_table[vec], 0x8E);
-        out->VectorSet[vec] = true;
+        IDTSetEntry(state, vec, isr_stub_table[vec], 0x8E);
+        state->VectorSet[vec] = true;
     }
 
     for (uint8_t irq_handle = 0; irq_handle < 16; irq_handle++) {
-        out->IRQSet[irq_handle] = false;
-        out->ExceptionHandlers[irq_handle] = nullptr; // Initialize exception handlers to nullptr
+        state->IRQSet[irq_handle] = false;
+        state->ExceptionHandlers[irq_handle] = nullptr; // Initialize exception handlers to nullptr
     }
 
-    ASM ("lidt %0" : : "m"(out->Descriptor)); // Load IDT descriptor
+    ASM ("lidt %0" : : "m"(state->Descriptor)); // Load IDT descriptor
     ASM ("sti");
 
     // Test the IDT by setting some exception handlers and triggering them
-    out->Kernel->Printf(out->Kernel, "Testing IDT by triggering exceptions...\n");
+    state->Kernel->Printf(state->Kernel, "Testing IDT by triggering exceptions...\n");
 
-    IDTSetExceptionHandler(out, 0, TestingExceptionHandler); // Division By Zero
-    IDTSetExceptionHandler(out, 3, TestingExceptionHandler); // Breakpoint
+    IDTSetExceptionHandler(state, 0, TestingExceptionHandler); // Division By Zero
+    IDTSetExceptionHandler(state, 3, TestingExceptionHandler); // Breakpoint
 
     // Test out all the exceptions we set handlers for
     ASM ("int $0"); // Trigger Division By Zero
     ASM ("int $3"); // Trigger Breakpoint
 
-    out->Kernel->Printf(out->Kernel, "IDT initialized and tested successfully.\n");
+    state->Kernel->Printf(state->Kernel, "IDT initialized and tested successfully.\n");
 
-    out->ExceptionHandlers[0] = nullptr; // Remove the testing handler
-    out->ExceptionHandlers[3] = nullptr; // Remove the testing handler
+    state->ExceptionHandlers[0] = nullptr; // Remove the testing handler
+    state->ExceptionHandlers[3] = nullptr; // Remove the testing handler
 
     return STATUS_SUCCESS;
 }
