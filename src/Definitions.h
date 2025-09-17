@@ -45,4 +45,15 @@ typedef enum {
     STATUS_FAILURE = -1,
 } Status;
 
+// Log structure:
+// [TYPE] [FILE:LINE] : message
+#define LOG_INFO(kernel, message) (kernel)->Log(kernel, "[INFO] [" __FILE__ ":" STR(__LINE__) "] >> " message)
+#define LOG_WARNING(kernel, message) (kernel)->Log(kernel, "[WARNING] [" __FILE__ ":" STR(__LINE__) "] >> " message)
+#define LOG_ERROR(kernel, message) (kernel)->Log(kernel, "[ERROR] [" __FILE__ ":" STR(__LINE__) "] >> " message)
+#define LOG_CRITICAL(kernel, message) (kernel)->Log(kernel, "[CRITICAL] " __FILE__ ":" STR(__LINE__) "] >> " message)
+#define LOG_DEBUG(kernel, message) (kernel)->Log(kernel, "[DEBUG] [" __FILE__ ":" STR(__LINE__) "] >> " message)
+#define LOG(kernel, message) LOG_INFO(kernel, message)
+
+#define PANIC(kernel, message) (kernel)->Panic(kernel, "[PANIC] " __FILE__ ":" STR(__LINE__) " : " message)
+
 #endif //BOREALOS_DEFINITIONS_H
