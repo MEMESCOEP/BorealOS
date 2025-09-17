@@ -1,7 +1,7 @@
 #include "Serial.h"
 #include "Utility/SerialOperations.h"
 
-Status SerialLoad(uint16_t BasePort, SerialPort *port) {
+Status SerialInit(uint16_t BasePort, SerialPort *port) {
     port->Initialized = false;
     port->BasePort = BasePort;
 

@@ -6,7 +6,7 @@
 NORETURN
 void EntryPoint(uint32_t Magic, uint32_t InfoPtr) {
     KernelState kernel;
-    Status result = KernelLoad(InfoPtr, &kernel);
+    Status result = KernelInit(InfoPtr, &kernel);
 
     if (Magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
         PANIC(&kernel, "Bootloader is not Multiboot2 compliant!\n");

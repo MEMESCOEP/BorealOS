@@ -30,12 +30,12 @@ static void serial_printf(const KernelState* state, const char* format, ...) {
     }
 }
 
-Status KernelLoad(uint32_t InfoPtr, KernelState *out) {
+Status KernelInit(uint32_t InfoPtr, KernelState *out) {
     out->Panic = serial_panic; // For now, just use the serial functions.
     out->Log = serial_log;
     out->Printf = serial_printf;
 
-    if (SerialLoad(SERIAL_COM1, &out->Serial) != STATUS_SUCCESS) {
+    if (SerialInit(SERIAL_COM1, &out->Serial) != STATUS_SUCCESS) {
         // We can't use serial, this probably means this is running on a real machine without a serial port.
         // Just ignore it for now, all logging will just be no-ops.
         // It's safe to keep the log & panic functions as they are, they will print nothing, but will still halt on panic.
@@ -46,7 +46,7 @@ Status KernelLoad(uint32_t InfoPtr, KernelState *out) {
     out->Printf(out, "Loading kernel version: %z.%z.%z.\n", BOREALOS_MAJOR_VERSION, BOREALOS_MINOR_VERSION, BOREALOS_PATCH_VERSION);
 
     // Now load the physical memory manager
-    if (PhysicalMemoryManagerLoad(InfoPtr, &out->PhysicalMemoryManager) != STATUS_SUCCESS) {
+    if (PhysicalMemoryManagerInit(InfoPtr, &out->PhysicalMemoryManager) != STATUS_SUCCESS) {
         PANIC(out, "Failed to initialize Physical Memory Manager!\n");
     }
 
@@ -58,13 +58,13 @@ Status KernelLoad(uint32_t InfoPtr, KernelState *out) {
     out->Printf(out, "Physical Memory Manager has %z bytes for allocation & reservation maps.\n", out->PhysicalMemoryManager.MapSize * 2);
 
     // Load the PIC
-    if (PICLoad(0x20, 0x28, &out->PIC) != STATUS_SUCCESS) {
+    if (PICInit(0x20, 0x28, &out->PIC) != STATUS_SUCCESS) {
         PANIC(out, "Failed to initialize PIC!\n");
     }
     LOG(out, "PIC initialized successfully.\n");
 
     // Load the IDT
-    if (IDTLoad(out, &out->IDT) != STATUS_SUCCESS) {
+    if (IDTInit(out, &out->IDT) != STATUS_SUCCESS) {
         PANIC(out, "Failed to initialize IDT!\n");
     }
 

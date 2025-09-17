@@ -26,6 +26,6 @@ typedef struct KernelState {
     IDTState *IDT;
 } KernelState;
 
-Status KernelLoad(uint32_t InfoPtr, KernelState *out);
+Status KernelInit(uint32_t InfoPtr, KernelState *out);
 
 #endif //BOREALOS_KERNEL_H

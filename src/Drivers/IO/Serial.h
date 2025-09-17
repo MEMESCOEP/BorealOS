@@ -17,7 +17,7 @@ typedef struct SerialPort {
     bool Initialized;
 } SerialPort;
 
-Status SerialLoad(uint16_t BasePort, SerialPort *port);
+Status SerialInit(uint16_t BasePort, SerialPort *port);
 
 Status SerialWriteChar(const SerialPort *port, char c);
 Status SerialWriteString(const SerialPort *port, const char *str);
