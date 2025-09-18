@@ -20,6 +20,6 @@ This is the tracker for features & bugs.
 - Syscalls.
 - Multitasking.
 - Drivers (keyboard, mouse, disk, network, etc).
-- Filesystem support.
+- Filesystem support. (FAT32, ext2, ISO9660, ExFAT, for now)
 - User mode.
 - More features (networking, sound, etc).
