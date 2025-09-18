@@ -10,6 +10,8 @@ typedef struct PhysicalMemoryManagerState {
     size_t MapSize; // Size of the allocation and reserved maps in bytes
 } PhysicalMemoryManagerState;
 
+#define PMM_PAGE_SIZE 4096
+
 Status PhysicalMemoryManagerInit(uint32_t InfoPtr, PhysicalMemoryManagerState *out);
 void* PhysicalMemoryManagerAllocatePage(PhysicalMemoryManagerState *state);
 

@@ -70,5 +70,17 @@ Status KernelInit(uint32_t InfoPtr, KernelState *out) {
 
     LOG(out, "IDT initialized successfully.\n");
 
+    if (PagingInit(&out->Paging, out) != STATUS_SUCCESS) {
+        PANIC(out, "Failed to initialize Paging!\n");
+    }
+
+    PagingEnable(&out->Paging);
+
+    if (PagingTest(&out->Paging, out) != STATUS_SUCCESS) {
+        PANIC(out, "Paging test failed!\n");
+    }
+
+    LOG(out, "Paging initialized successfully.\n");
+
     return STATUS_SUCCESS;
 }

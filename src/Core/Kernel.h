@@ -7,6 +7,7 @@
 #include "Memory/PhysicalMemoryManager.h"
 #include "Drivers/IO/PIC.h"
 #include "Interrupts/IDT.h"
+#include "Memory/Paging.h"
 
 typedef struct KernelState KernelState;
 typedef void (*LogFn)(const KernelState*, const char*);
@@ -24,6 +25,7 @@ typedef struct KernelState {
     PhysicalMemoryManagerState PhysicalMemoryManager;
     PICState PIC;
     IDTState *IDT;
+    PagingState Paging; // The root kernel paging structure
 } KernelState;
 
 Status KernelInit(uint32_t InfoPtr, KernelState *out);
