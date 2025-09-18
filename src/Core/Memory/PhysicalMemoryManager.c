@@ -15,7 +15,6 @@ typedef struct {
     } entries[];
 } PACKED MB2MemoryMap_t;
 
-#define PMM_PAGE_SIZE 4096
 #define PMM_PAGE_MASK (~(PMM_PAGE_SIZE - 1))
 #define PMM_ALIGN_DOWN(x, align) ((x) & PMM_PAGE_MASK)
 #define PMM_ALIGN_UP(x, align) (((x) + (align) - 1) & PMM_PAGE_MASK)

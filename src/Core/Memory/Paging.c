@@ -1,5 +1,6 @@
 #include "Paging.h"
 #include "Core/Kernel.h"
+#include "PhysicalMemoryManager.h"
 
 Status PagingInit(PagingState *state, KernelState * kernel) {
     state->PageDirectory = (uint32_t *)PhysicalMemoryManagerAllocatePage(&kernel->PhysicalMemoryManager);
@@ -31,7 +32,7 @@ Status PagingInit(PagingState *state, KernelState * kernel) {
 
     // Identity map first 4 MB
     for (size_t i = 0; i < 1024; i++) {
-        state->PageTable[0][i] = (i * 0x1000) | PAGE_PRESENT | PAGE_WRITABLE;
+        state->PageTable[0][i] = (i * PMM_PAGE_SIZE) | PAGE_PRESENT | PAGE_WRITABLE;
     }
 
     state->PageDirectory[0] = ((uint32_t)state->PageTable[0]) | PAGE_PRESENT | PAGE_WRITABLE;
@@ -144,7 +145,7 @@ Status PagingTest(PagingState *state, KernelState *kernel) {
         PANIC(kernel, "PagingTest: Failed to allocate a physical page!\n");
     }
 
-    void *address = (void *)(1024 * 8192); // 8MB, should be unmapped initially
+    void *address = (void *)(MiB * 8); // 8 MiB virtual address
     if (PagingTranslate(state, address) != NULL) {
         PANIC(kernel, "PagingTest: Address should not be mapped yet!\n");
     }
