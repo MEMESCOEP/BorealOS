@@ -14,6 +14,7 @@ This is the tracker for features & bugs.
 
 - Virtual memory allocator.
 - Framebuffer support.
+- Text console
 
 ## To Do:
 
