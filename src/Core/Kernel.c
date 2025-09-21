@@ -1,6 +1,10 @@
 #include "Kernel.h"
 
 #include <stdarg.h>
+#include <Drivers/Graphics/DefaultFont.h>
+#include <Drivers/Graphics/Framebuffer.h>
+#include <Drivers/IO/FramebufferConsole.h>
+#include <Utility/Color.h>
 
 #include "Utility/StringFormatter.h"
 
@@ -9,6 +13,8 @@ KernelState Kernel = {};
 static NORETURN void serial_panic(const char* message) {
     SerialWriteString(&Kernel.Serial, "\nPanic!\n");
     SerialWriteString(&Kernel.Serial, message);
+    FramebufferConsoleWriteString("\nPanic!\n");
+    FramebufferConsoleWriteString(message);
     ASM("cli");
     while (true) {
         ASM("hlt");
@@ -17,6 +23,7 @@ static NORETURN void serial_panic(const char* message) {
 
 static void serial_log(const char* message) {
     SerialWriteString(&Kernel.Serial, message);
+    FramebufferConsoleWriteString(message);
 }
 
 static void serial_printf(const char* format, ...) {
@@ -26,9 +33,11 @@ static void serial_printf(const char* format, ...) {
     size_t written = VStringFormat(buffer, sizeof(buffer), format, args);
     va_end(args);
     SerialWriteString(&Kernel.Serial, buffer);
+    FramebufferConsoleWriteString(buffer);
 
     if (written >= sizeof(buffer)) {
         SerialWriteString(&Kernel.Serial, "...(truncated)\n");
+        FramebufferConsoleWriteString("...(truncated)\n");
     }
 }
 
@@ -42,6 +51,15 @@ Status KernelInit(uint32_t InfoPtr) {
         // Just ignore it for now, all logging will just be no-ops.
         // It's safe to keep the log & panic functions as they are, they will print nothing, but will still halt on panic.
         // TODO: Decide on something better for this case.
+    }
+
+    // Load the framebuffer
+    if (FramebufferInit(InfoPtr) != STATUS_SUCCESS) {
+        PANIC("Failed to initialize Framebuffer!\n");
+    }
+
+    if (FramebufferConsoleInit(KernelFramebuffer.Width / FONT_WIDTH, KernelFramebuffer.Height / FONT_HEIGHT, COLOR_WHITE, OURBLE) != STATUS_SUCCESS) {
+        PANIC("Failed to initialize Framebuffer Console!\n");
     }
 
     LOG("Serial initialized successfully.\n");
@@ -77,12 +95,19 @@ Status KernelInit(uint32_t InfoPtr) {
     }
 
     PagingEnable(&Kernel.Paging);
+    KernelFramebuffer.CanUse = false; // We can't use the framebuffer until we map it in
 
     if (PagingTest(&Kernel.Paging) != STATUS_SUCCESS) {
         PANIC("Paging test failed!\n");
     }
 
     LOG("Paging initialized successfully.\n");
+
+    // Map in the framebuffer to the kernel's virtual address space.
+    FramebufferMapSelf(&Kernel.Paging);
+    KernelFramebuffer.CanUse = true; // Now we can use the framebuffer for drawing
+
+    // ONLY AFTER HERE IS IT SAFE TO LOG TO THE FRAMEBUFFER.
 
     // Initialize the kernel VMM
     if (VirtualMemoryManagerInit(&Kernel.VMM, &Kernel.Paging) != STATUS_SUCCESS) {
