@@ -14,20 +14,19 @@ typedef struct VirtualMemoryManagerMetadata {
     VMMRegion* regions;
 } VirtualMemoryManagerMetadata;
 
-Status VirtualMemoryManagerInit(VirtualMemoryManagerState *vmm, PagingState *paging, KernelState *kernel) {
-    vmm->Kernel = kernel;
+Status VirtualMemoryManagerInit(VirtualMemoryManagerState *vmm, PagingState *paging) {
     vmm->Paging = paging;
     vmm->Metadata = nullptr; // Now we create the metadata structure
 
     // Allocate metadata structure
-    vmm->Metadata = (VirtualMemoryManagerMetadata*)PhysicalMemoryManagerAllocatePage(&kernel->PhysicalMemoryManager);
+    vmm->Metadata = (VirtualMemoryManagerMetadata*)PhysicalMemoryManagerAllocatePage();
     if (!vmm->Metadata) {
-        PANIC(kernel, "VirtualMemoryManagerInit: Failed to allocate metadata structure!\n");
+        PANIC("VirtualMemoryManagerInit: Failed to allocate metadata structure!\n");
     }
 
     // Identity map the metadata structure
-    if (PagingMapPage(paging, vmm->Metadata, vmm->Metadata, true, false, kernel) != STATUS_SUCCESS) {
-        PANIC(kernel, "VirtualMemoryManagerInit: Failed to map metadata structure!\n");
+    if (PagingMapPage(paging, vmm->Metadata, vmm->Metadata, true, false) != STATUS_SUCCESS) {
+        PANIC("VirtualMemoryManagerInit: Failed to map metadata structure!\n");
     }
     vmm->Metadata->regions = nullptr;
 

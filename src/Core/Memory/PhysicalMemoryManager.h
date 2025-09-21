@@ -10,14 +10,21 @@ typedef struct PhysicalMemoryManagerState {
     size_t MapSize; // Size of the allocation and reserved maps in bytes
 } PhysicalMemoryManagerState;
 
+extern PhysicalMemoryManagerState KernelPhysicalMemoryManager;
+
 #define PMM_PAGE_SIZE 4096
 
-Status PhysicalMemoryManagerInit(uint32_t InfoPtr, PhysicalMemoryManagerState *out);
-void* PhysicalMemoryManagerAllocatePage(PhysicalMemoryManagerState *state);
+/// Initialize the physical memory manager for the system.
+/// InfoPtr is a pointer to the multiboot2 information structure.
+Status PhysicalMemoryManagerInit(uint32_t InfoPtr);
 
-Status PhysicalMemoryManagerFreePage(PhysicalMemoryManagerState *state, void *page);
+/// Allocate a single 4 KiB page of physical memory. Returns NULL if no pages are available.
+void* PhysicalMemoryManagerAllocatePage();
 
-typedef struct KernelState KernelState; // Forward declaration to avoid circular dependency
-Status PhysicalMemoryManagerTest(PhysicalMemoryManagerState *state, KernelState *kernel);
+/// Free a previously allocated page. Returns STATUS_FAILURE if the page is not valid or not allocated.
+Status PhysicalMemoryManagerFreePage(void *page);
+
+/// Test the physical memory manager by allocating, writing, and freeing pages.
+Status PhysicalMemoryManagerTest();
 
 #endif //BOREALOS_PHYSICALMEMORYMANAGER_H

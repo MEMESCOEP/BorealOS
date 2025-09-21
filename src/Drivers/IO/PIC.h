@@ -26,13 +26,24 @@
 typedef struct {
     uint8_t MasterOffset; // Offset for the master PIC
     uint8_t SlaveOffset;  // Offset for the slave PIC
-    bool Initialized;
-} PICState;
+} PICConfig;
 
-Status PICInit(uint8_t masterOffset, uint8_t slaveOffset, PICState *out);
-void PICDisable(PICState *state);
-void PICSetIRQMask(PICState *state, uint8_t irqLine);
-void PICClearIRQMask(PICState *state, uint8_t irq);
-void PICSendEOI(PICState *state, uint8_t irq);
+extern PICConfig KernelPIC;
+
+/// Initialize the PIC with the given vector offsets for master and slave.
+/// Usually 0x20 and 0x28 are used to avoid conflicts with CPU exceptions.
+Status PICInit(uint8_t masterOffset, uint8_t slaveOffset);
+
+/// Disable both PICs by masking all IRQs.
+void PICDisable();
+
+/// Mask (disable) a specific IRQ line (0-15).
+void PICSetIRQMask(uint8_t irqLine);
+
+/// Unmask (enable) a specific IRQ line (0-15).
+void PICClearIRQMask(uint8_t irq);
+
+/// Send an End of Interrupt (EOI) signal for the given IRQ.
+void PICSendEOI(uint8_t irq);
 
 #endif //BOREALOS_PIC_H

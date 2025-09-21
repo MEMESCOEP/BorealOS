@@ -1,6 +1,7 @@
 #include "PhysicalMemoryManager.h"
 
 #include "Boot/MBParser.h"
+#include "Core/Kernel.h"
 
 typedef struct {
     uint32_t type;
@@ -20,11 +21,9 @@ typedef struct {
 #define PMM_ALIGN_UP(x, align) (((x) + (align) - 1) & PMM_PAGE_MASK)
 #define PMM_MB2_TAG_TYPE_MMAP 6
 
-Status PhysicalMemoryManagerInit(uint32_t InfoPtr, PhysicalMemoryManagerState *out) {
-    if (!out) {
-        return STATUS_FAILURE;
-    }
+PhysicalMemoryManagerState KernelPhysicalMemoryManager = {};
 
+Status PhysicalMemoryManagerInit(uint32_t InfoPtr) {
     // Get the memory map from the multiboot info
     MB2MemoryMap_t* mmap = MBGetTag(InfoPtr, PMM_MB2_TAG_TYPE_MMAP);
     if (!mmap) {
@@ -74,17 +73,17 @@ Status PhysicalMemoryManagerInit(uint32_t InfoPtr, PhysicalMemoryManagerState *o
     }
 
     // Initialize the state
-    out->TotalPages = total_memory / PMM_PAGE_SIZE;
-    out->AllocationMap = (uint8_t *)allocation_map_addr;
-    out->ReservedMap = (uint8_t *)reserved_map_addr;
-    out->MapSize = needed_pages;
+    KernelPhysicalMemoryManager.TotalPages = total_memory / PMM_PAGE_SIZE;
+    KernelPhysicalMemoryManager.AllocationMap = (uint8_t *)allocation_map_addr;
+    KernelPhysicalMemoryManager.ReservedMap = (uint8_t *)reserved_map_addr;
+    KernelPhysicalMemoryManager.MapSize = needed_pages;
 
     // Now we need to mark these regions as reserved
     // Any region not marked in the valid regions is considered reserved
     // Or the region marked by allocation_map_addr/reserved_map_addr + their sizes
-    for (uint32_t i = 0; i < out->TotalPages / 8; i++) {
-        out->AllocationMap[i] = 0xFF; // Mark all as allocated
-        out->ReservedMap[i] = 0xFF; // Mark all as reserved
+    for (uint32_t i = 0; i < KernelPhysicalMemoryManager.TotalPages / 8; i++) {
+        KernelPhysicalMemoryManager.AllocationMap[i] = 0xFF; // Mark all as allocated
+        KernelPhysicalMemoryManager.ReservedMap[i] = 0xFF; // Mark all as reserved
     }
 
     for (uint32_t i = 0; i < count; i++) {
@@ -92,8 +91,8 @@ Status PhysicalMemoryManagerInit(uint32_t InfoPtr, PhysicalMemoryManagerState *o
         uint32_t end_page = PMM_ALIGN_DOWN(valid_regions[i].addr + valid_regions[i].len, PMM_PAGE_SIZE) / PMM_PAGE_SIZE;
 
         for (uint32_t page = start_page; page < end_page; page++) {
-            out->AllocationMap[page / 8] &= ~(1 << (page % 8)); // Mark as free
-            out->ReservedMap[page / 8] &= ~(1 << (page % 8)); // Mark as not reserved
+            KernelPhysicalMemoryManager.AllocationMap[page / 8] &= ~(1 << (page % 8)); // Mark as free
+            KernelPhysicalMemoryManager.ReservedMap[page / 8] &= ~(1 << (page % 8)); // Mark as not reserved
         }
     }
 
@@ -101,34 +100,34 @@ Status PhysicalMemoryManagerInit(uint32_t InfoPtr, PhysicalMemoryManagerState *o
     uint32_t alloc_start_page = allocation_map_addr / PMM_PAGE_SIZE;
     uint32_t alloc_end_page = (allocation_map_addr + needed_pages) / PMM_PAGE_SIZE;
     for (uint32_t page = alloc_start_page; page < alloc_end_page; page++) {
-        out->ReservedMap[page / 8] |= (1 << (page % 8)); // Mark as reserved
-        out->AllocationMap[page / 8] |= (1 << (page % 8)); // Mark as allocated
+        KernelPhysicalMemoryManager.ReservedMap[page / 8] |= (1 << (page % 8)); // Mark as reserved
+        KernelPhysicalMemoryManager.AllocationMap[page / 8] |= (1 << (page % 8)); // Mark as allocated
     }
 
     uint32_t resv_start_page = reserved_map_addr / PMM_PAGE_SIZE;
     uint32_t resv_end_page = (reserved_map_addr + needed_pages) / PMM_PAGE_SIZE;
     for (uint32_t page = resv_start_page; page < resv_end_page; page++) {
-        out->ReservedMap[page / 8] |= (1 << (page % 8)); // Mark as reserved
-        out->AllocationMap[page / 8] |= (1 << (page % 8)); // Mark as allocated
+        KernelPhysicalMemoryManager.ReservedMap[page / 8] |= (1 << (page % 8)); // Mark as reserved
+        KernelPhysicalMemoryManager.AllocationMap[page / 8] |= (1 << (page % 8)); // Mark as allocated
     }
 
     // Reserve the first 1MB of memory
     for (uint32_t page = 0; page < 256; page++) {
-        out->ReservedMap[page / 8] |= (1 << (page % 8)); // Mark as reserved
-        out->AllocationMap[page / 8] |= (1 << (page % 8)); // Mark as allocated
+        KernelPhysicalMemoryManager.ReservedMap[page / 8] |= (1 << (page % 8)); // Mark as reserved
+        KernelPhysicalMemoryManager.AllocationMap[page / 8] |= (1 << (page % 8)); // Mark as allocated
     }
 
     return STATUS_SUCCESS;
 }
 
-void * PhysicalMemoryManagerAllocatePage(PhysicalMemoryManagerState *state) {
-    for (size_t i = 0; i < state->TotalPages; i++) {
+void * PhysicalMemoryManagerAllocatePage() {
+    for (size_t i = 0; i < KernelPhysicalMemoryManager.TotalPages; i++) {
         size_t byte_index = i / 8;
         size_t bit_index = i % 8;
 
-        if (!(state->AllocationMap[byte_index] & (1 << bit_index)) && (!(state->ReservedMap[byte_index] & (1 << bit_index)))) {
+        if (!(KernelPhysicalMemoryManager.AllocationMap[byte_index] & (1 << bit_index)) && (!(KernelPhysicalMemoryManager.ReservedMap[byte_index] & (1 << bit_index)))) {
             // Found a free page, mark it as allocated
-            state->AllocationMap[byte_index] |= (1 << bit_index);
+            KernelPhysicalMemoryManager.AllocationMap[byte_index] |= (1 << bit_index);
             return (void *)(i * PMM_PAGE_SIZE); // Return the address of the allocated page
         }
     }
@@ -136,7 +135,7 @@ void * PhysicalMemoryManagerAllocatePage(PhysicalMemoryManagerState *state) {
     return nullptr; // No free pages available
 }
 
-Status PhysicalMemoryManagerFreePage(PhysicalMemoryManagerState *state, void *page) {
+Status PhysicalMemoryManagerFreePage(void *page) {
     size_t address = (size_t)page;
     if (address % PMM_PAGE_SIZE != 0) {
         return STATUS_FAILURE; // Page is not aligned to page size, cannot free
@@ -146,34 +145,32 @@ Status PhysicalMemoryManagerFreePage(PhysicalMemoryManagerState *state, void *pa
     size_t byte_index = page_index / 8;
     size_t bit_index = page_index % 8;
 
-    if (state->ReservedMap[byte_index] & (1 << bit_index)) {
+    if (KernelPhysicalMemoryManager.ReservedMap[byte_index] & (1 << bit_index)) {
         return STATUS_FAILURE; // Attempting to free a reserved page, which is not allowed
     }
-    if (!(state->AllocationMap[byte_index] & (1 << bit_index))) {
+    if (!(KernelPhysicalMemoryManager.AllocationMap[byte_index] & (1 << bit_index))) {
         return STATUS_FAILURE; // Page is not allocated, cannot free
     }
 
-    state->AllocationMap[byte_index] &= ~(1 << bit_index); // Mark the page as free
+    KernelPhysicalMemoryManager.AllocationMap[byte_index] &= ~(1 << bit_index); // Mark the page as free
 
     return STATUS_SUCCESS;
 }
 
-#include "Core/Kernel.h"
-
-Status PhysicalMemoryManagerTest(PhysicalMemoryManagerState *state, KernelState *kernel) {
-    kernel->Printf(kernel, "Testing Physical Memory Manager...\n");
-    void* page1 = PhysicalMemoryManagerAllocatePage(state);
+Status PhysicalMemoryManagerTest(void) {
+    PRINT("Testing Physical Memory Manager...\n");
+    void* page1 = PhysicalMemoryManagerAllocatePage();
     if (!page1) {
-        PANIC(kernel, "Failed to allocate page 1!\n");
+        PANIC("Failed to allocate page 1!\n");
     }
 
-    void* page2 = PhysicalMemoryManagerAllocatePage(state);
+    void* page2 = PhysicalMemoryManagerAllocatePage();
     if (!page2) {
-        PANIC(kernel, "Failed to allocate page 2!\n");
+        PANIC("Failed to allocate page 2!\n");
     }
 
     if (page1 == page2) {
-        PANIC(kernel, "Allocated the same page twice!\n");
+        PANIC("Allocated the same page twice!\n");
     }
 
     // Write some data to the pages
@@ -196,18 +193,18 @@ Status PhysicalMemoryManagerTest(PhysicalMemoryManagerState *state, KernelState 
         }
     }
     if (!success) {
-        PANIC(kernel, "Memory test failed! Data corruption detected!\n");
+        PANIC("Memory test failed! Data corruption detected!\n");
     }
-    kernel->Printf(kernel, "Memory test passed! Freeing pages...\n");
+    PRINT("Memory test passed! Freeing pages...\n");
 
-    if (PhysicalMemoryManagerFreePage(state, page1) != STATUS_SUCCESS) {
-        PANIC(kernel, "Failed to free page 1!\n");
-    }
-
-    if (PhysicalMemoryManagerFreePage(state, page2) != STATUS_SUCCESS) {
-        PANIC(kernel, "Failed to free page 2!\n");
+    if (PhysicalMemoryManagerFreePage(page1) != STATUS_SUCCESS) {
+        PANIC("Failed to free page 1!\n");
     }
 
-    kernel->Printf(kernel, "Pages freed successfully.\n");
+    if (PhysicalMemoryManagerFreePage(page2) != STATUS_SUCCESS) {
+        PANIC("Failed to free page 2!\n");
+    }
+
+    PRINT("Pages freed successfully.\n");
     return STATUS_SUCCESS;
 }

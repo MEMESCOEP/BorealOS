@@ -5,16 +5,15 @@
 
 NORETURN
 void EntryPoint(uint32_t Magic, uint32_t InfoPtr) {
-    KernelState kernel;
-    Status result = KernelInit(InfoPtr, &kernel);
+    Status result = KernelInit(InfoPtr);
 
     if (Magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
-        PANIC(&kernel, "Bootloader is not Multiboot2 compliant!\n");
+        PANIC("Bootloader is not Multiboot2 compliant!\n");
     }
 
     if (result != STATUS_SUCCESS) {
-        PANIC(&kernel, "Failed to load kernel!\n");
+        PANIC("Failed to load kernel!\n");
     }
 
-    PANIC(&kernel, "No more instructions to run!\n");
+    PANIC("No more instructions to run!\n");
 }
