@@ -33,6 +33,9 @@
 #define CLEAR_BIT(bitmap, index) ((bitmap)[(index) / 8] &= ~(1 << ((index) % 8)))
 #define IS_BIT_SET(bitmap, index) ((bitmap)[(index) / 8] & (1 << ((index) % 8)))
 
+#define ALIGN_DOWN(x, align) ((x) & ~((align) - 1))
+#define ALIGN_UP(x, align) (((x) + (align) - 1) & ~((align) - 1))
+
 // byte definitions (1024, and 1000) for both binary and decimal
 #define KiB 1024ULL
 #define MiB (1024ULL * KiB)
@@ -51,16 +54,16 @@ typedef enum {
 
 // Log structure:
 // [TYPE] [FILE:LINE] : message
-#define LOG_INFO(message) (Kernel.Log("[INFO] [" __FILE__ ":" STR(__LINE__) "] >> " message))
-#define LOG_WARNING(message) (Kernel.Log("[WARNING] [" __FILE__ ":" STR(__LINE__) "] >> " message))
-#define LOG_ERROR(message) (Kernel.Log("[ERROR] [" __FILE__ ":" STR(__LINE__) "] >> " message))
-#define LOG_CRITICAL(message) (Kernel.Log("[CRITICAL] " __FILE__ ":" STR(__LINE__) "] >> " message))
-#define LOG_DEBUG(message) (Kernel.Log("[DEBUG] [" __FILE__ ":" STR(__LINE__) "] >> " message))
+#define LOG_INFO(message) (Kernel.Log("[INFO] [" __FILE_NAME__ ":" STR(__LINE__) "] >> " message))
+#define LOG_WARNING(message) (Kernel.Log("[WARNING] [" __FILE_NAME__ ":" STR(__LINE__) "] >> " message))
+#define LOG_ERROR(message) (Kernel.Log("[ERROR] [" __FILE_NAME__ ":" STR(__LINE__) "] >> " message))
+#define LOG_CRITICAL(message) (Kernel.Log("[CRITICAL] " __FILE_NAME__ ":" STR(__LINE__) "] >> " message))
+#define LOG_DEBUG(message) (Kernel.Log("[DEBUG] [" __FILE_NAME__ ":" STR(__LINE__) "] >> " message))
 #define LOG(message) LOG_INFO(message)
 
 #define PRINTF(format, ...) (Kernel.Printf(format, __VA_ARGS__))
 #define PRINT(string) (Kernel.Printf(string))
 
-#define PANIC(message) (Kernel.Panic("[PANIC] [" __FILE__ ":" STR(__LINE__) "] >> " message))
+#define PANIC(message) (Kernel.Panic("[PANIC] [" __FILE_NAME__ ":" STR(__LINE__) "] >> " message))
 
 #endif //BOREALOS_DEFINITIONS_H
