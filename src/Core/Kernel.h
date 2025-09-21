@@ -10,10 +10,9 @@
 #include "Memory/Paging.h"
 #include "Memory/VirtualMemoryManager.h"
 
-typedef struct KernelState KernelState;
-typedef void (*LogFn)(const KernelState*, const char*);
-typedef NORETURN void (*PanicFn)(const KernelState*, const char*);
-typedef void (*PrintfFn)(const KernelState*, const char*, ...);
+typedef void (*LogFn)(const char*);
+typedef NORETURN void (*PanicFn)(const char*);
+typedef void (*PrintfFn)(const char*, ...);
 
 typedef struct KernelState {
     // Output functions
@@ -23,15 +22,14 @@ typedef struct KernelState {
 
     // Subsystem states
     SerialPort Serial;
-    PhysicalMemoryManagerState PhysicalMemoryManager;
-    PICState PIC;
-    IDTState *IDT;
     PagingState Paging; // The root kernel paging structure
     VirtualMemoryManagerState VMM; // The root kernel virtual memory manager
 } KernelState;
 
-KernelState Kernel;
+// The global kernel state.
+extern KernelState Kernel;
 
-Status KernelInit(uint32_t InfoPtr, KernelState *out);
+/// Initialize the kernel, and its subsystems.
+Status KernelInit(uint32_t InfoPtr);
 
 #endif //BOREALOS_KERNEL_H

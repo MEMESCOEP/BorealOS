@@ -3,7 +3,6 @@
 #include "Core/Kernel.h"
 
 ALIGNED(16) extern void *isr_stub_table[];
-IDTState global_idt;
 
 const char* IDTExceptionStrings[] = {
     "<FATAL_CPU_EXCEPTION_0> Division By Zero",
@@ -40,90 +39,74 @@ const char* IDTExceptionStrings[] = {
     "<FATAL_CPU_EXCEPTION_31> Reserved",
 };
 
+IDTState KernelIDT = {};
+
 void irq_handler(uint8_t irq) {
-    if (global_idt.Kernel) {
-        PICSendEOI(&global_idt.Kernel->PIC, irq);
-        if (global_idt.IRQSet[irq - 0x20] && global_idt.ExceptionHandlers[irq - 0x20]) {
-            global_idt.ExceptionHandlers[irq - 0x20](global_idt.Kernel, (uint32_t)irq);
-            return;
-        }
-
-        // It wasn't handled, panic
-        PANIC(global_idt.Kernel, "Unhandled IRQ!\n");
+    PICSendEOI(irq);
+    if (KernelIDT.IRQSet[irq - 0x20] && KernelIDT.ExceptionHandlers[irq - 0x20]) {
+        KernelIDT.ExceptionHandlers[irq - 0x20]((uint32_t)irq);
+        return;
     }
 
-    ASM ("cli");
-    while (true) {
-        ASM ("hlt");
-    }
+    // It wasn't handled, panic
+    PANIC("Unhandled IRQ!\n");
 }
 
 void exception_handler(uint32_t err) {
-    if (global_idt.Kernel) {
-        global_idt.Kernel->Printf(global_idt.Kernel, "Exception occurred! '%s'\n", IDTExceptionStrings[err]);
-        if (global_idt.ExceptionHandlers[err]) {
-            global_idt.ExceptionHandlers[err](global_idt.Kernel, err);
-            return;
-        }
-
-        // It wasn't handled, panic
-        PANIC(global_idt.Kernel, "Unhandled CPU Exception!\n");
+    PRINTF("Exception occurred! '%s'\n", IDTExceptionStrings[err]);
+    if (KernelIDT.ExceptionHandlers[err]) {
+        KernelIDT.ExceptionHandlers[err](err);
+        return;
     }
 
-    // TODO: Do some fancier stuff, for now just halt
-    ASM ("cli");
-    while (true) {
-        ASM ("hlt");
-    }
+    // It wasn't handled, panic
+    PANIC("Unhandled CPU Exception!\n");
 }
 
-static void TestingExceptionHandler(KernelState* kernel, uint32_t exceptionNumber) {
-    kernel->Printf(kernel, "Exception handled successfully in testing mode. Exception number: %d\n", exceptionNumber);
-    kernel->Printf(kernel, "Error string: %s\n", IDTExceptionStrings[exceptionNumber]);
+static void TestingExceptionHandler(uint32_t exceptionNumber) {
+    PRINTF("Exception handled successfully in testing mode. Exception number: %d\n", exceptionNumber);
+    PRINTF("Error string: %s\n", IDTExceptionStrings[exceptionNumber]);
 }
 
-Status IDTInit(KernelState* kernel, IDTState **out) {
+Status IDTInit() {
     ASM ("cli"); // Disable interrupts while loading IDT
-    *out = &global_idt; // Use the global IDT state
-    IDTState *state = *out;
-    state->Kernel = kernel;
 
-    state->Descriptor.Base = (uint32_t)&state->Entries[0]; // Set the base address of the IDT entries
-    state->Descriptor.Limit = sizeof(state->Entries) - 1; // Set the limit of the IDT
+    KernelIDT.Descriptor.Base = (uint32_t)&KernelIDT.Entries[0]; // Set the base address of the IDT entries
+    KernelIDT.Descriptor.Limit = sizeof(KernelIDT.Entries) - 1; // Set the limit of the IDT
 
     for (uint8_t vec = 0; vec < 48; vec++) {
-        IDTSetEntry(state, vec, isr_stub_table[vec], 0x8E);
-        state->VectorSet[vec] = true;
+        IDTSetEntry(vec, isr_stub_table[vec], 0x8E);
+        KernelIDT.VectorSet[vec] = true;
     }
 
     for (uint8_t irq_handle = 0; irq_handle < 16; irq_handle++) {
-        state->IRQSet[irq_handle] = false;
-        state->ExceptionHandlers[irq_handle] = nullptr; // Initialize exception handlers to nullptr
+        KernelIDT.IRQSet[irq_handle] = false;
+        KernelIDT.ExceptionHandlers[irq_handle] = nullptr; // Initialize exception handlers to nullptr
     }
 
-    ASM ("lidt %0" : : "m"(state->Descriptor)); // Load IDT descriptor
+    ASM ("lidt %0" : : "m"(KernelIDT.Descriptor)); // Load IDT descriptor
     ASM ("sti");
 
     // Test the IDT by setting some exception handlers and triggering them
-    state->Kernel->Printf(state->Kernel, "Testing IDT by triggering exceptions...\n");
+    PRINT("Testing IDT by triggering exceptions...\n");
 
-    IDTSetExceptionHandler(state, 0, TestingExceptionHandler); // Division By Zero
-    IDTSetExceptionHandler(state, 3, TestingExceptionHandler); // Breakpoint
+    IDTSetExceptionHandler(0, TestingExceptionHandler); // Division By Zero
+    IDTSetExceptionHandler(3, TestingExceptionHandler); // Breakpoint
 
     // Test out all the exceptions we set handlers for
     ASM ("int $0"); // Trigger Division By Zero
     ASM ("int $3"); // Trigger Breakpoint
 
-    state->Kernel->Printf(state->Kernel, "IDT initialized and tested successfully.\n");
+    PRINT("IDT initialized and tested successfully.\n");
 
-    state->ExceptionHandlers[0] = nullptr; // Remove the testing handler
-    state->ExceptionHandlers[3] = nullptr; // Remove the testing handler
+    KernelIDT.ExceptionHandlers[0] = nullptr; // Remove the testing handler
+    KernelIDT.ExceptionHandlers[3] = nullptr; // Remove the testing handler
 
     return STATUS_SUCCESS;
 }
 
-void IDTSetEntry(IDTState *state, uint8_t vector, void *isr, uint8_t flags) {
-    IDTEntry *entry = &state->Entries[vector];
+void IDTSetEntry(uint8_t vector, void *isr, uint8_t flags) {
+    IDTEntry *entry = &KernelIDT.Entries[vector];
 
     entry->IsrLow = (uint32_t)isr & 0xFFFF;
     entry->KernelCodeSegment = 0x08;
@@ -132,6 +115,6 @@ void IDTSetEntry(IDTState *state, uint8_t vector, void *isr, uint8_t flags) {
     entry->IsrHigh = (uint32_t)isr >> 16;
 }
 
-void IDTSetExceptionHandler(IDTState *state, uint8_t exceptionNumber, ExceptionHandlerFn handler) {
-    state->ExceptionHandlers[exceptionNumber] = handler;
+void IDTSetExceptionHandler(uint8_t exceptionNumber, ExceptionHandlerFn handler) {
+    KernelIDT.ExceptionHandlers[exceptionNumber] = handler;
 }

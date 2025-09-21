@@ -17,10 +17,20 @@ typedef struct SerialPort {
     bool Initialized;
 } SerialPort;
 
-Status SerialInit(uint16_t BasePort, SerialPort *port);
+/// Initialize the serial port at the given base port (e.g., SERIAL_COM1).
+/// Returns STATUS_SUCCESS on success, or STATUS_FAILURE if the port is not functioning.
+Status SerialInit(uint16_t BasePort);
 
+/// Write a single character to the serial port.
+/// Returns STATUS_SUCCESS on success, or STATUS_FAILURE if the port is not initialized.
 Status SerialWriteChar(const SerialPort *port, char c);
+
+/// Write a null-terminated string to the serial port.
+/// Returns STATUS_SUCCESS on success, or STATUS_FAILURE if the port is not initialized.
 Status SerialWriteString(const SerialPort *port, const char *str);
+
+/// Read a single character from the serial port and store it in outChar.
+/// Returns STATUS_SUCCESS on success, or STATUS_FAILURE if the port is not initialized.
 Status SerialReadChar(const SerialPort *port, char *outChar);
 
 #endif //BOREALOS_SERIAL_H

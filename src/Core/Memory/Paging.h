@@ -22,14 +22,32 @@ typedef struct PagingState {
     uint32_t **PageTable;
 } PagingState;
 
-typedef struct KernelState KernelState; // Forward declaration to avoid circular dependency
-Status PagingInit(PagingState* state, KernelState * kernel);
+/// Initialize paging structure.
+/// Usage:
+/// - Allocate a PagingState structure (can be on stack or heap, just make sure it does not go out of scope)
+/// - Call PagingInit to initialize it
+/// - Call PagingEnable to enable paging with this structure
+/// - To disable paging, call PagingDisable, though this disables any paging, not just this structure
+Status PagingInit(PagingState* state);
 
-Status PagingMapPage(PagingState *state, void *virtualAddr, void *physicalAddr, bool writable, bool user, KernelState *kernel);
+/// Map a single page (4 KiB) from virtual address to physical address with write, and or user permissions.
+Status PagingMapPage(PagingState *state, void *virtualAddr, void *physicalAddr, bool writable, bool user);
+
+/// Unmap a single page (4 KiB) at the given virtual address.
 Status PagingUnmapPage(PagingState *state, void *virtualAddr);
+
+/// Translate a virtual address to a physical address. Returns NULL if not mapped.
 void *PagingTranslate(PagingState *state, void *virtualAddr);
+
+/// Enable paging with the given paging structure.
+/// This loads the page directory into CR3 and sets the PG bit in CR0.
+/// Paging must be initialized with PagingInit before calling this.
 void PagingEnable(PagingState* state);
+
+/// Disable paging by clearing the PG bit in CR0.
 void PagingDisable();
-Status PagingTest(PagingState* state, KernelState* kernel);
+
+/// Test the paging implementation by mapping a page, writing to it, and verifying the contents.
+Status PagingTest(PagingState* state);
 
 #endif //BOREALOS_PAGING_H

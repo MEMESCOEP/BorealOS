@@ -18,8 +18,7 @@ typedef struct {
     uint32_t Base;
 } PACKED IDTDescriptor;
 
-typedef struct KernelState KernelState; // Forward declaration to avoid circular dependency
-typedef void (*ExceptionHandlerFn)(struct KernelState*, uint32_t exceptionNumber);
+typedef void (*ExceptionHandlerFn)(uint32_t exceptionNumber);
 
 typedef struct IDTState {
     IDTDescriptor Descriptor;
@@ -27,13 +26,18 @@ typedef struct IDTState {
     bool VectorSet[256];
     bool IRQSet[16];
     ExceptionHandlerFn ExceptionHandlers[16]; // Handlers for CPU exceptions
-    KernelState *Kernel; // Pointer to the kernel state for use in handlers
 } IDTState;
 
+extern IDTState KernelIDT;
 extern const char* IDTExceptionStrings[];
 
-Status IDTInit(KernelState* kernel, IDTState **state);
-void IDTSetEntry(IDTState *state, uint8_t vector, void *isr, uint8_t flags);
-void IDTSetExceptionHandler(IDTState *state, uint8_t exceptionNumber, ExceptionHandlerFn handler);
+/// Initialise the IDT, set up default handlers, and load it into the CPU
+Status IDTInit();
+
+/// Set an entry in the IDT
+void IDTSetEntry(uint8_t vector, void *isr, uint8_t flags);
+
+/// Set a handler for a specific CPU exception
+void IDTSetExceptionHandler(uint8_t exceptionNumber, ExceptionHandlerFn handler);
 
 #endif //BOREALOS_IDT_H

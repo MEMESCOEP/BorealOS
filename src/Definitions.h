@@ -29,6 +29,10 @@
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
+#define SET_BIT(bitmap, index) ((bitmap)[(index) / 8] |= (1 << ((index) % 8)))
+#define CLEAR_BIT(bitmap, index) ((bitmap)[(index) / 8] &= ~(1 << ((index) % 8)))
+#define IS_BIT_SET(bitmap, index) ((bitmap)[(index) / 8] & (1 << ((index) % 8)))
+
 // byte definitions (1024, and 1000) for both binary and decimal
 #define KiB 1024ULL
 #define MiB (1024ULL * KiB)
@@ -47,13 +51,16 @@ typedef enum {
 
 // Log structure:
 // [TYPE] [FILE:LINE] : message
-#define LOG_INFO(kernel, message) (kernel)->Log(kernel, "[INFO] [" __FILE__ ":" STR(__LINE__) "] >> " message)
-#define LOG_WARNING(kernel, message) (kernel)->Log(kernel, "[WARNING] [" __FILE__ ":" STR(__LINE__) "] >> " message)
-#define LOG_ERROR(kernel, message) (kernel)->Log(kernel, "[ERROR] [" __FILE__ ":" STR(__LINE__) "] >> " message)
-#define LOG_CRITICAL(kernel, message) (kernel)->Log(kernel, "[CRITICAL] " __FILE__ ":" STR(__LINE__) "] >> " message)
-#define LOG_DEBUG(kernel, message) (kernel)->Log(kernel, "[DEBUG] [" __FILE__ ":" STR(__LINE__) "] >> " message)
-#define LOG(kernel, message) LOG_INFO(kernel, message)
+#define LOG_INFO(message) (Kernel.Log("[INFO] [" __FILE__ ":" STR(__LINE__) "] >> " message))
+#define LOG_WARNING(message) (Kernel.Log("[WARNING] [" __FILE__ ":" STR(__LINE__) "] >> " message))
+#define LOG_ERROR(message) (Kernel.Log("[ERROR] [" __FILE__ ":" STR(__LINE__) "] >> " message))
+#define LOG_CRITICAL(message) (Kernel.Log("[CRITICAL] " __FILE__ ":" STR(__LINE__) "] >> " message))
+#define LOG_DEBUG(message) (Kernel.Log("[DEBUG] [" __FILE__ ":" STR(__LINE__) "] >> " message))
+#define LOG(message) LOG_INFO(message)
 
-#define PANIC(kernel, message) (kernel)->Panic(kernel, "[PANIC] [" __FILE__ ":" STR(__LINE__) "] >> " message)
+#define PRINTF(format, ...) (Kernel.Printf(format, __VA_ARGS__))
+#define PRINT(string) (Kernel.Printf(string))
+
+#define PANIC(message) (Kernel.Panic("[PANIC] [" __FILE__ ":" STR(__LINE__) "] >> " message))
 
 #endif //BOREALOS_DEFINITIONS_H

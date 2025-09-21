@@ -2,27 +2,27 @@
 #include "Core/Kernel.h"
 #include "PhysicalMemoryManager.h"
 
-Status PagingInit(PagingState *state, KernelState * kernel) {
-    state->PageDirectory = (uint32_t *)PhysicalMemoryManagerAllocatePage(&kernel->PhysicalMemoryManager);
+Status PagingInit(PagingState *state) {
+    state->PageDirectory = (uint32_t *)PhysicalMemoryManagerAllocatePage();
     if (!state->PageDirectory) {
-        PANIC(kernel, "PagingInit: Failed to allocate page directory!\n");
+        PANIC("PagingInit: Failed to allocate page directory!\n");
     }
     for (size_t i = 0; i < 1024; i++) {
         state->PageDirectory[i] = 0;
     }
 
-    state->PageTable = (uint32_t **)PhysicalMemoryManagerAllocatePage(&kernel->PhysicalMemoryManager);
+    state->PageTable = (uint32_t **)PhysicalMemoryManagerAllocatePage();
     if (!state->PageTable) {
-        PANIC(kernel, "PagingInit: Failed to allocate page table pointer array!\n");
+        PANIC("PagingInit: Failed to allocate page table pointer array!\n");
     }
 
     for (size_t i = 0; i < 1024; i++) {
         state->PageTable[i] = nullptr; // Initialize pointers
     }
 
-    state->PageTable[0] = (uint32_t *)PhysicalMemoryManagerAllocatePage(&kernel->PhysicalMemoryManager);
+    state->PageTable[0] = (uint32_t *)PhysicalMemoryManagerAllocatePage();
     if (!state->PageTable[0]) {
-        PANIC(kernel, "PagingInit: Failed to allocate first page table!\n");
+        PANIC("PagingInit: Failed to allocate first page table!\n");
     }
 
     // Zero out the first page table
@@ -40,7 +40,7 @@ Status PagingInit(PagingState *state, KernelState * kernel) {
     return STATUS_SUCCESS;
 }
 
-Status PagingMapPage(PagingState *state, void *virtualAddr, void *physicalAddr, bool writable, bool user, KernelState *kernel) {
+Status PagingMapPage(PagingState *state, void *virtualAddr, void *physicalAddr, bool writable, bool user) {
     uint32_t vAddr = (uint32_t)virtualAddr;
     uint32_t pAddr = (uint32_t)physicalAddr;
 
@@ -54,9 +54,9 @@ Status PagingMapPage(PagingState *state, void *virtualAddr, void *physicalAddr, 
     // Allocate page table if it does not exist
     if (!(state->PageDirectory[dirIndex] & PAGE_PRESENT)) {
         if (!state->PageTable[dirIndex]) {
-            state->PageTable[dirIndex] = (uint32_t *)PhysicalMemoryManagerAllocatePage(&kernel->PhysicalMemoryManager);
+            state->PageTable[dirIndex] = (uint32_t *)PhysicalMemoryManagerAllocatePage();
             if (!state->PageTable[dirIndex]) {
-                PANIC(kernel, "PagingMapPage: Failed to allocate page table!\n");
+                PANIC("PagingMapPage: Failed to allocate page table!\n");
             }
 
             // Zero out the new page table
@@ -138,38 +138,38 @@ void PagingDisable() {
     ASM("sti");
 }
 
-Status PagingTest(PagingState *state, KernelState *kernel) {
+Status PagingTest(PagingState *state) {
     // Allocate a physical page
-    void *page = PhysicalMemoryManagerAllocatePage(&kernel->PhysicalMemoryManager);
+    void *page = PhysicalMemoryManagerAllocatePage();
     if (page == NULL) {
-        PANIC(kernel, "PagingTest: Failed to allocate a physical page!\n");
+        PANIC("PagingTest: Failed to allocate a physical page!\n");
     }
 
     void *address = (void *)(MiB * 8); // 8 MiB virtual address
     if (PagingTranslate(state, address) != NULL) {
-        PANIC(kernel, "PagingTest: Address should not be mapped yet!\n");
+        PANIC("PagingTest: Address should not be mapped yet!\n");
     }
 
-    PagingMapPage(state, address, page, true, false, kernel);
+    PagingMapPage(state, address, page, true, false);
 
     // Write to the mapped page
     volatile uint32_t *ptr = (uint32_t *)address;
     *ptr = 0xDEADBEEF;
     if (*ptr != 0xDEADBEEF) {
-        PANIC(kernel, "PagingTest: Failed to read/write to mapped page!\n");
+        PANIC("PagingTest: Failed to read/write to mapped page!\n");
     }
 
-    kernel->Printf(kernel, "Successfully wrote %p to %p at real address %p!\n", *ptr, address, page);
+    PRINTF("Successfully wrote %p to %p at real address %p!\n", *ptr, address, page);
 
     if (PagingTranslate(state, address) != page) {
-        PANIC(kernel, "PagingTest: Translated address does not match physical page!\n");
+        PANIC("PagingTest: Translated address does not match physical page!\n");
     }
 
     if (PagingUnmapPage(state, address) != STATUS_SUCCESS) {
-        PANIC(kernel, "PagingTest: Failed to unmap page!\n");
+        PANIC("PagingTest: Failed to unmap page!\n");
     }
 
-    kernel->Printf(kernel, "Paging test completed successfully.\n");
+    PRINT("Paging test completed successfully.\n");
 
 
     return STATUS_SUCCESS;

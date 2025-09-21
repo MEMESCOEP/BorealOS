@@ -1,9 +1,11 @@
 #include "Serial.h"
+
+#include "Core/Kernel.h"
 #include "Utility/SerialOperations.h"
 
-Status SerialInit(uint16_t BasePort, SerialPort *port) {
-    port->Initialized = false;
-    port->BasePort = BasePort;
+Status SerialInit(uint16_t BasePort) {
+    Kernel.Serial.Initialized = false;
+    Kernel.Serial.BasePort = BasePort;
 
     // Shamelessly stolen from https://wiki.osdev.org/Serial_Ports
     outb(BasePort + 1, 0x00);    // Disable all interrupts
@@ -21,7 +23,7 @@ Status SerialInit(uint16_t BasePort, SerialPort *port) {
     }
 
     outb(BasePort + 4, 0x0F);
-    port->Initialized = true;
+    Kernel.Serial.Initialized = true;
     return STATUS_SUCCESS;
 }
 

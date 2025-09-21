@@ -4,90 +4,92 @@
 
 #include "Utility/StringFormatter.h"
 
-static NORETURN void serial_panic(const KernelState* state, const char* message) {
-    SerialWriteString(&state->Serial, "\nPanic!\n");
-    SerialWriteString(&state->Serial, message);
+KernelState Kernel = {};
+
+static NORETURN void serial_panic(const char* message) {
+    SerialWriteString(&Kernel.Serial, "\nPanic!\n");
+    SerialWriteString(&Kernel.Serial, message);
     ASM("cli");
     while (true) {
         ASM("hlt");
     }
 }
 
-static void serial_log(const KernelState* state, const char* message) {
-    SerialWriteString(&state->Serial, message);
+static void serial_log(const char* message) {
+    SerialWriteString(&Kernel.Serial, message);
 }
 
-static void serial_printf(const KernelState* state, const char* format, ...) {
+static void serial_printf(const char* format, ...) {
     char buffer[512];
     va_list args;
     va_start(args, format);
     size_t written = VStringFormat(buffer, sizeof(buffer), format, args);
     va_end(args);
-    SerialWriteString(&state->Serial, buffer);
+    SerialWriteString(&Kernel.Serial, buffer);
 
     if (written >= sizeof(buffer)) {
-        SerialWriteString(&state->Serial, "...(truncated)\n");
+        SerialWriteString(&Kernel.Serial, "...(truncated)\n");
     }
 }
 
-Status KernelInit(uint32_t InfoPtr, KernelState *out) {
-    out->Panic = serial_panic; // For now, just use the serial functions.
-    out->Log = serial_log;
-    out->Printf = serial_printf;
+Status KernelInit(uint32_t InfoPtr) {
+    Kernel.Panic = serial_panic; // For now, just use the serial functions.
+    Kernel.Log = serial_log;
+    Kernel.Printf = serial_printf;
 
-    if (SerialInit(SERIAL_COM1, &out->Serial) != STATUS_SUCCESS) {
+    if (SerialInit(SERIAL_COM1) != STATUS_SUCCESS) {
         // We can't use serial, this probably means this is running on a real machine without a serial port.
         // Just ignore it for now, all logging will just be no-ops.
         // It's safe to keep the log & panic functions as they are, they will print nothing, but will still halt on panic.
         // TODO: Decide on something better for this case.
     }
 
-    LOG(out, "Serial initialized successfully.\n");
-    out->Printf(out, "Loading kernel version: %z.%z.%z.\n", BOREALOS_MAJOR_VERSION, BOREALOS_MINOR_VERSION, BOREALOS_PATCH_VERSION);
+    LOG("Serial initialized successfully.\n");
+    Kernel.Printf("Loading kernel version: %z.%z.%z.\n", BOREALOS_MAJOR_VERSION, BOREALOS_MINOR_VERSION, BOREALOS_PATCH_VERSION);
 
     // Now load the physical memory manager
-    if (PhysicalMemoryManagerInit(InfoPtr, &out->PhysicalMemoryManager) != STATUS_SUCCESS) {
-        PANIC(out, "Failed to initialize Physical Memory Manager!\n");
+    if (PhysicalMemoryManagerInit(InfoPtr) != STATUS_SUCCESS) {
+        PANIC("Failed to initialize Physical Memory Manager!\n");
     }
 
-    if (PhysicalMemoryManagerTest(&out->PhysicalMemoryManager, out) != STATUS_SUCCESS) {
-        PANIC(out, "Physical Memory Manager test failed!\n");
+    if (PhysicalMemoryManagerTest() != STATUS_SUCCESS) {
+        PANIC("Physical Memory Manager test failed!\n");
     }
 
-    out->Printf(out, "Physical Memory Manager initialized successfully. With %z pages of memory (%z MiB).\n", out->PhysicalMemoryManager.TotalPages, (out->PhysicalMemoryManager.TotalPages * 4096) / (1024 * 1024));
-    out->Printf(out, "Physical Memory Manager has %z bytes for allocation & reservation maps.\n", out->PhysicalMemoryManager.MapSize * 2);
+    Kernel.Printf("Physical Memory Manager initialized successfully. With %z pages of memory (%z MiB).\n", KernelPhysicalMemoryManager.TotalPages, (KernelPhysicalMemoryManager.TotalPages * 4096) / (1024 * 1024));
+    Kernel.Printf("Physical Memory Manager has %z bytes for allocation & reservation maps.\n", KernelPhysicalMemoryManager.MapSize * 2);
 
     // Load the PIC
-    if (PICInit(0x20, 0x28, &out->PIC) != STATUS_SUCCESS) {
-        PANIC(out, "Failed to initialize PIC!\n");
+    if (PICInit(0x20, 0x28) != STATUS_SUCCESS) {
+        PANIC("Failed to initialize PIC!\n");
     }
-    LOG(out, "PIC initialized successfully.\n");
+    LOG("PIC initialized successfully.\n");
 
     // Load the IDT
-    if (IDTInit(out, &out->IDT) != STATUS_SUCCESS) {
-        PANIC(out, "Failed to initialize IDT!\n");
+    if (IDTInit() != STATUS_SUCCESS) {
+        PANIC("Failed to initialize IDT!\n");
     }
 
-    LOG(out, "IDT initialized successfully.\n");
+    LOG("IDT initialized successfully.\n");
 
-    if (PagingInit(&out->Paging, out) != STATUS_SUCCESS) {
-        PANIC(out, "Failed to initialize Paging!\n");
+    if (PagingInit(&Kernel.Paging) != STATUS_SUCCESS) {
+        PANIC("Failed to initialize Paging!\n");
     }
 
-    PagingEnable(&out->Paging);
+    PagingEnable(&Kernel.Paging);
 
-    if (PagingTest(&out->Paging, out) != STATUS_SUCCESS) {
-        PANIC(out, "Paging test failed!\n");
+    if (PagingTest(&Kernel.Paging) != STATUS_SUCCESS) {
+        PANIC("Paging test failed!\n");
     }
 
-    LOG(out, "Paging initialized successfully.\n");
+    LOG("Paging initialized successfully.\n");
 
     // Initialize the kernel VMM
-    if (VirtualMemoryManagerInit(&out->VMM, &out->Paging, out) != STATUS_SUCCESS) {
-        PANIC(out, "Failed to initialize Kernel Virtual Memory Manager!\n");
+    if (VirtualMemoryManagerInit(&Kernel.VMM, &Kernel.Paging) != STATUS_SUCCESS) {
+        PANIC("Failed to initialize Kernel Virtual Memory Manager!\n");
     }
 
-    out->Printf(out, "Kernel Virtual Memory Manager initialized successfully.\n");
+    Kernel.Printf("Kernel Virtual Memory Manager initialized successfully.\n");
 
     return STATUS_SUCCESS;
 }
