@@ -82,5 +82,12 @@ Status KernelInit(uint32_t InfoPtr, KernelState *out) {
 
     LOG(out, "Paging initialized successfully.\n");
 
+    // Initialize the kernel VMM
+    if (VirtualMemoryManagerInit(&out->VMM, &out->Paging, out) != STATUS_SUCCESS) {
+        PANIC(out, "Failed to initialize Kernel Virtual Memory Manager!\n");
+    }
+
+    out->Printf(out, "Kernel Virtual Memory Manager initialized successfully.\n");
+
     return STATUS_SUCCESS;
 }
