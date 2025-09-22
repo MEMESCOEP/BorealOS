@@ -9,12 +9,12 @@ This is the tracker for features & bugs.
 - Physical memory allocator
 - IDT & PIC support
 - Paging support
+- Framebuffer support
+- Text console
 
 ## Doing:
 
 - Virtual memory allocator
-- Framebuffer support
-- Text console
 
 ## To Do:
 

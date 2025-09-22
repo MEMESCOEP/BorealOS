@@ -65,7 +65,7 @@ Status KernelInit(uint32_t InfoPtr) {
     }
 
     LOG("Serial initialized successfully.\n");
-    Kernel.Printf("Loading kernel version: %z.%z.%z.\n", BOREALOS_MAJOR_VERSION, BOREALOS_MINOR_VERSION, BOREALOS_PATCH_VERSION);
+    PRINTF("Loading kernel version: %z.%z.%z.\n", BOREALOS_MAJOR_VERSION, BOREALOS_MINOR_VERSION, BOREALOS_PATCH_VERSION);
 
     // Now load the physical memory manager
     if (PhysicalMemoryManagerInit(InfoPtr) != STATUS_SUCCESS) {
@@ -76,8 +76,8 @@ Status KernelInit(uint32_t InfoPtr) {
         PANIC("Physical Memory Manager test failed!\n");
     }
 
-    Kernel.Printf("Physical Memory Manager initialized successfully. With %z pages of memory (%z MiB).\n", KernelPhysicalMemoryManager.TotalPages, (KernelPhysicalMemoryManager.TotalPages * 4096) / (1024 * 1024));
-    Kernel.Printf("Physical Memory Manager has %z bytes for allocation & reservation maps.\n", KernelPhysicalMemoryManager.MapSize * 2);
+    PRINTF("Physical Memory Manager initialized successfully. With %z pages of memory (%z MiB).\n", KernelPhysicalMemoryManager.TotalPages, (KernelPhysicalMemoryManager.TotalPages * 4096) / (1024 * 1024));
+    PRINTF("Physical Memory Manager has %z bytes for allocation & reservation maps.\n", KernelPhysicalMemoryManager.MapSize * 2);
 
     // Load the PIC
     if (PICInit(0x20, 0x28) != STATUS_SUCCESS) {
@@ -109,6 +109,8 @@ Status KernelInit(uint32_t InfoPtr) {
     FramebufferMapSelf(&Kernel.Paging);
     KernelFramebuffer.CanUse = true; // Now we can use the framebuffer for drawing
 
+    LOG("Framebuffer mapped into kernel virtual address space successfully.\n");
+
     // ONLY AFTER HERE IS IT SAFE TO LOG TO THE FRAMEBUFFER.
 
     // Initialize the kernel VMM
@@ -116,7 +118,11 @@ Status KernelInit(uint32_t InfoPtr) {
         PANIC("Failed to initialize Kernel Virtual Memory Manager!\n");
     }
 
-    Kernel.Printf("Kernel Virtual Memory Manager initialized successfully.\n");
+    if (VirtualMemoryManagerTest(&Kernel.VMM) != STATUS_SUCCESS) {
+        PANIC("Kernel Virtual Memory Manager test failed!\n");
+    }
+
+    LOG("Kernel Virtual Memory Manager initialized successfully.\n");
 
     return STATUS_SUCCESS;
 }

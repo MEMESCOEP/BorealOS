@@ -1,6 +1,6 @@
 #!/bin/bash
 
-./run.sh debug &
+./run.sh debug --QEMU &
 QEMU_PID=$!
 
 while ! nc -z localhost 1234; do
