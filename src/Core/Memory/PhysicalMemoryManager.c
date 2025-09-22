@@ -278,6 +278,6 @@ Status PhysicalMemoryManagerTest(void) {
         PANIC("Failed to free page 2!\n");
     }
 
-    PRINT("    * Pages freed successfully.\n\n");
+    PRINT("\t* Pages freed successfully.\n\n");
     return STATUS_SUCCESS;
 }

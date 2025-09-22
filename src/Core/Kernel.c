@@ -186,7 +186,7 @@ Status KernelInit(uint32_t InfoPtr) {
     FramebufferMapSelf(&Kernel.Paging);
     KernelFramebuffer.CanUse = true;
 
-    LOG("Framebuffer mapped into kernel virtual address space successfully.\n");
+    LOG(LOG_INFO, "Framebuffer mapped into kernel virtual address space successfully.\n");
 
     // ONLY AFTER HERE IS IT SAFE TO LOG TO THE FRAMEBUFFER.
 
@@ -199,7 +199,7 @@ Status KernelInit(uint32_t InfoPtr) {
         PANIC("Kernel Virtual Memory Manager test failed!\n");
     }
 
-    LOG("Kernel Virtual Memory Manager initialized successfully.\n");
+    LOG(LOG_INFO, "Kernel Virtual Memory Manager initialized successfully.\n");
 
     return STATUS_SUCCESS;
 }

@@ -63,7 +63,7 @@ void exception_handler(uint32_t err) {
 
 static void TestingExceptionHandler(uint32_t exceptionNumber) {
     LOGF(LOG_INFO, "Exception handled successfully in testing mode. Exception number: %d\n", exceptionNumber);
-    PRINTF("    * Error string: %s\n\n", IDTExceptionStrings[exceptionNumber]);
+    PRINTF("\t* Error string: %s\n\n", IDTExceptionStrings[exceptionNumber]);
 }
 
 Status IDTInit() {

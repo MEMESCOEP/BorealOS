@@ -133,7 +133,7 @@ Status VirtualMemoryManagerFree(VirtualMemoryManagerState *vmm, void *addr, size
 }
 
 Status VirtualMemoryManagerTest(VirtualMemoryManagerState *vmm) {
-    LOG("Testing Virtual Memory Manager...\n");
+    LOG(LOG_INFO, "Testing Virtual Memory Manager...\n");
 
     // Allocate an arbitrary block of memory
     size_t pages = 8;
@@ -142,7 +142,7 @@ Status VirtualMemoryManagerTest(VirtualMemoryManagerState *vmm) {
         PANIC("VMM Test: Allocation failed!\n");
     }
 
-    PRINTF("VMM Test: Allocated %z bytes at virtual address %p\n", pages * PMM_PAGE_SIZE, block);
+    PRINTF("\t* VMM Test: Allocated %z bytes at virtual address %p\n\n", pages * PMM_PAGE_SIZE, block);
 
     // Fill the block with data, and verify it's correct
     // We use volatile here to prevent the compiler from optimizing out our reads/writes
@@ -163,6 +163,6 @@ Status VirtualMemoryManagerTest(VirtualMemoryManagerState *vmm) {
         PANIC("VMM Test: Free failed!\n");
     }
 
-    LOG("Virtual Memory Manager test completed successfully.\n");
+    LOG(LOG_INFO, "Virtual Memory Manager test completed successfully.\n");
     return STATUS_SUCCESS;
 }
