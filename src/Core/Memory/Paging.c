@@ -1,3 +1,4 @@
+#include <Definitions.h>
 #include "Paging.h"
 #include "Core/Kernel.h"
 #include "PhysicalMemoryManager.h"
@@ -159,7 +160,7 @@ Status PagingTest(PagingState *state) {
         PANIC("PagingTest: Failed to read/write to mapped page!\n");
     }
 
-    PRINTF("Successfully wrote %p to %p at real address %p!\n", *ptr, address, page);
+    LOGF(LOG_INFO, "Successfully wrote %p to %p at real address %p!\n", *ptr, address, page);
 
     if (PagingTranslate(state, address) != page) {
         PANIC("PagingTest: Translated address does not match physical page!\n");
@@ -169,7 +170,7 @@ Status PagingTest(PagingState *state) {
         PANIC("PagingTest: Failed to unmap page!\n");
     }
 
-    PRINT("Paging test completed successfully.\n");
+    LOG(LOG_INFO, "Paging test completed successfully.\n");
 
 
     return STATUS_SUCCESS;

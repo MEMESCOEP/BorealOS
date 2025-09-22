@@ -10,7 +10,7 @@
 #include "Memory/Paging.h"
 #include "Memory/VirtualMemoryManager.h"
 
-typedef void (*LogFn)(const char*);
+typedef void (*LogFn)(int, const char*, ...);
 typedef NORETURN void (*PanicFn)(const char*);
 typedef void (*PrintfFn)(const char*, ...);
 

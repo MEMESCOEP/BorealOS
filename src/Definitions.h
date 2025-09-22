@@ -52,18 +52,22 @@ typedef enum {
     STATUS_FAILURE = -1,
 } Status;
 
+typedef enum {
+    LOG_INFO = 0,
+    LOG_WARNING = 1,
+    LOG_ERROR = 2,
+    LOG_CRITICAL = 3,
+    LOG_DEBUG = 4,
+} KernelLogType;
+
 // Log structure:
-// [TYPE] [FILE:LINE] : message
-#define LOG_INFO(message) (Kernel.Log("[INFO] [" __FILE_NAME__ ":" STR(__LINE__) "] >> " message))
-#define LOG_WARNING(message) (Kernel.Log("[WARNING] [" __FILE_NAME__ ":" STR(__LINE__) "] >> " message))
-#define LOG_ERROR(message) (Kernel.Log("[ERROR] [" __FILE_NAME__ ":" STR(__LINE__) "] >> " message))
-#define LOG_CRITICAL(message) (Kernel.Log("[CRITICAL] " __FILE_NAME__ ":" STR(__LINE__) "] >> " message))
-#define LOG_DEBUG(message) (Kernel.Log("[DEBUG] [" __FILE_NAME__ ":" STR(__LINE__) "] >> " message))
-#define LOG(message) LOG_INFO(message)
+// [TYPE] [FILE:LINE] >> message
+#define LOGF(logtype, message, ...) (Kernel.Log(logtype, "[" __FILE_NAME__ ":" STR(__LINE__) "] >> " message, __VA_ARGS__))
+#define LOG(logtype, message) (Kernel.Log(logtype, "[" __FILE_NAME__ ":" STR(__LINE__) "] >> " message))
 
 #define PRINTF(format, ...) (Kernel.Printf(format, __VA_ARGS__))
 #define PRINT(string) (Kernel.Printf(string))
 
-#define PANIC(message) (Kernel.Panic("[PANIC] [" __FILE_NAME__ ":" STR(__LINE__) "] >> " message))
+#define PANIC(message) (Kernel.Panic("[" __FILE_NAME__ ":" STR(__LINE__) "] >> " message))
 
 #endif //BOREALOS_DEFINITIONS_H

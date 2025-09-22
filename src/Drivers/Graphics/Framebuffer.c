@@ -10,14 +10,14 @@ FramebufferConfig KernelFramebuffer = {};
 
 Status FramebufferInit(uint32_t InfoPtr)
 {
-    PRINT("Initializing framebuffer...\n");
+    LOG(LOG_INFO, "Initializing framebuffer...\n");
 
     // Attempt to get the framebuffer information using multiboot2; if the request failed, return a failure status and don't try to init further
     struct multiboot_tag_framebuffer_common* FBInfo = MBGetTag(InfoPtr, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
 
     if (!FBInfo)
     {
-        PRINT("Failed to get framebuffer information from multiboot2!\n");
+        LOG(LOG_ERROR, "Failed to get framebuffer information from multiboot2!\n");
         return STATUS_FAILURE;
     }
 
@@ -30,7 +30,7 @@ Status FramebufferInit(uint32_t InfoPtr)
     KernelFramebuffer.CanUse = true;
 
     // Print the framebuffer properties
-    PRINTF("Framebuffer at address %p is set up for %ux%u@%u\n",
+    LOGF(LOG_INFO, "Framebuffer at address %p is set up for %ux%u@%u\n",
         KernelFramebuffer.Address,
         KernelFramebuffer.Width,
         KernelFramebuffer.Height,
