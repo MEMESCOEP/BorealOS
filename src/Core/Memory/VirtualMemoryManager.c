@@ -7,10 +7,11 @@ typedef struct VMMRegion {
     void* start; // Start address of the virtual memory region
     size_t size; // Size of said region
     uint32_t flags; // Flags for the region (writable, user, etc.)
-    struct VMMRegion* next; // Pointer to the next VMMRegion in the linked list, or NULL if this is the last region.
+    struct VMMRegion* next; // Pointer to the next VMMRegion in the linked list, or nullptr if this is the last region.
 } VMMRegion;
 
-#define VMM_REGION_POOL_SIZE (256 * 2)
+// A simple max number of regions we can track. This is a limitation of this simple implementation.
+#define VMM_REGION_POOL_SIZE 512
 
 typedef struct VirtualMemoryManagerMetadata {
     VMMRegion* regions;
@@ -19,6 +20,7 @@ typedef struct VirtualMemoryManagerMetadata {
 } VirtualMemoryManagerMetadata;
 
 static void InitRegionPool(VirtualMemoryManagerMetadata* meta) {
+    // Initialize it all the next pointers to form a free list
     meta->freeList = &meta->regionPool[0];
     for (size_t i = 0; i < VMM_REGION_POOL_SIZE - 1; i++) {
         meta->regionPool[i].next = &meta->regionPool[i + 1];
@@ -27,6 +29,7 @@ static void InitRegionPool(VirtualMemoryManagerMetadata* meta) {
 }
 
 static VMMRegion* AllocateRegionNode(VirtualMemoryManagerMetadata* meta) {
+    // Pop from the free list
     if (!meta->freeList) return nullptr;
     VMMRegion* node = meta->freeList;
     meta->freeList = node->next;
@@ -35,6 +38,7 @@ static VMMRegion* AllocateRegionNode(VirtualMemoryManagerMetadata* meta) {
 }
 
 static void FreeRegionNode(VirtualMemoryManagerMetadata* meta, VMMRegion* node) {
+    // Push back to the free list
     node->next = meta->freeList;
     meta->freeList = node;
 }
@@ -42,20 +46,26 @@ static void FreeRegionNode(VirtualMemoryManagerMetadata* meta, VMMRegion* node) 
 Status VirtualMemoryManagerInit(VirtualMemoryManagerState *vmm, PagingState *paging) {
     vmm->Paging = paging;
 
+    // Calculate the amount of pages needed for metadata
     size_t metaSize = sizeof(VirtualMemoryManagerMetadata);
     size_t numPages = (metaSize + PMM_PAGE_SIZE - 1) / PMM_PAGE_SIZE;
 
     vmm->Metadata = (VirtualMemoryManagerMetadata*)PhysicalMemoryManagerAllocatePages(numPages);
     if (!vmm->Metadata) PANIC("Failed to allocate metadata!\n");
+
+    // Now identity map the metadata, so we can access it
     for (size_t i = 0; i < numPages; i++) {
         void* vAddr = (void*)((size_t)vmm->Metadata + i * PMM_PAGE_SIZE);
-        void* pAddr = (void*)((size_t)vmm->Metadata + i * PMM_PAGE_SIZE); // identity map
+        void* pAddr = (void*)((size_t)vmm->Metadata + i * PMM_PAGE_SIZE);
+
+        // Map the metadata pages as writable, supervisor-only.
         if (PagingMapPage(vmm->Paging, vAddr, pAddr, true, false) != STATUS_SUCCESS) {
             PANIC("Failed to map metadata page!\n");
         }
     }
 
-    vmm->Metadata->regions = NULL;
+    // Initialize metadata
+    vmm->Metadata->regions = nullptr;
     InitRegionPool(vmm->Metadata);
     return STATUS_SUCCESS;
 }
@@ -65,9 +75,9 @@ void * VirtualMemoryManagerAllocate(VirtualMemoryManagerState *vmm, size_t size,
     size_t numPages = size / PMM_PAGE_SIZE;
 
     void* vAddr = PhysicalMemoryManagerAllocatePages(numPages);
-    if (!vAddr) return NULL;
+    if (!vAddr) return nullptr; // The allocation failed.
 
-    // Map pages
+    // Identity map the allocated memory, so virtual == physical
     for (size_t i = 0; i < numPages; i++) {
         void* va = (void *)((size_t)vAddr + i * PMM_PAGE_SIZE);
         void* pa = (void *)((size_t)vAddr + i * PMM_PAGE_SIZE);
@@ -95,13 +105,15 @@ Status VirtualMemoryManagerFree(VirtualMemoryManagerState *vmm, void *addr, size
     size = ALIGN_UP(size, PMM_PAGE_SIZE);
     size_t numPages = size / PMM_PAGE_SIZE;
 
+    // Find the first region that matches in the linked list.
     VMMRegion* current = vmm->Metadata->regions;
-    VMMRegion* previous = NULL;
+    VMMRegion* previous = nullptr;
     while (current) {
         if (current->start == addr && current->size == size) break;
         previous = current;
         current = current->next;
     }
+
     if (!current) return STATUS_FAILURE;
 
     // Unmap pages
@@ -122,6 +134,8 @@ Status VirtualMemoryManagerFree(VirtualMemoryManagerState *vmm, void *addr, size
 
 Status VirtualMemoryManagerTest(VirtualMemoryManagerState *vmm) {
     LOG("Testing Virtual Memory Manager...\n");
+
+    // Allocate an arbitrary block of memory
     size_t pages = 8;
     void* block = VirtualMemoryManagerAllocate(vmm, pages * PMM_PAGE_SIZE, true, false);
     if (!block) {
@@ -130,6 +144,8 @@ Status VirtualMemoryManagerTest(VirtualMemoryManagerState *vmm) {
 
     PRINTF("VMM Test: Allocated %z bytes at virtual address %p\n", pages * PMM_PAGE_SIZE, block);
 
+    // Fill the block with data, and verify it's correct
+    // We use volatile here to prevent the compiler from optimizing out our reads/writes
     volatile uint8_t* p = (uint8_t*)block;
     for (size_t i = 0; i < pages * PMM_PAGE_SIZE; i++) {
         p[i] = (uint8_t)(i & 0xFF);

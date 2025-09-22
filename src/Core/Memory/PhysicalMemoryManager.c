@@ -17,8 +17,6 @@ typedef struct {
 } PACKED MB2MemoryMap_t;
 
 #define PMM_PAGE_MASK (~(PMM_PAGE_SIZE - 1))
-#define PMM_ALIGN_DOWN(x, align) ((x) & PMM_PAGE_MASK)
-#define PMM_ALIGN_UP(x, align) (((x) + (align) - 1) & PMM_PAGE_MASK)
 #define PMM_MB2_TAG_TYPE_MMAP 6
 
 PhysicalMemoryManagerState KernelPhysicalMemoryManager = {};
@@ -38,6 +36,7 @@ Status PhysicalMemoryManagerInit(uint32_t InfoPtr) {
 
     uint32_t total_memory = 0;
 
+    // Collect all valid memory regions, skipping those below 1MB
     for (uint8_t *entry_ptr = (uint8_t *)mmap->entries;
          entry_ptr < (uint8_t *)mmap + mmap->size;
          entry_ptr += mmap->entry_size) {
@@ -60,6 +59,7 @@ Status PhysicalMemoryManagerInit(uint32_t InfoPtr) {
     uint32_t allocation_map_addr = 0;
     uint32_t reserved_map_addr = 0;
 
+    // Find a region that can fit both maps
     for (uint32_t i = 0; i < count; i++) {
         if (valid_regions[i].len >= needed_pages * 2) {
             allocation_map_addr = valid_regions[i].addr;
@@ -86,9 +86,10 @@ Status PhysicalMemoryManagerInit(uint32_t InfoPtr) {
         KernelPhysicalMemoryManager.ReservedMap[i] = 0xFF; // Mark all as reserved
     }
 
+    // Now mark the valid regions as free in the allocation map and not reserved in the reserved map
     for (uint32_t i = 0; i < count; i++) {
-        uint32_t start_page = PMM_ALIGN_UP(valid_regions[i].addr, PMM_PAGE_SIZE) / PMM_PAGE_SIZE;
-        uint32_t end_page = PMM_ALIGN_DOWN(valid_regions[i].addr + valid_regions[i].len, PMM_PAGE_SIZE) / PMM_PAGE_SIZE;
+        uint32_t start_page = ALIGN_UP(valid_regions[i].addr, PMM_PAGE_SIZE) / PMM_PAGE_SIZE;
+        uint32_t end_page = ALIGN_DOWN(valid_regions[i].addr + valid_regions[i].len, PMM_PAGE_SIZE) / PMM_PAGE_SIZE;
 
         for (uint32_t page = start_page; page < end_page; page++) {
             KernelPhysicalMemoryManager.AllocationMap[page / 8] &= ~(1 << (page % 8)); // Mark as free
@@ -125,6 +126,7 @@ void * PhysicalMemoryManagerAllocatePage() {
         size_t byte_index = i / 8;
         size_t bit_index = i % 8;
 
+        // Check if the page is free and not reserved
         if (!(KernelPhysicalMemoryManager.AllocationMap[byte_index] & (1 << bit_index)) && (!(KernelPhysicalMemoryManager.ReservedMap[byte_index] & (1 << bit_index)))) {
             // Found a free page, mark it as allocated
             KernelPhysicalMemoryManager.AllocationMap[byte_index] |= (1 << bit_index);
@@ -139,6 +141,7 @@ void * PhysicalMemoryManagerAllocatePages(size_t numPages) {
     void* firstPage = nullptr;
     size_t contiguousCount = 0;
 
+    // Look for a sequence of free pages
     for (size_t i = 0; i < KernelPhysicalMemoryManager.TotalPages; i++) {
         size_t byte_index = i / 8;
         size_t bit_index = i % 8;
@@ -150,6 +153,7 @@ void * PhysicalMemoryManagerAllocatePages(size_t numPages) {
             }
             contiguousCount++;
 
+            // We have enough contiguous pages
             if (contiguousCount == numPages) {
                 // Mark pages as allocated
                 for (size_t j = 0; j < numPages; j++) {
@@ -180,6 +184,7 @@ Status PhysicalMemoryManagerFreePage(void *page) {
     size_t byte_index = page_index / 8;
     size_t bit_index = page_index % 8;
 
+    // Check if the bit is reserved or not allocated
     if (KernelPhysicalMemoryManager.ReservedMap[byte_index] & (1 << bit_index)) {
         return STATUS_FAILURE; // Attempting to free a reserved page, which is not allowed
     }
@@ -225,6 +230,7 @@ Status PhysicalMemoryManagerFreePages(void *startPage, size_t numPages) {
 
 Status PhysicalMemoryManagerTest(void) {
     PRINT("Testing Physical Memory Manager...\n");
+
     void* page1 = PhysicalMemoryManagerAllocatePage();
     if (!page1) {
         PANIC("Failed to allocate page 1!\n");
@@ -239,7 +245,7 @@ Status PhysicalMemoryManagerTest(void) {
         PANIC("Allocated the same page twice!\n");
     }
 
-    // Write some data to the pages
+    // Write some data to the pages to verify they are usable
     volatile uint8_t* p1 = (uint8_t*)page1;
     volatile uint8_t* p2 = (uint8_t*)page2;
     for (size_t i = 0; i < PMM_PAGE_SIZE; i++) {
@@ -258,6 +264,7 @@ Status PhysicalMemoryManagerTest(void) {
             break;
         }
     }
+
     if (!success) {
         PANIC("Memory test failed! Data corruption detected!\n");
     }
