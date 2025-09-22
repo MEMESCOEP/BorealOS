@@ -45,11 +45,9 @@ void irq_handler(uint8_t irq) {
     PICSendEOI(irq);
     if (KernelIDT.IRQSet[irq - 0x20] && KernelIDT.ExceptionHandlers[irq - 0x20]) {
         KernelIDT.ExceptionHandlers[irq - 0x20]((uint32_t)irq);
-        return;
     }
 
-    // It wasn't handled, panic
-    PANIC("Unhandled IRQ!\n");
+    // It wasn't handled, that's fine, just don't do anything
 }
 
 void exception_handler(uint32_t err) {
@@ -69,8 +67,6 @@ static void TestingExceptionHandler(uint32_t exceptionNumber) {
 }
 
 Status IDTInit() {
-    ASM ("cli"); // Disable interrupts while loading IDT
-
     KernelIDT.Descriptor.Base = (uint32_t)&KernelIDT.Entries[0]; // Set the base address of the IDT entries
     KernelIDT.Descriptor.Limit = sizeof(KernelIDT.Entries) - 1; // Set the limit of the IDT
 

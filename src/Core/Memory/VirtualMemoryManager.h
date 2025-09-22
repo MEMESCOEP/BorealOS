@@ -25,13 +25,17 @@ typedef struct VirtualMemoryManagerState {
 /// - After this, the VMM can manage virtual memory allocations within that paging structure
 Status VirtualMemoryManagerInit(VirtualMemoryManagerState *vmm, PagingState *paging);
 
-/// Allocate a block of virtual memory of the given size (in bytes).
+/// Allocate a block of virtual memory of the given size (in bytes, aligns up to multiples of 0x1000/page_size).
 /// The memory will be mapped to physical pages as needed.
 /// Returns a pointer to the allocated virtual memory, or NULL on failure.
 void* VirtualMemoryManagerAllocate(VirtualMemoryManagerState *vmm, size_t size, bool writable, bool user);
 
 /// Free a previously allocated block of virtual memory.
 /// addr must be the address returned by VirtualMemoryManagerAllocate, and size must be the same size.
+/// This also unmaps
 Status VirtualMemoryManagerFree(VirtualMemoryManagerState *vmm, void *addr, size_t size);
+
+/// Allocates and maps a few test pages, writes to them, and then frees them again.
+Status VirtualMemoryManagerTest(VirtualMemoryManagerState *vmm);
 
 #endif //BOREALOS_VIRTUALMEMORYMANAGER_H

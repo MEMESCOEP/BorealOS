@@ -120,6 +120,7 @@ static void KernelLog(int log_type, const char* format, ...)
 }
 
 Status KernelInit(uint32_t InfoPtr) {
+    ASM ("cli"); // Disable interrupts while we set up
     Kernel.Panic = KernelPanic;
     Kernel.Log = KernelLog;
     Kernel.Printf = KernelPrintf;
@@ -162,7 +163,7 @@ Status KernelInit(uint32_t InfoPtr) {
     LOG(LOG_INFO, "PIC initialized successfully.\n");
 
     // Load the IDT
-    if (IDTInit() != STATUS_SUCCESS) {
+    if (IDTInit() != STATUS_SUCCESS) { // This also enables interrupts
         PANIC("Failed to initialize IDT!\n");
     }
 
@@ -185,6 +186,8 @@ Status KernelInit(uint32_t InfoPtr) {
     FramebufferMapSelf(&Kernel.Paging);
     KernelFramebuffer.CanUse = true;
 
+    LOG("Framebuffer mapped into kernel virtual address space successfully.\n");
+
     // ONLY AFTER HERE IS IT SAFE TO LOG TO THE FRAMEBUFFER.
 
     // Initialize the kernel VMM
@@ -192,6 +195,11 @@ Status KernelInit(uint32_t InfoPtr) {
         PANIC("Failed to initialize Kernel Virtual Memory Manager!\n");
     }
 
-    LOG(LOG_INFO, "Kernel Virtual Memory Manager initialized successfully.\n");
+    if (VirtualMemoryManagerTest(&Kernel.VMM) != STATUS_SUCCESS) {
+        PANIC("Kernel Virtual Memory Manager test failed!\n");
+    }
+
+    LOG("Kernel Virtual Memory Manager initialized successfully.\n");
+
     return STATUS_SUCCESS;
 }
