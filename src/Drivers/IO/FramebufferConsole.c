@@ -1,9 +1,18 @@
 #include "FramebufferConsole.h"
 
 #include <Drivers/Graphics/DefaultFont.h>
+#include <Drivers/Graphics/Framebuffer.h>
 #include <Utility/Drawing.h>
 
 FramebufferConsoleState FramebufferConsole = {};
+
+void MoveDown() {
+    if (FramebufferConsole.CursorY < FramebufferConsole.Height - 1) {
+        FramebufferConsole.CursorY++;
+    } else {
+        FramebufferShift(FONT_HEIGHT, FramebufferConsole.BackgroundColor);
+    }
+}
 
 Status FramebufferConsoleInit(size_t width, size_t height, uint32_t foregroundColor, uint32_t backgroundColor) {
     FramebufferConsole.Width = width;
@@ -22,8 +31,7 @@ void FramebufferConsolePutChar(char c) {
     if (c == '\n')
     {
         FramebufferConsole.CursorX = 0;
-        FramebufferConsole.CursorY++;
-
+        MoveDown();
     }
     else if (c == '\r')
     {
@@ -42,7 +50,7 @@ void FramebufferConsolePutChar(char c) {
     if (FramebufferConsole.CursorX > FramebufferConsole.Width)
     {
         FramebufferConsole.CursorX = 0;
-        FramebufferConsole.CursorY++;
+        MoveDown();
     }
 }
 

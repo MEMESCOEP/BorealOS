@@ -9,6 +9,8 @@
 
 #include "Utility/StringFormatter.h"
 
+#include "Utility/Art.h"
+
 KernelState Kernel = {};
 
 static NORETURN void KernelPanic(const char* message)
@@ -140,6 +142,8 @@ Status KernelInit(uint32_t InfoPtr) {
     if (FramebufferConsoleInit(KernelFramebuffer.Width / FONT_WIDTH, KernelFramebuffer.Height / FONT_HEIGHT, COLOR_LIGHTGRAY, OURBLE) != STATUS_SUCCESS) {
         PANIC("Failed to initialize Framebuffer Console!\n");
     }
+
+    FramebufferConsoleWriteString(ART);
 
     Kernel.Printf("[== BorealOS %z.%z.%z ==]\n", BOREALOS_MAJOR_VERSION, BOREALOS_MINOR_VERSION, BOREALOS_PATCH_VERSION);
     LOG(LOG_INFO, "Serial initialized successfully.\n");

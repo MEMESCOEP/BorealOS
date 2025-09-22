@@ -1,6 +1,7 @@
 #include "Framebuffer.h"
 
 #include <Boot/MBParser.h>
+#include <Core/Memory/Memory.h>
 #include <Utility/Drawing.h>
 #include <Utility/Color.h>
 
@@ -52,5 +53,29 @@ void FramebufferMapSelf(PagingState *paging) {
         void *vAddr = (void *)((size_t)KernelFramebuffer.Address + (i * PMM_PAGE_SIZE));
         void *pAddr = (void *)ALIGN_DOWN((size_t)KernelFramebuffer.Address + (i * PMM_PAGE_SIZE), PMM_PAGE_SIZE);
         PagingMapPage(paging, vAddr, pAddr, true, false);
+    }
+}
+
+void FramebufferShift(size_t lines, uint32_t fillColor) {
+    if (!KernelFramebuffer.CanUse || lines == 0)
+        return;
+
+    if (lines >= KernelFramebuffer.Height)
+        lines = KernelFramebuffer.Height;
+
+    size_t rowBytes = KernelFramebuffer.Pitch;
+    size_t copyBytes = (KernelFramebuffer.Height - lines) * rowBytes;
+
+    uint8_t* fb = (uint8_t*) KernelFramebuffer.Address;
+
+    // Shift framebuffer up
+    memmove(fb, fb + lines * rowBytes, copyBytes);
+
+    // Fill bottom region
+    for (size_t y = KernelFramebuffer.Height - lines; y < KernelFramebuffer.Height; y++) {
+        uint32_t* row = (uint32_t*)(fb + y * rowBytes);
+        for (size_t x = 0; x < KernelFramebuffer.Width; x++) {
+            row[x] = fillColor;
+        }
     }
 }
