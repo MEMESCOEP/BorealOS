@@ -67,8 +67,6 @@ static void TestingExceptionHandler(uint32_t exceptionNumber) {
 }
 
 Status IDTInit() {
-    ASM ("cli"); // Disable interrupts while loading IDT
-
     KernelIDT.Descriptor.Base = (uint32_t)&KernelIDT.Entries[0]; // Set the base address of the IDT entries
     KernelIDT.Descriptor.Limit = sizeof(KernelIDT.Entries) - 1; // Set the limit of the IDT
 

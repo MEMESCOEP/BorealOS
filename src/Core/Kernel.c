@@ -42,6 +42,8 @@ static void serial_printf(const char* format, ...) {
 }
 
 Status KernelInit(uint32_t InfoPtr) {
+    ASM ("cli"); // Disable interrupts while we set up
+
     Kernel.Panic = serial_panic; // For now, just use the serial functions.
     Kernel.Log = serial_log;
     Kernel.Printf = serial_printf;
@@ -84,7 +86,7 @@ Status KernelInit(uint32_t InfoPtr) {
     LOG("PIC initialized successfully.\n");
 
     // Load the IDT
-    if (IDTInit() != STATUS_SUCCESS) {
+    if (IDTInit() != STATUS_SUCCESS) { // This also enables interrupts
         PANIC("Failed to initialize IDT!\n");
     }
 
