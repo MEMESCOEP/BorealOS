@@ -11,10 +11,10 @@ This is the tracker for features & bugs.
 - Paging support
 - Framebuffer support
 - Text console
+- Virtual memory allocator
 
 ## Doing:
 
-- Virtual memory allocator
 
 ## To Do:
 
