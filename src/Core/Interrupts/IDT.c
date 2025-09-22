@@ -45,11 +45,9 @@ void irq_handler(uint8_t irq) {
     PICSendEOI(irq);
     if (KernelIDT.IRQSet[irq - 0x20] && KernelIDT.ExceptionHandlers[irq - 0x20]) {
         KernelIDT.ExceptionHandlers[irq - 0x20]((uint32_t)irq);
-        return;
     }
 
-    // It wasn't handled, panic
-    PANIC("Unhandled IRQ!\n");
+    // It wasn't handled, that's fine, just don't do anything
 }
 
 void exception_handler(uint32_t err) {
