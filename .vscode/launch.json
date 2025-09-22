@@ -8,31 +8,31 @@
             "name": "Compile and run in Bochs",
             "type": "f5anything",
             "request": "launch",
-            "command": "clear && ${workspaceFolder}/VSCCmpDbg.sh --Bochs",
+            "command": "clear && ${workspaceFolder}/build.sh && ${workspaceFolder}/run.sh --Bochs",
         },
         {
             "name": "Compile and run in QEMU",
             "type": "f5anything",
             "request": "launch",
-            "command": "clear && ${workspaceFolder}/VSCCmpDbg.sh --QEMU",
+            "command": "clear && ${workspaceFolder}/build.sh && ${workspaceFolder}/run.sh --QEMU",
         },
         {
             "name": "Compile only",
             "type": "f5anything",
             "request": "launch",
-            "command": "clear && ${workspaceFolder}/VSCCmpDbg.sh --NoDBG",
+            "command": "clear && ${workspaceFolder}/build.sh",
         },
         {
             "name": "Run in Bochs only",
             "type": "f5anything",
             "request": "launch",
-            "command": "clear && ${workspaceFolder}/VSCCmpDbg.sh --Bochs --OnlyDBG",
+            "command": "clear && ${workspaceFolder}/run.sh --Bochs",
         },
         {
             "name": "Run in QEMU only",
             "type": "f5anything",
             "request": "launch",
-            "command": "clear && ${workspaceFolder}/VSCCmpDbg.sh --QEMU --OnlyDBG",
+            "command": "clear && ${workspaceFolder}/run.sh --QEMU",
         },
     ]
 }
