@@ -21,8 +21,14 @@ Status PhysicalMemoryManagerInit(uint32_t InfoPtr);
 /// Allocate a single 4 KiB page of physical memory. Returns NULL if no pages are available.
 void* PhysicalMemoryManagerAllocatePage();
 
+/// Allocate multiple contiguous pages of physical memory. Returns NULL if not enough contiguous pages are available.
+void* PhysicalMemoryManagerAllocatePages(size_t numPages);
+
 /// Free a previously allocated page. Returns STATUS_FAILURE if the page is not valid or not allocated.
 Status PhysicalMemoryManagerFreePage(void *page);
+
+/// Free multiple contiguous pages starting at startPage. Returns STATUS_FAILURE if any page is not valid or not allocated.
+Status PhysicalMemoryManagerFreePages(void *startPage, size_t numPages);
 
 /// Test the physical memory manager by allocating, writing, and freeing pages.
 Status PhysicalMemoryManagerTest();

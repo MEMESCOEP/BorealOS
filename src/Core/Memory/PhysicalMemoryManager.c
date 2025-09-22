@@ -135,6 +135,41 @@ void * PhysicalMemoryManagerAllocatePage() {
     return nullptr; // No free pages available
 }
 
+void * PhysicalMemoryManagerAllocatePages(size_t numPages) {
+    void* firstPage = nullptr;
+    size_t contiguousCount = 0;
+
+    for (size_t i = 0; i < KernelPhysicalMemoryManager.TotalPages; i++) {
+        size_t byte_index = i / 8;
+        size_t bit_index = i % 8;
+
+        if (!(KernelPhysicalMemoryManager.AllocationMap[byte_index] & (1 << bit_index)) && (!(KernelPhysicalMemoryManager.ReservedMap[byte_index] & (1 << bit_index)))) {
+            // Found a free page
+            if (contiguousCount == 0) {
+                firstPage = (void *)(i * PMM_PAGE_SIZE);
+            }
+            contiguousCount++;
+
+            if (contiguousCount == numPages) {
+                // Mark pages as allocated
+                for (size_t j = 0; j < numPages; j++) {
+                    size_t pageIndex = (size_t)firstPage / PMM_PAGE_SIZE + j;
+                    size_t bIndex = pageIndex / 8;
+                    size_t btIndex = pageIndex % 8;
+                    KernelPhysicalMemoryManager.AllocationMap[bIndex] |= (1 << btIndex);
+                }
+                return firstPage;
+            }
+        } else {
+            // Reset count if we hit an allocated or reserved page
+            contiguousCount = 0;
+            firstPage = nullptr;
+        }
+    }
+
+    return nullptr; // Not enough contiguous pages available
+}
+
 Status PhysicalMemoryManagerFreePage(void *page) {
     size_t address = (size_t)page;
     if (address % PMM_PAGE_SIZE != 0) {
@@ -153,6 +188,37 @@ Status PhysicalMemoryManagerFreePage(void *page) {
     }
 
     KernelPhysicalMemoryManager.AllocationMap[byte_index] &= ~(1 << bit_index); // Mark the page as free
+
+    return STATUS_SUCCESS;
+}
+
+Status PhysicalMemoryManagerFreePages(void *startPage, size_t numPages) {
+    size_t address = (size_t)startPage;
+    if (address % PMM_PAGE_SIZE != 0) {
+        return STATUS_FAILURE; // Start page is not aligned to page size, cannot free
+    }
+
+    size_t start_page_index = address / PMM_PAGE_SIZE;
+    size_t end_page_index = start_page_index + numPages;
+
+    // For everything between start and end page, check if any are reserved or not allocated
+    for (size_t i = start_page_index; i < end_page_index; i++) {
+        size_t b_index = i / 8;
+        size_t bt_index = i % 8;
+        if (KernelPhysicalMemoryManager.ReservedMap[b_index] & (1 << bt_index)) {
+            return STATUS_FAILURE; // Attempting to free a reserved page, which is not allowed
+        }
+        if (!(KernelPhysicalMemoryManager.AllocationMap[b_index] & (1 << bt_index))) {
+            return STATUS_FAILURE; // Page is not allocated, cannot free
+        }
+    }
+
+    // now mark them all as free
+    for (size_t i = start_page_index; i < end_page_index; i++) {
+        size_t b_index = i / 8;
+        size_t bt_index = i % 8;
+        KernelPhysicalMemoryManager.AllocationMap[b_index] &= ~(1 << bt_index); // Mark the page as free
+    }
 
     return STATUS_SUCCESS;
 }
