@@ -19,3 +19,35 @@ void* memset(void* bufptr, int value, size_t size)
         buf[i] = (unsigned char) value;
     return bufptr;
 }
+
+void* memmove(void* destptr, const void* srcptr, size_t size) {
+    unsigned char* dest = (unsigned char*) destptr;
+    const unsigned char* src = (const unsigned char*) srcptr;
+
+    if (dest == src || size == 0)
+        return destptr;
+
+    if (dest < src) {
+        // Non-overlapping or forward-safe copy
+        ASM (
+            "rep movsb"
+            : "+D"(dest), "+S"(src), "+c"(size)
+            :
+            : "memory"
+        );
+    } else {
+        // Overlap requires reverse copy
+        dest += size - 1;
+        src  += size - 1;
+        ASM (
+            "std\n\t"            // set direction flag (backwards)
+            "rep movsb\n\t"
+            "cld"                // clear direction flag (restore forward mode)
+            : "+D"(dest), "+S"(src), "+c"(size)
+            :
+            : "memory"
+        );
+    }
+
+    return destptr;
+}

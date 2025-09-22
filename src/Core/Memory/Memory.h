@@ -9,4 +9,7 @@ void* memset32_8086(void* bufptr, uint32_t value, size_t count);
 /// Set a block of memory to a specific byte value.
 void* memset(void* bufptr, int value, size_t size);
 
+/// Move a block of memory from source to destination, handling overlapping regions correctly.
+void* memmove(void* destptr, const void* srcptr, size_t size);
+
 #endif //BOREALOS_MEMORY_H
