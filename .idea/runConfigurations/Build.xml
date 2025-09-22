@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Build" type="CMakeRunConfiguration" factoryName="Application" PROGRAM_PARAMS="$ProjectFileDir$/empty.sh" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" WORKING_DIR="file://$ProjectFileDir$" PASS_PARENT_ENVS_2="true" PROJECT_NAME="BorealOS" TARGET_NAME="build-iso" CONFIG_NAME="Debug" RUN_PATH="/bin/bash">
+  <configuration default="false" name="Build" type="CMakeRunConfiguration" factoryName="Application" PROGRAM_PARAMS="$ProjectFileDir$/run.sh debug --QEMU" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" WORKING_DIR="file://$ProjectFileDir$" PASS_PARENT_ENVS_2="true" PROJECT_NAME="BorealOS" TARGET_NAME="build-iso" CONFIG_NAME="Debug" RUN_PATH="/bin/bash">
     <method v="2">
       <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
     </method>
