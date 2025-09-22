@@ -158,7 +158,7 @@ Status PhysicalMemoryManagerFreePage(void *page) {
 }
 
 Status PhysicalMemoryManagerTest(void) {
-    PRINT("Testing Physical Memory Manager...\n");
+    LOG(LOG_INFO, "Testing Physical Memory Manager...\n");
     void* page1 = PhysicalMemoryManagerAllocatePage();
     if (!page1) {
         PANIC("Failed to allocate page 1!\n");
@@ -195,7 +195,7 @@ Status PhysicalMemoryManagerTest(void) {
     if (!success) {
         PANIC("Memory test failed! Data corruption detected!\n");
     }
-    PRINT("Memory test passed! Freeing pages...\n");
+    LOG(LOG_INFO, "Memory test passed! Freeing pages...\n");
 
     if (PhysicalMemoryManagerFreePage(page1) != STATUS_SUCCESS) {
         PANIC("Failed to free page 1!\n");
@@ -205,6 +205,6 @@ Status PhysicalMemoryManagerTest(void) {
         PANIC("Failed to free page 2!\n");
     }
 
-    PRINT("Pages freed successfully.\n");
+    PRINT("    * Pages freed successfully.\n\n");
     return STATUS_SUCCESS;
 }

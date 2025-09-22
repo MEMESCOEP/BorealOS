@@ -53,7 +53,7 @@ void irq_handler(uint8_t irq) {
 }
 
 void exception_handler(uint32_t err) {
-    PRINTF("Exception occurred! '%s'\n", IDTExceptionStrings[err]);
+    LOGF(LOG_ERROR, "CPU exception occurred! '%s'\n", IDTExceptionStrings[err]);
     if (KernelIDT.ExceptionHandlers[err]) {
         KernelIDT.ExceptionHandlers[err](err);
         return;
@@ -64,8 +64,8 @@ void exception_handler(uint32_t err) {
 }
 
 static void TestingExceptionHandler(uint32_t exceptionNumber) {
-    PRINTF("Exception handled successfully in testing mode. Exception number: %d\n", exceptionNumber);
-    PRINTF("Error string: %s\n", IDTExceptionStrings[exceptionNumber]);
+    LOGF(LOG_INFO, "Exception handled successfully in testing mode. Exception number: %d\n", exceptionNumber);
+    PRINTF("    * Error string: %s\n\n", IDTExceptionStrings[exceptionNumber]);
 }
 
 Status IDTInit() {
@@ -88,7 +88,7 @@ Status IDTInit() {
     ASM ("sti");
 
     // Test the IDT by setting some exception handlers and triggering them
-    PRINT("Testing IDT by triggering exceptions...\n");
+    LOG(LOG_INFO, "Testing IDT by triggering exceptions...\n");
 
     IDTSetExceptionHandler(0, TestingExceptionHandler); // Division By Zero
     IDTSetExceptionHandler(3, TestingExceptionHandler); // Breakpoint
@@ -97,7 +97,7 @@ Status IDTInit() {
     ASM ("int $0"); // Trigger Division By Zero
     ASM ("int $3"); // Trigger Breakpoint
 
-    PRINT("IDT initialized and tested successfully.\n");
+    LOG(LOG_INFO, "IDT initialized and tested successfully.\n");
 
     KernelIDT.ExceptionHandlers[0] = nullptr; // Remove the testing handler
     KernelIDT.ExceptionHandlers[3] = nullptr; // Remove the testing handler
