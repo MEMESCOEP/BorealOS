@@ -52,7 +52,7 @@ void putunsigned_buf(int32_t value, char* buffer, size_t bufferSize, size_t* pos
 }
 
 void puthex_buf(uint64_t value, char* buffer, size_t bufferSize, size_t* pos) {
-    const char* hex = "0123456789abcdef";
+    const char* hex = "0123456789ABCDEF";
     char tmp[32];
     int i = 0;
     if (value == 0) {
