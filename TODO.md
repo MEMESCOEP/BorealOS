@@ -15,6 +15,7 @@ This is the tracker for features & bugs.
 
 ## Doing:
 
+- Basic ATA driver (read/write)
 
 ## To Do:
 
