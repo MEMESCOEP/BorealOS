@@ -1,5 +1,6 @@
 #include <Definitions.h>
 #include "Paging.h"
+#include <Drivers/CPU.h>
 #include "Core/Kernel.h"
 #include "PhysicalMemoryManager.h"
 
@@ -38,10 +39,16 @@ Status PagingInit(PagingState *state) {
 
     state->PageDirectory[0] = ((uint32_t)state->PageTable[0]) | PAGE_PRESENT | PAGE_WRITABLE;
 
+    // Enable PAT if available
+    if (CPUHasPAT()) {
+        CPUSetupPAT();
+        LOG(LOG_INFO, "PAT supported and enabled.\n");
+    }
+
     return STATUS_SUCCESS;
 }
 
-Status PagingMapPage(PagingState *state, void *virtualAddr, void *physicalAddr, bool writable, bool user) {
+Status PagingMapPage(PagingState *state, void *virtualAddr, void *physicalAddr, bool writable, bool user, uint32_t extraFlags) {
     uint32_t vAddr = (uint32_t)virtualAddr;
     uint32_t pAddr = (uint32_t)physicalAddr;
 
@@ -69,7 +76,7 @@ Status PagingMapPage(PagingState *state, void *virtualAddr, void *physicalAddr, 
     }
 
     // Map the page
-    state->PageTable[dirIndex][tableIndex] = (pAddr & 0xFFFFF000) | flags;
+    state->PageTable[dirIndex][tableIndex] = (pAddr & 0xFFFFF000) | flags | (extraFlags & 0xFFF);
 
     // Flush TLB entry
     ASM("invlpg (%0)" ::"r"(vAddr) : "memory");
@@ -151,7 +158,7 @@ Status PagingTest(PagingState *state) {
         PANIC("PagingTest: Address should not be mapped yet!\n");
     }
 
-    PagingMapPage(state, address, page, true, false);
+    PagingMapPage(state, address, page, true, false, 0);
 
     // Write to the mapped page
     volatile uint32_t *ptr = (uint32_t *)address;

@@ -123,6 +123,7 @@ static void KernelLog(int log_type, const char* format, ...)
 
 Status KernelInit(uint32_t InfoPtr) {
     ASM ("cli"); // Disable interrupts while we set up
+
     Kernel.Panic = KernelPanic;
     Kernel.Log = KernelLog;
     Kernel.Printf = KernelPrintf;
@@ -178,6 +179,7 @@ Status KernelInit(uint32_t InfoPtr) {
     }
 
     PagingEnable(&Kernel.Paging);
+
     KernelFramebuffer.CanUse = false; // We can't use the framebuffer until we map it in
 
     if (PagingTest(&Kernel.Paging) != STATUS_SUCCESS) {
@@ -204,6 +206,11 @@ Status KernelInit(uint32_t InfoPtr) {
     }
 
     LOG(LOG_INFO, "Kernel Virtual Memory Manager initialized successfully.\n");
+
+    FramebufferConsoleWriteString(ART);
+    FramebufferConsoleWriteString(ART);
+    FramebufferConsoleWriteString(ART);
+
 
     return STATUS_SUCCESS;
 }

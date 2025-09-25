@@ -15,6 +15,7 @@
 #define PAGE_CUSTOM0        0x200   // Free for OS use
 #define PAGE_CUSTOM1        0x400
 #define PAGE_CUSTOM2        0x800
+#define PAGE_PAT_WRITE_COMBINING 0x1000 // Use PAT entry for write-combining (if PAT is supported and enabled)
 
 // 32 bit
 typedef struct PagingState {
@@ -31,7 +32,7 @@ typedef struct PagingState {
 Status PagingInit(PagingState* state);
 
 /// Map a single page (4 KiB) from virtual address to physical address with write, and or user permissions.
-Status PagingMapPage(PagingState *state, void *virtualAddr, void *physicalAddr, bool writable, bool user);
+Status PagingMapPage(PagingState *state, void *virtualAddr, void *physicalAddr, bool writable, bool user, uint32_t extraFlags);
 
 /// Unmap a single page (4 KiB) at the given virtual address.
 Status PagingUnmapPage(PagingState *state, void *virtualAddr);

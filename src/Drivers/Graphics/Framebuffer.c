@@ -2,6 +2,7 @@
 
 #include <Boot/MBParser.h>
 #include <Core/Memory/Memory.h>
+#include <Drivers/CPU.h>
 #include <Utility/Drawing.h>
 #include <Utility/Color.h>
 
@@ -49,10 +50,15 @@ void FramebufferMapSelf(PagingState *paging) {
     size_t fbSize = KernelFramebuffer.Height * KernelFramebuffer.Pitch;
     size_t pages = (fbSize / PMM_PAGE_SIZE) + 1;
 
+    uint32_t fbCacheFlags = 0;
+    if (CPUHasPAT()) {
+        fbCacheFlags = PAGE_WRITE_THROUGH;
+    }
+
     for (size_t i = 0; i < pages; i++) {
         void *vAddr = (void *)((size_t)KernelFramebuffer.Address + (i * PMM_PAGE_SIZE));
         void *pAddr = (void *)ALIGN_DOWN((size_t)KernelFramebuffer.Address + (i * PMM_PAGE_SIZE), PMM_PAGE_SIZE);
-        PagingMapPage(paging, vAddr, pAddr, true, false);
+        PagingMapPage(paging, vAddr, pAddr, true, false, fbCacheFlags);
     }
 }
 
