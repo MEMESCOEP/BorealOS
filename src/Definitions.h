@@ -35,6 +35,8 @@
 
 #define ALIGN_DOWN(x, align) ((x) & ~((align) - 1))
 #define ALIGN_UP(x, align) (((x) + (align) - 1) & ~((align) - 1))
+#define BYTES_TO_PAGES(x) (ALIGN_UP(x, PMM_PAGE_SIZE) / PMM_PAGE_SIZE)
+#define PAGES_TO_BYTES(x) ((x) * PMM_PAGE_SIZE)
 
 // byte definitions (1024, and 1000) for both binary and decimal
 #define KiB 1024ULL

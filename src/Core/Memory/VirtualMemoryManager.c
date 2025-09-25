@@ -59,7 +59,7 @@ Status VirtualMemoryManagerInit(VirtualMemoryManagerState *vmm, PagingState *pag
         void* pAddr = (void*)((size_t)vmm->Metadata + i * PMM_PAGE_SIZE);
 
         // Map the metadata pages as writable, supervisor-only.
-        if (PagingMapPage(vmm->Paging, vAddr, pAddr, true, false) != STATUS_SUCCESS) {
+        if (PagingMapPage(vmm->Paging, vAddr, pAddr, true, false, 0) != STATUS_SUCCESS) {
             PANIC("Failed to map metadata page!\n");
         }
     }
@@ -81,7 +81,7 @@ void * VirtualMemoryManagerAllocate(VirtualMemoryManagerState *vmm, size_t size,
     for (size_t i = 0; i < numPages; i++) {
         void* va = (void *)((size_t)vAddr + i * PMM_PAGE_SIZE);
         void* pa = (void *)((size_t)vAddr + i * PMM_PAGE_SIZE);
-        if (PagingMapPage(vmm->Paging, va, pa, writable, user) != STATUS_SUCCESS) {
+        if (PagingMapPage(vmm->Paging, va, pa, writable, user, 0) != STATUS_SUCCESS) {
             PANIC("Failed to map page!\n");
         }
     }
