@@ -52,6 +52,10 @@
 typedef enum {
     STATUS_SUCCESS = 0,
     STATUS_FAILURE = -1,
+    STATUS_UNSUPPORTED = -2,
+    STATUS_INVALID_PARAMETER = -3,
+    STATUS_OUT_OF_MEMORY = -4,
+    STATUS_TIMEOUT = -5,
 } Status;
 
 typedef enum {

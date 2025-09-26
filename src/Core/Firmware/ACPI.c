@@ -6,22 +6,24 @@
 #include "Boot/MBParser.h"
 #include "Core/Kernel.h"
 
+#define ACPI_PWR_MGMT_ENABLE_TIMEOUT 1000000
+
 ACPIState ACPI = {};
 const char* PowerProfileStrings[8] = {"Unspecified", "Desktop", "Mobile", "Workstation", "Enterprise Server", "SOHO Server", "Appliance PC", "Performance Server"};
 void* SDPAddr = NULL;
 bool useNewACPI = false;
 
-struct FADT_t* FindFADT(struct RSDT_t* RSDT)
+FADT_t* FindFADT(RSDT_t* RSDT)
 {
     int entries = (RSDT->SDTHeader.Length - sizeof(RSDT->SDTHeader)) / 4;
 
     for (int i = 0; i < entries; i++)
     {
-        struct ACPISDTHeader* SDTHeader = (struct ACPISDTHeader*) RSDT->PointerToOtherSDT[i];
+        ACPISDTHeader* SDTHeader = (ACPISDTHeader*) RSDT->PointerToOtherSDT[i];
 
         if (!strncmp(SDTHeader->Signature, "FACP", 4))
         {
-            return (struct FADT_t*)SDTHeader;
+            return (FADT_t*)SDTHeader;
         }
     }
 
@@ -42,17 +44,18 @@ bool ValidateSDPSDTChecksum(void* table, size_t length) {
     return sum == 0;
 }
 
-bool ValidateXSDPTable(struct XSDP_t* xsdp){
+bool ValidateXSDPTable(XSDP_t* xsdp) {
     // Check the first 20 bytes as if it were an RSDP struct
     if (!ValidateSDPSDTChecksum(xsdp, RSDP_TABLE_LEN))
     {
         return false;
     }
 
-    // Now we have to check entire extended structure
+    // Now we have to check the entire extended structure
     if (!ValidateSDPSDTChecksum(xsdp, xsdp->Length)) {
         return false;
     }
+
     return true;
 }
 
@@ -97,7 +100,7 @@ Status ACPIInit(uint32_t MB2InfoPtr) {
     // We need to set up the correct *SDT table
     if (useNewACPI == true)
     {
-        ACPI.XSDP = (struct XSDP_t*)SDPAddr;
+        ACPI.XSDP = (XSDP_t*)SDPAddr;
         LOG(LOG_INFO, "Validating XSDP table...\n");
         
         if (ValidateXSDPTable(ACPI.XSDP) == false)
@@ -109,13 +112,13 @@ Status ACPIInit(uint32_t MB2InfoPtr) {
         // Now we need to validate both the RSDT and XSDT
         LOGF(LOG_INFO, "RSDT address is 0x%x.\n", (uint64_t)(uintptr_t)ACPI.XSDP->RsdtAddress);
         LOGF(LOG_INFO, "XSDT address is 0x%x.\n", (uint64_t)(uintptr_t)ACPI.XSDP->XsdtAddress);
-        ACPI.RSDT = (struct RSDT_t*)ACPI.XSDP->RsdtAddress;
-        ACPI.XSDT = (struct XSDT_t*)(uintptr_t)ACPI.XSDP->XsdtAddress;
+        ACPI.RSDT = (RSDT_t*)ACPI.XSDP->RsdtAddress;
+        ACPI.XSDT = (XSDT_t*)(uintptr_t)ACPI.XSDP->XsdtAddress;
     }
     else
     {
         // Cast and validate the RSDP table
-        ACPI.RSDP = (struct RSDP_t*)SDPAddr;
+        ACPI.RSDP = (RSDP_t*)SDPAddr;
         LOG(LOG_INFO, "Validating RSDP table...\n");
 
         if (ValidateSDPSDTChecksum(ACPI.RSDP, RSDP_TABLE_LEN) == false)
@@ -126,7 +129,7 @@ Status ACPIInit(uint32_t MB2InfoPtr) {
         
         // Now we need to validate the RSDT
         LOGF(LOG_INFO, "RSDT address is 0x%x.\n", (uint64_t)(uintptr_t)ACPI.RSDP->RsdtAddress);
-        ACPI.RSDT = (struct RSDT_t*)ACPI.RSDP->RsdtAddress;
+        ACPI.RSDT = (RSDT_t*)ACPI.RSDP->RsdtAddress;
         LOG(LOG_INFO, "Validating RSDT...\n");
 
         if (ValidateSDPSDTChecksum(ACPI.RSDT, ACPI.RSDT->SDTHeader.Length) == false)
@@ -154,17 +157,26 @@ Status ACPIInit(uint32_t MB2InfoPtr) {
         outb(ACPI.FADT->SMI_CommandPort, ACPI.FADT->AcpiEnable);
 
         // Wait for ACPI to be enabled by polling the PM1aControlBlock register
+        int Timeout = ACPI_PWR_MGMT_ENABLE_TIMEOUT;
         while (true)
         {
+            if (Timeout <= 0)
+            {
+                LOG(LOG_ERROR, "Failed to enable ACPI power management events!\n");
+                return STATUS_TIMEOUT;
+            }
+
             if (inw(ACPI.FADT->PM1aControlBlock) & (1 << 0))
             {
                 break;
             }
+
+            Timeout--;
         }
     }
     else
     {
-        LOG(LOG_INFO, "ACPI power management events are either unsupported or already enabled.\n");
+        LOG(LOG_INFO, "ACPI power management events are either unsupported or are already enabled.\n");
     }
 
     // We should store the power profile for later

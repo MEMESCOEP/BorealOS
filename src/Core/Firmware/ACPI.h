@@ -9,15 +9,16 @@
 #define RSDP_TABLE_LEN 20
 #define RSDP_SEARCH_STR "RSD PTR "
 
-PACKED struct RSDP_t {
+// These structs were provided by the OSDEV wiki, and have been edited to comply with this project's code standards
+typedef struct {
     char Signature[8];
     uint8_t Checksum;
     char OEMID[6];
     uint8_t Revision;
     uint32_t RsdtAddress;
-};
+} PACKED RSDP_t;
 
-PACKED struct XSDP_t {
+typedef struct  {
  char Signature[8];
  uint8_t Checksum;
  char OEMID[6];
@@ -28,18 +29,17 @@ PACKED struct XSDP_t {
  uint64_t XsdtAddress;
  uint8_t ExtendedChecksum;
  uint8_t reserved[3];
-};
+} PACKED XSDP_t;
 
-struct GenericAddr
-{
+typedef struct {
   uint8_t AddressSpace;
   uint8_t BitWidth;
   uint8_t BitOffset;
   uint8_t AccessSize;
   uint64_t Address;
-};
+} GenericAddr;
 
-struct ACPISDTHeader {
+typedef struct {
   char Signature[4];
   uint32_t Length;
   uint8_t Revision;
@@ -49,11 +49,10 @@ struct ACPISDTHeader {
   uint32_t OEMRevision;
   uint32_t CreatorID;
   uint32_t CreatorRevision;
-};
+} ACPISDTHeader;
 
-struct FADT_t
-{
-    struct   ACPISDTHeader SDTHeader;
+typedef struct {
+    ACPISDTHeader SDTHeader;
     uint32_t FirmwareCtrl;
     uint32_t Dsdt;
 
@@ -100,7 +99,7 @@ struct FADT_t
     uint32_t Flags;
 
     // 12 byte structure; see below for details
-    struct GenericAddr ResetReg;
+    GenericAddr ResetReg;
 
     uint8_t  ResetValue;
     uint8_t  Reserved3[3];
@@ -109,32 +108,32 @@ struct FADT_t
     uint64_t                X_FirmwareControl;
     uint64_t                X_Dsdt;
 
-    struct GenericAddr X_PM1aEventBlock;
-    struct GenericAddr X_PM1bEventBlock;
-    struct GenericAddr X_PM1aControlBlock;
-    struct GenericAddr X_PM1bControlBlock;
-    struct GenericAddr X_PM2ControlBlock;
-    struct GenericAddr X_PMTimerBlock;
-    struct GenericAddr X_GPE0Block;
-    struct GenericAddr X_GPE1Block;
-};
+    GenericAddr X_PM1aEventBlock;
+    GenericAddr X_PM1bEventBlock;
+    GenericAddr X_PM1aControlBlock;
+    GenericAddr X_PM1bControlBlock;
+    GenericAddr X_PM2ControlBlock;
+    GenericAddr X_PMTimerBlock;
+    GenericAddr X_GPE0Block;
+    GenericAddr X_GPE1Block;
+} FADT_t;
 
-struct RSDT_t {
-  struct ACPISDTHeader SDTHeader;
+typedef struct {
+  ACPISDTHeader SDTHeader;
   uint32_t PointerToOtherSDT[];
-};
+} RSDT_t;
 
-struct XSDT_t {
-  struct ACPISDTHeader SDTHeader;
+typedef struct {
+  ACPISDTHeader SDTHeader;
   uint64_t PointerToOtherSDT[];
-};
+} XSDT_t;
 
-typedef struct ACPIState {
-    struct RSDP_t* RSDP;
-    struct XSDP_t* XSDP;
-    struct RSDT_t* RSDT;
-    struct XSDT_t* XSDT;
-    struct FADT_t* FADT;
+typedef struct {
+    RSDP_t* RSDP;
+    XSDP_t* XSDP;
+    RSDT_t* RSDT;
+    XSDT_t* XSDT;
+    FADT_t* FADT;
     bool ValidPowerMGMTMode;
     bool Initialized;
 } ACPIState;
