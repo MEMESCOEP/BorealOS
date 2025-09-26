@@ -7,9 +7,19 @@ static INLINE void outb(uint16_t port, uint8_t val) {
     ASM ("outb %0, %1" : : "a"(val), "Nd"(port));
 }
 
+static INLINE void outw(uint16_t port, uint16_t val) {
+    ASM ("outw %0, %1" : : "a"(val), "Nd"(port));
+}
+
 static INLINE uint8_t inb(uint16_t port) {
     uint8_t ret;
     ASM ("inb %1, %0" : "=a"(ret) : "Nd"(port));
+    return ret;
+}
+
+static INLINE uint16_t inw(uint16_t port) {
+    uint16_t ret;
+    ASM ("inw %1, %0" : "=a"(ret) : "Nd"(port));
     return ret;
 }
 
