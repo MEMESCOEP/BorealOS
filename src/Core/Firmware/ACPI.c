@@ -94,8 +94,8 @@ Status ACPIInit(uint32_t MB2InfoPtr) {
         return STATUS_FAILURE;
     }
 
-    LOGF(LOG_INFO, "*SDP address is 0x%x\n", (uint64_t)(uintptr_t)SDPAddr);
-    LOGF(LOG_INFO, "ACPI %s structs will be used.\n", useNewACPI == true ? "2.0+" : "1.0");
+    PRINTF("\t* *SDP address is 0x%x\n", (uint64_t)(uintptr_t)SDPAddr);
+    PRINTF("\t* ACPI %s structs will be used.\n\n", useNewACPI == true ? "2.0+" : "1.0");
 
     // We need to set up the correct *SDT table
     if (useNewACPI == true)
@@ -110,8 +110,8 @@ Status ACPIInit(uint32_t MB2InfoPtr) {
         }
 
         // Now we need to validate both the RSDT and XSDT
-        LOGF(LOG_INFO, "RSDT address is 0x%x.\n", (uint64_t)(uintptr_t)ACPI.XSDP->RsdtAddress);
-        LOGF(LOG_INFO, "XSDT address is 0x%x.\n", (uint64_t)(uintptr_t)ACPI.XSDP->XsdtAddress);
+        PRINTF("\t* RSDT address is 0x%x.\n", (uint64_t)(uintptr_t)ACPI.XSDP->RsdtAddress);
+        PRINTF("\t* XSDT address is 0x%x.\n\n", (uint64_t)(uintptr_t)ACPI.XSDP->XsdtAddress);
         ACPI.RSDT = (RSDT_t*)ACPI.XSDP->RsdtAddress;
         ACPI.XSDT = (XSDT_t*)(uintptr_t)ACPI.XSDP->XsdtAddress;
     }
@@ -128,7 +128,7 @@ Status ACPIInit(uint32_t MB2InfoPtr) {
         }
         
         // Now we need to validate the RSDT
-        LOGF(LOG_INFO, "RSDT address is 0x%x.\n", (uint64_t)(uintptr_t)ACPI.RSDP->RsdtAddress);
+        PRINTF("\t* RSDT address is 0x%x.\n\n", (uint64_t)(uintptr_t)ACPI.RSDP->RsdtAddress);
         ACPI.RSDT = (RSDT_t*)ACPI.RSDP->RsdtAddress;
         LOG(LOG_INFO, "Validating RSDT...\n");
 
@@ -140,6 +140,7 @@ Status ACPIInit(uint32_t MB2InfoPtr) {
     }
 
     // Find the FADT
+    LOG(LOG_INFO, "Finding FADT...\n");
     ACPI.FADT = FindFADT(ACPI.RSDT);
 
     if (!ACPI.FADT)
@@ -148,7 +149,7 @@ Status ACPIInit(uint32_t MB2InfoPtr) {
         return STATUS_FAILURE;
     }
 
-    LOGF(LOG_INFO, "FADT address is 0x%x.\n", (uint64_t)(uintptr_t)ACPI.FADT);
+    PRINTF("\t* FADT address is 0x%x.\n\n", (uint64_t)(uintptr_t)ACPI.FADT);
 
     // Enable ACPI power management mode if we can
     if (ACPI.FADT->SMI_CommandPort != 0 && ACPI.FADT->AcpiEnable != 0)
@@ -182,7 +183,7 @@ Status ACPIInit(uint32_t MB2InfoPtr) {
     // We should store the power profile for later
     if (ACPI.FADT->PreferredPowerManagementProfile < 8)
     {
-        LOGF(LOG_INFO, "Device preferred power management profile is \"%s\" (profile #%u)\n", PowerProfileStrings[ACPI.FADT->PreferredPowerManagementProfile], ACPI.FADT->PreferredPowerManagementProfile);
+        PRINTF("\t* Device preferred power management profile is \"%s\" (profile #%u)\n\n", PowerProfileStrings[ACPI.FADT->PreferredPowerManagementProfile], ACPI.FADT->PreferredPowerManagementProfile);
         ACPI.ValidPowerMGMTMode = true;
     }
     else
