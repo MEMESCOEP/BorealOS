@@ -51,3 +51,17 @@ void* memmove(void* destptr, const void* srcptr, size_t size) {
 
     return destptr;
 }
+
+int memcmp(const void *buf1, const void *buf2, size_t size) {
+    if (buf1 == buf2 || size == 0) return true;
+    const unsigned char* b1 = (const unsigned char*) buf1;
+    const unsigned char* b2 = (const unsigned char*) buf2;
+
+    for (size_t i = 0; i < size; i++) {
+        if (b1[i] != b2[i]) {
+            return (b1[i] < b2[i]) ? -1 : 1;
+        }
+    }
+
+    return 0;
+}

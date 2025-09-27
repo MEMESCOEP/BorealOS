@@ -7,6 +7,7 @@
 #include <Drivers/IO/FramebufferConsole.h>
 #include <Utility/Color.h>
 
+#include "Drivers/IO/Disk/ATA/ATACommon.h"
 #include "Utility/StringFormatter.h"
 
 #include "Utility/Art.h"
@@ -143,9 +144,7 @@ Status KernelInit(uint32_t InfoPtr) {
     if (FramebufferConsoleInit(KernelFramebuffer.Width / FONT_WIDTH, KernelFramebuffer.Height / FONT_HEIGHT, COLOR_LIGHTGRAY, OURBLE) != STATUS_SUCCESS) {
         PANIC("Failed to initialize Framebuffer Console!\n");
     }
-
-    FramebufferConsoleWriteString(ART);
-
+    
     Kernel.Printf("[== BorealOS %z.%z.%z ==]\n", BOREALOS_MAJOR_VERSION, BOREALOS_MINOR_VERSION, BOREALOS_PATCH_VERSION);
     LOG(LOG_INFO, "Serial initialized successfully.\n");
 
@@ -207,10 +206,10 @@ Status KernelInit(uint32_t InfoPtr) {
 
     LOG(LOG_INFO, "Kernel Virtual Memory Manager initialized successfully.\n");
 
-    FramebufferConsoleWriteString(ART);
-    FramebufferConsoleWriteString(ART);
-    FramebufferConsoleWriteString(ART);
-
+    // Initialize the ATA/ATAPI subsystem
+    if (ATAInit() != STATUS_SUCCESS) {
+        PANIC("Failed to initialize ATA/ATAPI subsystem!\n");
+    }
 
     return STATUS_SUCCESS;
 }

@@ -12,4 +12,7 @@ void* memset(void* bufptr, int value, size_t size);
 /// Move a block of memory from source to destination, handling overlapping regions correctly.
 void* memmove(void* destptr, const void* srcptr, size_t size);
 
+/// Compare two blocks of memory. Returns the same as memcmp from libc (0 if equal, <0 if buf1<buf2, >0 if buf1>buf2).
+int memcmp(const void* buf1, const void* buf2, size_t size);
+
 #endif //BOREALOS_MEMORY_H

@@ -13,6 +13,16 @@ static INLINE uint8_t inb(uint16_t port) {
     return ret;
 }
 
+static INLINE uint16_t inw(uint16_t port) {
+    uint16_t ret;
+    ASM ("inw %1, %0" : "=a"(ret) : "Nd"(port));
+    return ret;
+}
+
+static INLINE void outw(uint16_t port, uint16_t val) {
+    ASM ("outw %0, %1" : : "a"(val), "Nd"(port));
+}
+
 static INLINE void io_wait(void) {
     // This is a no-op, but it ensures that the I/O operations are completed
     ASM ("outb %%al, $0x80" : : "a"(0));
