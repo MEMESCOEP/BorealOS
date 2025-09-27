@@ -5,12 +5,12 @@
 #include <Drivers/Graphics/DefaultFont.h>
 #include <Drivers/Graphics/Framebuffer.h>
 #include <Drivers/IO/FramebufferConsole.h>
+#include <Drivers/IO/HID/PS2Controller.h>
 #include <Utility/Color.h>
-
 #include "Drivers/IO/Disk/ATA/ATACommon.h"
 #include "Utility/StringFormatter.h"
-
 #include "Utility/Art.h"
+#include "Core/Firmware/ACPI.h"
 
 KernelState Kernel = {};
 
@@ -148,6 +148,14 @@ Status KernelInit(uint32_t InfoPtr) {
     Kernel.Printf("[== BorealOS %z.%z.%z ==]\n", BOREALOS_MAJOR_VERSION, BOREALOS_MINOR_VERSION, BOREALOS_PATCH_VERSION);
     LOG(LOG_INFO, "Serial initialized successfully.\n");
 
+    // Map the ACPI regions and initialize ACPI
+    if (ACPIInit(InfoPtr) != STATUS_SUCCESS) {
+        LOG(LOG_WARNING, "ACPI init failed!\n");
+    }
+    else {
+        LOG(LOG_INFO, "ACPI initialized.\n");
+    }
+
     // Now load the physical memory manager
     if (PhysicalMemoryManagerInit(InfoPtr) != STATUS_SUCCESS) {
         PANIC("Failed to initialize Physical Memory Manager!\n");
@@ -209,6 +217,16 @@ Status KernelInit(uint32_t InfoPtr) {
     // Initialize the ATA/ATAPI subsystem
     if (ATAInit() != STATUS_SUCCESS) {
         PANIC("Failed to initialize ATA/ATAPI subsystem!\n");
+    }
+  
+    // Initialize the PS/2 controller and any PS/2 keyboards & mice
+    Status PS2InitStatus = PS2ControllerInit();
+
+    if (PS2InitStatus == STATUS_UNSUPPORTED) {
+        LOG(LOG_INFO, "No PS/2 controllers exist on this system.\n");
+    }
+    else if (PS2InitStatus != STATUS_SUCCESS) {
+        LOG(LOG_INFO, "PS/2 controller init failed!\n");
     }
 
     return STATUS_SUCCESS;

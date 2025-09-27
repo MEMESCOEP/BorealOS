@@ -47,7 +47,7 @@ void FramebufferConsolePutChar(char c) {
         FramebufferConsole.CursorX++;
     }
 
-    if (FramebufferConsole.CursorX > FramebufferConsole.Width)
+    if (FramebufferConsole.CursorX >= FramebufferConsole.Width)
     {
         FramebufferConsole.CursorX = 0;
         MoveDown();
