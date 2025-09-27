@@ -5,6 +5,7 @@
 #include <Drivers/Graphics/DefaultFont.h>
 #include <Drivers/Graphics/Framebuffer.h>
 #include <Drivers/IO/FramebufferConsole.h>
+#include <Drivers/IO/HID/PS2Controller.h>
 #include <Utility/Color.h>
 #include "Utility/StringFormatter.h"
 #include "Utility/Art.h"
@@ -213,5 +214,16 @@ Status KernelInit(uint32_t InfoPtr) {
     }
 
     LOG(LOG_INFO, "Kernel Virtual Memory Manager initialized successfully.\n");
+
+    // Initialize the PS/2 controller and any PS/2 keyboards & mice
+    Status PS2InitStatus = PS2ControllerInit();
+
+    if (PS2InitStatus == STATUS_UNSUPPORTED) {
+        LOG(LOG_INFO, "No PS/2 controllers exist on this system.\n");
+    }
+    else if (PS2InitStatus != STATUS_SUCCESS) {
+        LOG(LOG_INFO, "PS/2 controller init failed!\n");
+    }
+
     return STATUS_SUCCESS;
 }
