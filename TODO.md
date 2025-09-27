@@ -12,10 +12,10 @@ This is the tracker for features & bugs.
 - Framebuffer support
 - Text console
 - Virtual memory allocator
+- Basic ATA driver (read/write)
 
 ## Doing:
 
-- Basic ATA driver (read/write)
 
 ## To Do:
 
@@ -24,7 +24,6 @@ This is the tracker for features & bugs.
     - PS/2 (KB/Mouse) (andrew)
     - USB (HID, storage, etc) (m & andrew)
     - Storage Drivers
-      - ATA (PATA) (m)
       - AHCI (SATA) (andrew)
       - NVMe (m)
     - ACPI (andrew)
