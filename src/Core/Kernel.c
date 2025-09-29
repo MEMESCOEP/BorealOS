@@ -110,7 +110,10 @@ Status KernelInit(uint32_t InfoPtr) {
     Kernel.Log = KernelLog;
     Kernel.Printf = KernelPrintf;
 
-    if (SerialInit(SERIAL_COM1) != STATUS_SUCCESS) {
+    // Initialize serial if possible
+    Status serialInitStatus = SerialInit(SERIAL_COM1);
+
+    if (serialInitStatus != STATUS_SUCCESS) {
         // We can't use serial, this probably means this is running on a real machine without a serial port.
         // Just ignore it for now, all logging will just be no-ops.
         // It's safe to keep the log & panic functions as they are, they will print nothing, but will still halt on panic.
@@ -127,7 +130,15 @@ Status KernelInit(uint32_t InfoPtr) {
     }
     
     Kernel.Printf("[== BorealOS %z.%z.%z ==]\n", BOREALOS_MAJOR_VERSION, BOREALOS_MINOR_VERSION, BOREALOS_PATCH_VERSION);
-    LOG(LOG_INFO, "Serial initialized successfully.\n");
+
+    if (serialInitStatus == STATUS_SUCCESS)
+    {
+        LOG(LOG_INFO, "Serial initialized successfully.\n");
+    }
+    else
+    {
+        LOG(LOG_WARNING, "Serial failed to initialize properly. This system might not have a serial port, or it is not functioning correctly.\n");
+    }
 
     // Map the ACPI regions and initialize ACPI
     if (ACPIInit(InfoPtr) != STATUS_SUCCESS) {
@@ -162,12 +173,12 @@ Status KernelInit(uint32_t InfoPtr) {
 
     LOG(LOG_INFO, "IDT initialized successfully.\n");
 
+    // Initialize and test paging
     if (PagingInit(&Kernel.Paging) != STATUS_SUCCESS) {
         PANIC("Failed to initialize Paging!\n");
     }
 
     PagingEnable(&Kernel.Paging);
-
     KernelFramebuffer.CanUse = false; // We can't use the framebuffer until we map it in
 
     if (PagingTest(&Kernel.Paging) != STATUS_SUCCESS) {
@@ -210,6 +221,6 @@ Status KernelInit(uint32_t InfoPtr) {
         LOG(LOG_INFO, "PS/2 controller init failed!\n");
     }
 
-    LOGF(LOG_INFO, "Initialization finished successfully (took %ums).\n", bootDurationMS);
+    LOGF(LOG_INFO, "Kernel base initialization finished successfully (took %ums).\n", bootDurationMS);
     return STATUS_SUCCESS;
 }
