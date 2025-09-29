@@ -15,4 +15,7 @@ void* memmove(void* destptr, const void* srcptr, size_t size);
 /// Compare two blocks of memory. Returns the same as memcmp from libc (0 if equal, <0 if buf1<buf2, >0 if buf1>buf2).
 int memcmp(const void* buf1, const void* buf2, size_t size);
 
+/// Memory copy function. Copies 'size' bytes from 'srcptr' to 'destptr'.
+void* memcpy(void* destptr, const void* srcptr, size_t size);
+
 #endif //BOREALOS_MEMORY_H

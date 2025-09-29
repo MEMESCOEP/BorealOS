@@ -5,6 +5,7 @@
 #include <Core/Memory/Paging.h>
 
 typedef struct FramebufferConfig {
+    struct multiboot_tag_framebuffer* FBInfo; // Multiboot2-provided information struct that describes the framebuffer
     uint32_t* Address; // Bitmap for tracking allocated pages
     size_t Width; // Width of the FB in pixels
     size_t Height; // Height of the FB in pixels
@@ -22,8 +23,5 @@ Status FramebufferInit(uint32_t InfoPtr);
 /// Map the framebuffer into the current paging context
 /// This is necessary to allow the kernel to access the framebuffer after enabling paging
 void FramebufferMapSelf(PagingState* paging);
-
-/// Shift the framebuffer content up by a number of lines, filling the new space with a specified color
-void FramebufferShift(size_t lines, uint32_t fillColor);
 
 #endif //BOREALOS_FRAMEBUFFER_H

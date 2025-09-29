@@ -1,67 +1,52 @@
 #include "FramebufferConsole.h"
 
+#include <flanterm.h>
+#include <flanterm_backends/fb.h>
 #include <Drivers/Graphics/DefaultFont.h>
 #include <Drivers/Graphics/Framebuffer.h>
+#include <Utility/StringTools.h>
 #include <Utility/Drawing.h>
+#include <Boot/multiboot.h>
+#include <Core/Kernel.h>
+
+#define ANSI_CLEAR_SCREEN "\033[2J\033[H"
 
 FramebufferConsoleState FramebufferConsole = {};
-
-void MoveDown() {
-    if (FramebufferConsole.CursorY < FramebufferConsole.Height - 1) {
-        FramebufferConsole.CursorY++;
-    } else {
-        FramebufferShift(FONT_HEIGHT, FramebufferConsole.BackgroundColor);
-    }
-}
 
 Status FramebufferConsoleInit(size_t width, size_t height, uint32_t foregroundColor, uint32_t backgroundColor) {
     FramebufferConsole.Width = width;
     FramebufferConsole.Height = height;
-    FramebufferConsole.CursorX = 0;
-    FramebufferConsole.CursorY = 0;
-    FramebufferConsole.ForegroundColor = foregroundColor;
-    FramebufferConsole.BackgroundColor = backgroundColor;
 
+    // Initialize flanterm
+    FramebufferConsole.TermContext = flanterm_fb_init(
+        NULL,
+        NULL,
+        KernelFramebuffer.Address, KernelFramebuffer.Width, KernelFramebuffer.Height, KernelFramebuffer.Pitch,
+        KernelFramebuffer.FBInfo->framebuffer_red_mask_size, KernelFramebuffer.FBInfo->framebuffer_red_field_position,
+        KernelFramebuffer.FBInfo->framebuffer_green_mask_size, KernelFramebuffer.FBInfo->framebuffer_green_field_position,
+        KernelFramebuffer.FBInfo->framebuffer_blue_mask_size, KernelFramebuffer.FBInfo->framebuffer_blue_field_position,
+        NULL,
+        NULL, NULL,
+        &backgroundColor, &foregroundColor,
+        NULL, NULL,
+        NULL, 0, 0, 1,
+        0, 0,
+        0
+    );
+
+    // Clear the framebuffer and mark it as ready for use
     FramebufferConsoleClear();
-
+    FramebufferConsole.CanUse = true;
     return STATUS_SUCCESS;
 }
 
-void FramebufferConsolePutChar(char c) {
-    if (c == '\n')
-    {
-        FramebufferConsole.CursorX = 0;
-        MoveDown();
-    }
-    else if (c == '\r')
-    {
-        FramebufferConsole.CursorX = 0;
-    }
-    else if (c == '\t')
-    {
-        FramebufferConsole.CursorX += FRAMEBUFFER_CONSOLE_TAB_SIZE;
-    }
-    else
-    {
-        DrawChar(c, FramebufferConsole.CursorX * FONT_WIDTH, FramebufferConsole.CursorY * FONT_HEIGHT, FramebufferConsole.ForegroundColor, FramebufferConsole.BackgroundColor);
-        FramebufferConsole.CursorX++;
-    }
-
-    if (FramebufferConsole.CursorX >= FramebufferConsole.Width)
-    {
-        FramebufferConsole.CursorX = 0;
-        MoveDown();
-    }
-}
-
 void FramebufferConsoleWriteString(const char *str) {
-    while (*str) {
-        FramebufferConsolePutChar(*str++);
-    }
+    if (FramebufferConsole.CanUse == false || KernelFramebuffer.CanUse == false || FramebufferConsole.TermContext == NULL)
+        return;
+
+    flanterm_write(FramebufferConsole.TermContext, str, strlen(str));
 }
 
 void FramebufferConsoleClear() {
-    ClearScreen(FramebufferConsole.BackgroundColor);
-    FramebufferConsole.CursorX = 0;
-    FramebufferConsole.CursorY = 0;
+    flanterm_write(FramebufferConsole.TermContext, ANSI_CLEAR_SCREEN, strlen(ANSI_CLEAR_SCREEN));
 }
