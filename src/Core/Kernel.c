@@ -1,36 +1,26 @@
 #include "Kernel.h"
 
 #include <Definitions.h>
-#include <stdarg.h>
 #include <Drivers/Graphics/DefaultFont.h>
 #include <Drivers/Graphics/Framebuffer.h>
 #include <Drivers/IO/FramebufferConsole.h>
 #include <Drivers/IO/HID/PS2Controller.h>
+#include <Drivers/IO/Disk/ATA/ATACommon.h>
+#include <Utility/StringFormatter.h>
 #include <Utility/Color.h>
-#include "Drivers/IO/Disk/ATA/ATACommon.h"
-#include "Utility/StringFormatter.h"
-#include "Utility/Art.h"
-#include "Core/Firmware/ACPI.h"
+#include <Core/Firmware/ACPI.h>
 
 KernelState Kernel = {};
+uint64_t bootDurationMS = 0;
 
 static NORETURN void KernelPanic(const char* message)
 {
-    // Store the previous terminal foreground color
-    uint32_t prevFGColor = FramebufferConsole.ForegroundColor;
-
     // Serial doesn't usually have color, so we just print the message as-is
     SerialWriteString(&Kernel.Serial, "[== KERNEL PANIC ==]\n");
     SerialWriteString(&Kernel.Serial, message);
 
     // Our framebuffer *does* have color, so we can make certain text colored!
-    FramebufferConsoleWriteString("[== ");
-
-    FramebufferConsole.ForegroundColor = COLOR_RED;
-    FramebufferConsoleWriteString("KERNEL PANIC");
-
-    FramebufferConsole.ForegroundColor = prevFGColor;
-    FramebufferConsoleWriteString(" ==]\n");
+    FramebufferConsoleWriteString("[== \033[31mKERNEL PANIC\033[0m ==]\n");
     FramebufferConsoleWriteString(message);
 
     // Disable interrupts so the CPU doesn't try to handle anything while we're halted
@@ -67,48 +57,39 @@ static void KernelLog(int log_type, const char* format, ...)
     size_t written = VStringFormat(msg_buffer, sizeof(msg_buffer), format, fmt_args);
     va_end(fmt_args);
 
-    // Store the previous foreground color so we don't force a color reset
-    uint32_t prevFGColor = FramebufferConsole.ForegroundColor;
-
     // Write the log type in colored text, and the message in the default terminal foreground color
-    FramebufferConsolePutChar('[');
+    FramebufferConsoleWriteString("[");
     SerialWriteChar(&Kernel.Serial, '[');
 
     switch(log_type)
     {
         case LOG_WARNING:
-            FramebufferConsole.ForegroundColor = COLOR_YELLOW;
-            FramebufferConsoleWriteString("WARN");
+            FramebufferConsoleWriteString("\033[33mWARN\033[0m");
             SerialWriteString(&Kernel.Serial, "WARN");
             break;
 
         case LOG_ERROR:
-            FramebufferConsole.ForegroundColor = COLOR_RED;
-            FramebufferConsoleWriteString("ERROR");
+            FramebufferConsoleWriteString("\033[31mERROR\033[0m");
             SerialWriteString(&Kernel.Serial, "ERROR");
             break;
 
         case LOG_CRITICAL:
-            FramebufferConsole.ForegroundColor = COLOR_MAROON;
-            FramebufferConsoleWriteString("CRITICAL");
+            FramebufferConsoleWriteString("\033[38;2;128;0;0mCRITICAL\033[0m");
             SerialWriteString(&Kernel.Serial, "CRITICAL");
             break;
 
         case LOG_DEBUG:
-            FramebufferConsole.ForegroundColor = COLOR_CYAN;
-            FramebufferConsoleWriteString("DEBUG");
+            FramebufferConsoleWriteString("\033[36mDEBUG\033[0m");
             SerialWriteString(&Kernel.Serial, "DEBUG");
             break;
 
         case LOG_INFO:
         default:
-            FramebufferConsole.ForegroundColor = COLOR_GREEN;
-            FramebufferConsoleWriteString("INFO");
+            FramebufferConsoleWriteString("\033[32mINFO\033[0m");
             SerialWriteString(&Kernel.Serial, "INFO");
             break;
     }
 
-    FramebufferConsole.ForegroundColor = prevFGColor;
     FramebufferConsoleWriteString("] ");
     FramebufferConsoleWriteString(msg_buffer);
     SerialWriteString(&Kernel.Serial, "] ");
@@ -129,7 +110,10 @@ Status KernelInit(uint32_t InfoPtr) {
     Kernel.Log = KernelLog;
     Kernel.Printf = KernelPrintf;
 
-    if (SerialInit(SERIAL_COM1) != STATUS_SUCCESS) {
+    // Initialize serial if possible
+    Status serialInitStatus = SerialInit(SERIAL_COM1);
+
+    if (serialInitStatus != STATUS_SUCCESS) {
         // We can't use serial, this probably means this is running on a real machine without a serial port.
         // Just ignore it for now, all logging will just be no-ops.
         // It's safe to keep the log & panic functions as they are, they will print nothing, but will still halt on panic.
@@ -146,7 +130,15 @@ Status KernelInit(uint32_t InfoPtr) {
     }
     
     Kernel.Printf("[== BorealOS %z.%z.%z ==]\n", BOREALOS_MAJOR_VERSION, BOREALOS_MINOR_VERSION, BOREALOS_PATCH_VERSION);
-    LOG(LOG_INFO, "Serial initialized successfully.\n");
+
+    if (serialInitStatus == STATUS_SUCCESS)
+    {
+        LOG(LOG_INFO, "Serial initialized successfully.\n");
+    }
+    else
+    {
+        LOG(LOG_WARNING, "Serial failed to initialize properly. This system might not have a serial port, or it is not functioning correctly.\n");
+    }
 
     // Map the ACPI regions and initialize ACPI
     if (ACPIInit(InfoPtr) != STATUS_SUCCESS) {
@@ -181,12 +173,12 @@ Status KernelInit(uint32_t InfoPtr) {
 
     LOG(LOG_INFO, "IDT initialized successfully.\n");
 
+    // Initialize and test paging
     if (PagingInit(&Kernel.Paging) != STATUS_SUCCESS) {
         PANIC("Failed to initialize Paging!\n");
     }
 
     PagingEnable(&Kernel.Paging);
-
     KernelFramebuffer.CanUse = false; // We can't use the framebuffer until we map it in
 
     if (PagingTest(&Kernel.Paging) != STATUS_SUCCESS) {
@@ -229,5 +221,6 @@ Status KernelInit(uint32_t InfoPtr) {
         LOG(LOG_INFO, "PS/2 controller init failed!\n");
     }
 
+    LOGF(LOG_INFO, "Kernel base initialization finished successfully (took %ums).\n", bootDurationMS);
     return STATUS_SUCCESS;
 }

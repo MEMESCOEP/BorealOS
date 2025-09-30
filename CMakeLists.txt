@@ -34,6 +34,21 @@ target_link_options(BorealOS.elf PRIVATE
         -nostartfiles
 )
 
+# Get flanterm automatically
+include(FetchContent)
+FetchContent_Declare(
+        flanterm
+        GIT_REPOSITORY https://codeberg.org/Mintsuki/Flanterm.git
+        GIT_TAG v2.1.0
+)
+
+FetchContent_MakeAvailable(flanterm)
+
+file(GLOB_RECURSE FLANTERM_SOURCES ${flanterm_SOURCE_DIR}/src/*.c)
+
+target_sources(BorealOS.elf PRIVATE ${FLANTERM_SOURCES})
+target_include_directories(BorealOS.elf PRIVATE ${flanterm_SOURCE_DIR}/src)
+
 # Now we need to create the actual ISO.
 # First in the build directory, create a directory called "iso" and create the following directory structure:
 # boot/grub/fonts

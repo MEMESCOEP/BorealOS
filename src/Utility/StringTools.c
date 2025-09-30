@@ -1,4 +1,20 @@
 #include "StringTools.h"
+//#include <string.h>
+
+// Provided from https://wiki.osdev.org/Meaty_Skeleton, but I've added a length limit
+size_t strlen(const char* str) {
+	size_t len = 0;
+
+	while (str[len])
+    {
+        len++;
+
+        if (len > 4096)
+            return -1;
+    }
+
+	return len;
+}
 
 int strncmp(const char* s1, const char* s2, size_t n) {
     for (size_t i = 0; i < n; i++) {

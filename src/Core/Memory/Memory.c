@@ -65,3 +65,18 @@ int memcmp(const void *buf1, const void *buf2, size_t size) {
 
     return 0;
 }
+
+void* memcpy(void *destptr, const void *srcptr, size_t size) {
+    if (destptr == srcptr || size == 0) return destptr;
+    unsigned char* dest = (unsigned char*) destptr;
+    const unsigned char* src = (const unsigned char*) srcptr;
+
+    ASM (
+        "rep movsb"
+        : "+D"(dest), "+S"(src), "+c"(size)
+        :
+        : "memory"
+    );
+
+    return destptr;
+}
