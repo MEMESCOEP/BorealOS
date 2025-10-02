@@ -32,13 +32,15 @@ typedef struct {
 } PACKED IDTDescriptor;
 
 typedef void (*ExceptionHandlerFn)(uint32_t exceptionNumber, RegisterState* state);
+typedef void (*IRQHandlerFn)(uint8_t irqNumber, RegisterState* state);
 
 typedef struct IDTState {
     IDTDescriptor Descriptor;
     IDTEntry Entries[256];
     bool VectorSet[256];
     bool IRQSet[16];
-    ExceptionHandlerFn ExceptionHandlers[16]; // Handlers for CPU exceptions
+    ExceptionHandlerFn ExceptionHandlers[32]; // Handlers for CPU exceptions
+    IRQHandlerFn IRQHandlers[16]; // Handlers for IRQs
 } IDTState;
 
 extern IDTState KernelIDT;
@@ -52,5 +54,9 @@ void IDTSetEntry(uint8_t vector, void *isr, uint8_t flags);
 
 /// Set a handler for a specific CPU exception
 void IDTSetExceptionHandler(uint8_t exceptionNumber, ExceptionHandlerFn handler);
+
+/// Set a handler for a specific IRQ
+/// You must still enable the IRQ line in the PIC for it to be received
+void IDTSetIRQHandler(uint8_t irqNumber, IRQHandlerFn handler);
 
 #endif //BOREALOS_IDT_H
