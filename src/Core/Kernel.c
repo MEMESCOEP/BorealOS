@@ -185,6 +185,8 @@ Status KernelInit(uint32_t InfoPtr) {
         PANIC("Failed to initialize Paging!\n");
     }
 
+    ACPIMapTables(); // Map the ACPI tables BEFORE we enable paging.
+
     PagingEnable(&Kernel.Paging);
 
     KernelFramebuffer.CanUse = false; // We can't use the framebuffer until we map it in
@@ -198,9 +200,6 @@ Status KernelInit(uint32_t InfoPtr) {
     // Map in the framebuffer to the kernel's virtual address space and enable write access for the framebuffer.
     FramebufferMapSelf(&Kernel.Paging);
     KernelFramebuffer.CanUse = true;
-
-    ACPIMapTables(); // Map the ACPI tables after we've enabled paging
-
     LOG(LOG_INFO, "Framebuffer mapped into kernel virtual address space successfully.\n");
 
     // ONLY AFTER HERE IS IT SAFE TO LOG TO THE FRAMEBUFFER.
