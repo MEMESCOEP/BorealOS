@@ -43,10 +43,10 @@ IDTState KernelIDT = {};
 
 void irq_handler(uint8_t irq, RegisterState *regs) {
     (void)regs; // Unused parameter
-    PICSendEOI(irq);
     if (KernelIDT.IRQSet[irq - 0x20] && KernelIDT.IRQHandlers[irq - 0x20]) {
         KernelIDT.IRQHandlers[irq - 0x20]((uint32_t)irq, regs);
     }
+    PICSendEOI(irq);
 
     // It wasn't handled, that's fine, just don't do anything
 }
