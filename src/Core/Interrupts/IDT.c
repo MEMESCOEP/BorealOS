@@ -41,27 +41,50 @@ const char* IDTExceptionStrings[] = {
 
 IDTState KernelIDT = {};
 
-void irq_handler(uint8_t irq) {
+void irq_handler(uint8_t irq, RegisterState *regs) {
+    (void)regs; // Unused parameter
     PICSendEOI(irq);
     if (KernelIDT.IRQSet[irq - 0x20] && KernelIDT.ExceptionHandlers[irq - 0x20]) {
-        KernelIDT.ExceptionHandlers[irq - 0x20]((uint32_t)irq);
+        KernelIDT.ExceptionHandlers[irq - 0x20]((uint32_t)irq, regs);
     }
 
     // It wasn't handled, that's fine, just don't do anything
 }
 
-void exception_handler(uint32_t err) {
+void exception_handler(uint32_t err, RegisterState *regs) {
+    (void)regs;
     LOGF(LOG_ERROR, "CPU exception occurred! '%s'\n", IDTExceptionStrings[err]);
     if (KernelIDT.ExceptionHandlers[err]) {
-        KernelIDT.ExceptionHandlers[err](err);
+        KernelIDT.ExceptionHandlers[err](err, regs);
         return;
     }
 
     // It wasn't handled, panic
+    // Print out all the registers
+    PRINTF("\t* EAX: %p\n", (void*)regs->EAX);
+    PRINTF("\t* EBX: %p\n", (void*)regs->EBX);
+    PRINTF("\t* ECX: %p\n", (void*)regs->ECX);
+    PRINTF("\t* EDX: %p\n", (void*)regs->EDX);
+    PRINTF("\t* ESI: %p\n", (void*)regs->ESI);
+    PRINTF("\t* EDI: %p\n", (void*)regs->EDI);
+    PRINTF("\t* EBP: %p\n", (void*)regs->EBP);
+    PRINTF("\t* CR2: %p\n", (void*)regs->CR2);
+    PRINTF("\t* CR3: %p\n", (void*)regs->CR3);
+    PRINTF("\t* Vector: %u\n\n", err);
     PANIC("Unhandled CPU Exception!\n");
 }
 
-static void TestingExceptionHandler(uint32_t exceptionNumber) {
+void page_fault_handler(uint32_t vector, RegisterState* regs) {
+    PRINT("Page fault occured. Panicking.\n");
+    PRINTF("\t* Faulting address: %p\n", (void*)regs->CR2);
+
+    (void)vector, (void)regs;
+
+    PANIC("Page fault.");
+}
+
+static void TestingExceptionHandler(uint32_t exceptionNumber, RegisterState* regs) {
+    (void)regs;
     LOGF(LOG_INFO, "Exception handled successfully in testing mode. Exception number: %d\n", exceptionNumber);
     PRINTF("\t* Error string: %s\n\n", IDTExceptionStrings[exceptionNumber]);
 }
@@ -97,6 +120,7 @@ Status IDTInit() {
 
     KernelIDT.ExceptionHandlers[0] = nullptr; // Remove the testing handler
     KernelIDT.ExceptionHandlers[3] = nullptr; // Remove the testing handler
+    IDTSetExceptionHandler(14, page_fault_handler); // Page Fault handler
 
     return STATUS_SUCCESS;
 }
