@@ -12,9 +12,19 @@
     push    esi
     push    edi
     push    ebp
+
+
+    mov     eax, cr2 /* store CR2 in eax */
+    push    eax     /* push CR2 */
+    mov     eax, cr3 /* store CR3 in eax */
+    push    eax     /* push CR3 */
 .endm
 
 .macro RESTORE_REGS
+    pop     eax     /* pop CR3 */
+    mov     cr3, eax /* restore CR3 */
+    pop     eax     /* pop CR2 */
+    mov     cr2, eax /* restore CR2 */
     pop     ebp
     pop     edi
     pop     esi
@@ -30,12 +40,16 @@
 stub_ISRStub_\vector:
     SAVE_REGS
 
+    /* push Register State */
+    lea    eax, [esp] /* eax points to old esp, before SAVE_REGS */
+    push   eax            /* push old esp, which is now the pointer to RegisterState */
+
     /* push argument (vector number) */
     push    \vector
 
     call    irq_handler
 
-    add     esp, 4       /* clean argument */
+    add     esp, 8
 
     RESTORE_REGS
     iret
@@ -49,12 +63,17 @@ stub_ISRStub_\vector:
 
     SAVE_REGS
 
-    /* push vector number */
+    /* push Register State */
+    lea    eax, [esp] /* eax points to old esp, before SAVE_REGS */
+    push   eax            /* push old esp, which is now the pointer to RegisterState */
+
+    /* push argument (vector number) */
     push    \vector
+
 
     call    exception_handler
 
-    add     esp, 4
+    add     esp, 8
 
     RESTORE_REGS
     iret
@@ -65,9 +84,16 @@ stub_ISRStub_\vector:
 .type stub_ISRStub_\vector, @function
 stub_ISRStub_\vector:
     SAVE_REGS
+
+    /* push Register State */
+    lea    eax, [esp] /* eax points to old esp, before SAVE_REGS */
+    push   eax            /* push old esp, which is now the pointer to RegisterState */
+
+    /* push argument (vector number) */
     push    \vector
+
     call    exception_handler
-    add     esp, 4
+    add     esp, 8
     RESTORE_REGS
     iret
 .endm

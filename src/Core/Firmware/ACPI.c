@@ -8,7 +8,7 @@
 
 #define ACPI_PWR_MGMT_ENABLE_TIMEOUT 1000000
 
-ACPIState ACPI = {};
+ACPIState KernelACPI = {};
 const char* PowerProfileStrings[8] = {"Unspecified", "Desktop", "Mobile", "Workstation", "Enterprise Server", "SOHO Server", "Appliance PC", "Performance Server"};
 void* SDPAddr = NULL;
 bool useNewACPI = false;
@@ -60,7 +60,7 @@ bool ValidateXSDPTable(XSDP_t* xsdp) {
 }
 
 Status ACPIInit(uint32_t MB2InfoPtr) {
-    ACPI.Initialized = false;
+    KernelACPI.Initialized = false;
 
     // Attempt to get the *SDP via ACPI 2.0+; if this fails, try again with ACPI 1.0
     struct multiboot_tag_new_acpi* newACPITag = (struct multiboot_tag_new_acpi*)MBGetTag(MB2InfoPtr, MULTIBOOT_TAG_TYPE_ACPI_NEW);
@@ -100,39 +100,39 @@ Status ACPIInit(uint32_t MB2InfoPtr) {
     // We need to set up the correct *SDT table
     if (useNewACPI == true)
     {
-        ACPI.XSDP = (XSDP_t*)SDPAddr;
+        KernelACPI.XSDP = (XSDP_t*)SDPAddr;
         LOG(LOG_INFO, "Validating XSDP table...\n");
         
-        if (ValidateXSDPTable(ACPI.XSDP) == false)
+        if (ValidateXSDPTable(KernelACPI.XSDP) == false)
         {
             LOG(LOG_ERROR, "XSDP table checksum failed!");
             return STATUS_FAILURE;
         }
 
         // Now we need to validate both the RSDT and XSDT
-        PRINTF("\t* RSDT address is 0x%x.\n", (uint64_t)(uintptr_t)ACPI.XSDP->RsdtAddress);
-        PRINTF("\t* XSDT address is 0x%x.\n\n", (uint64_t)(uintptr_t)ACPI.XSDP->XsdtAddress);
-        ACPI.RSDT = (RSDT_t*)ACPI.XSDP->RsdtAddress;
-        ACPI.XSDT = (XSDT_t*)(uintptr_t)ACPI.XSDP->XsdtAddress;
+        PRINTF("\t* RSDT address is 0x%x.\n", (uint64_t)(uintptr_t)KernelACPI.XSDP->RsdtAddress);
+        PRINTF("\t* XSDT address is 0x%x.\n\n", (uint64_t)(uintptr_t)KernelACPI.XSDP->XsdtAddress);
+        KernelACPI.RSDT = (RSDT_t*)KernelACPI.XSDP->RsdtAddress;
+        KernelACPI.XSDT = (XSDT_t*)(uintptr_t)KernelACPI.XSDP->XsdtAddress;
     }
     else
     {
         // Cast and validate the RSDP table
-        ACPI.RSDP = (RSDP_t*)SDPAddr;
+        KernelACPI.RSDP = (RSDP_t*)SDPAddr;
         LOG(LOG_INFO, "Validating RSDP table...\n");
 
-        if (ValidateSDPSDTChecksum(ACPI.RSDP, RSDP_TABLE_LEN) == false)
+        if (ValidateSDPSDTChecksum(KernelACPI.RSDP, RSDP_TABLE_LEN) == false)
         {
             LOG(LOG_ERROR, "RSDP table checksum failed!");
             return STATUS_FAILURE;
         }
         
         // Now we need to validate the RSDT
-        PRINTF("\t* RSDT address is 0x%x.\n\n", (uint64_t)(uintptr_t)ACPI.RSDP->RsdtAddress);
-        ACPI.RSDT = (RSDT_t*)ACPI.RSDP->RsdtAddress;
+        PRINTF("\t* RSDT address is 0x%x.\n\n", (uint64_t)(uintptr_t)KernelACPI.RSDP->RsdtAddress);
+        KernelACPI.RSDT = (RSDT_t*)KernelACPI.RSDP->RsdtAddress;
         LOG(LOG_INFO, "Validating RSDT...\n");
 
-        if (ValidateSDPSDTChecksum(ACPI.RSDT, ACPI.RSDT->SDTHeader.Length) == false)
+        if (ValidateSDPSDTChecksum(KernelACPI.RSDT, KernelACPI.RSDT->SDTHeader.Length) == false)
         {
             LOG(LOG_ERROR, "RSDT table checksum failed!");
             return STATUS_FAILURE;
@@ -141,21 +141,21 @@ Status ACPIInit(uint32_t MB2InfoPtr) {
 
     // Find the FADT
     LOG(LOG_INFO, "Finding FADT...\n");
-    ACPI.FADT = FindFADT(ACPI.RSDT);
+    KernelACPI.FADT = FindFADT(KernelACPI.RSDT);
 
-    if (!ACPI.FADT)
+    if (!KernelACPI.FADT)
     {
         LOG(LOG_WARNING, "Failed to get ACPI FADT address!\n");
         return STATUS_FAILURE;
     }
 
-    PRINTF("\t* FADT address is 0x%x.\n\n", (uint64_t)(uintptr_t)ACPI.FADT);
+    PRINTF("\t* FADT address is 0x%x.\n\n", (uint64_t)(uintptr_t)KernelACPI.FADT);
 
     // Enable ACPI power management mode if we can
-    if (ACPI.FADT->SMI_CommandPort != 0 && ACPI.FADT->AcpiEnable != 0)
+    if (KernelACPI.FADT->SMI_CommandPort != 0 && KernelACPI.FADT->AcpiEnable != 0)
     {
         LOG(LOG_INFO, "Enabling ACPI power management events...\n");
-        outb(ACPI.FADT->SMI_CommandPort, ACPI.FADT->AcpiEnable);
+        outb(KernelACPI.FADT->SMI_CommandPort, KernelACPI.FADT->AcpiEnable);
 
         // Wait for ACPI to be enabled by polling the PM1aControlBlock register
         int Timeout = ACPI_PWR_MGMT_ENABLE_TIMEOUT;
@@ -167,7 +167,7 @@ Status ACPIInit(uint32_t MB2InfoPtr) {
                 return STATUS_TIMEOUT;
             }
 
-            if (inw(ACPI.FADT->PM1aControlBlock) & (1 << 0))
+            if (inw(KernelACPI.FADT->PM1aControlBlock) & (1 << 0))
             {
                 break;
             }
@@ -181,17 +181,108 @@ Status ACPIInit(uint32_t MB2InfoPtr) {
     }
 
     // We should store the power profile for later
-    if (ACPI.FADT->PreferredPowerManagementProfile < 8)
+    if (KernelACPI.FADT->PreferredPowerManagementProfile < 8)
     {
-        PRINTF("\t* Device preferred power management profile is \"%s\" (profile #%u)\n\n", PowerProfileStrings[ACPI.FADT->PreferredPowerManagementProfile], ACPI.FADT->PreferredPowerManagementProfile);
-        ACPI.ValidPowerMGMTMode = true;
+        PRINTF("\t* Device preferred power management profile is \"%s\" (profile #%u)\n\n", PowerProfileStrings[KernelACPI.FADT->PreferredPowerManagementProfile], KernelACPI.FADT->PreferredPowerManagementProfile);
+        KernelACPI.ValidPowerMGMTMode = true;
     }
     else
     {
-        LOGF(LOG_WARNING, "Profile #%u is not a valid power management profile, values must be 0-7.\n", ACPI.FADT->PreferredPowerManagementProfile);
-        ACPI.ValidPowerMGMTMode = false;
+        LOGF(LOG_WARNING, "Profile #%u is not a valid power management profile, values must be 0-7.\n", KernelACPI.FADT->PreferredPowerManagementProfile);
+        KernelACPI.ValidPowerMGMTMode = false;
     }
     
-    ACPI.Initialized = true;
+    KernelACPI.Initialized = true;
     return STATUS_SUCCESS;
+}
+
+int ACPIGetRevision() {
+    return useNewACPI ? (int)KernelACPI.XSDP->Revision : (int)KernelACPI.RSDP->Revision;
+}
+
+void MapRegion(uintptr_t address, size_t length) {
+    uint32_t begin = ALIGN_DOWN(address, PMM_PAGE_SIZE);
+    uint32_t end = ALIGN_UP(address + length, PMM_PAGE_SIZE);
+    size_t numPages = (end - begin) / PMM_PAGE_SIZE;
+    for (size_t i = 0; i < numPages; i++) {
+        PagingMapPage(&Kernel.Paging, (void*)(begin + i * PMM_PAGE_SIZE), (void*)(begin + i * PMM_PAGE_SIZE), true, false, 0);
+    }
+}
+
+void ACPIMapTables() {
+    // Make sure all the ACPI tables are mapped into the kernel's virtual address space
+    if (!KernelACPI.Initialized) {
+        LOG(LOG_WARNING, "ACPI not initialized, cannot map tables!\n");
+        return;
+    }
+
+    if (useNewACPI) {
+        uint32_t xsdtLength = KernelACPI.XSDT->SDTHeader.Length;
+        MapRegion((uintptr_t)KernelACPI.XSDT, xsdtLength);
+        uint32_t xsdpLength = KernelACPI.XSDP->Length;
+        MapRegion((uintptr_t)KernelACPI.XSDP, xsdpLength);
+
+        // Now map every item in the XSDT
+        int entries = (KernelACPI.XSDT->SDTHeader.Length - sizeof(KernelACPI.XSDT->SDTHeader)) / 8;
+        for (int i = 0; i < entries; i++) {
+            ACPISDTHeader* SDTHeader = (ACPISDTHeader*) (uint32_t)KernelACPI.XSDT->PointerToOtherSDT[i]; // WILDLY UNSAFE CAST
+            MapRegion((uintptr_t)SDTHeader, SDTHeader->Length);
+        }
+    } else {
+        uint32_t rsdtLength = KernelACPI.RSDT->SDTHeader.Length;
+        MapRegion((uintptr_t)KernelACPI.RSDT, rsdtLength);
+        uint32_t rsdpLength = RSDP_TABLE_LEN;
+        MapRegion((uintptr_t)KernelACPI.RSDP, rsdpLength);
+
+        // Now map every item in the RSDT
+        int entries = (KernelACPI.RSDT->SDTHeader.Length - sizeof(KernelACPI.RSDT->SDTHeader)) / 4;
+        for (int i = 0; i < entries; i++) {
+            ACPISDTHeader* SDTHeader = (ACPISDTHeader*) KernelACPI.RSDT->PointerToOtherSDT[i];
+            MapRegion((uintptr_t)SDTHeader, SDTHeader->Length);
+        }
+    }
+
+    // Map the FADT
+    MapRegion((uintptr_t)KernelACPI.FADT, KernelACPI.FADT->SDTHeader.Length);
+
+    // Get the size of the DSDT and map it in
+    if (KernelACPI.FADT->Dsdt) {
+        ACPISDTHeader* DSDTHeader = (ACPISDTHeader*)(uintptr_t)KernelACPI.FADT->Dsdt;
+        MapRegion((uintptr_t)DSDTHeader, DSDTHeader->Length);
+    }
+}
+
+Status ACPIGetTableBySignature(const char *signature, size_t sigLen, void **outTable) {
+    if (!KernelACPI.Initialized || !outTable || sigLen == 0 || sigLen > 4) {
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    if (!strncmp(signature, "DSDT", sigLen)) {
+        // DSDT is a special case, it's pointed to by the FADT
+        if (!KernelACPI.FADT) {
+            return STATUS_FAILURE;
+        }
+
+        *outTable = (void*)(uintptr_t)KernelACPI.FADT->Dsdt;
+        return STATUS_SUCCESS;
+    }
+
+    if (useNewACPI) {
+        int entries = (KernelACPI.XSDT->SDTHeader.Length - sizeof(KernelACPI.XSDT->SDTHeader)) / 8;
+        for (int i = 0; i < entries; i++) {
+            ACPISDTHeader* SDTHeader = (ACPISDTHeader*) (uint32_t)KernelACPI.XSDT->PointerToOtherSDT[i]; // WILDLY UNSAFE CAST
+            if (!strncmp(SDTHeader->Signature, signature, sigLen)) {
+                *outTable = SDTHeader; return STATUS_SUCCESS;
+            }
+        }
+    } else {
+        int entries = (KernelACPI.RSDT->SDTHeader.Length - sizeof(KernelACPI.RSDT->SDTHeader)) / 4;
+        for (int i = 0; i < entries; i++) {
+            ACPISDTHeader* SDTHeader = (ACPISDTHeader*) KernelACPI.RSDT->PointerToOtherSDT[i];
+            if (!strncmp(SDTHeader->Signature, signature, sigLen)) {
+                *outTable = SDTHeader; return STATUS_SUCCESS;
+            }
+        }
+    }
+    return STATUS_FAILURE;
 }

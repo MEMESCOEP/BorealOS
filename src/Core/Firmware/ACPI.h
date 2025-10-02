@@ -138,9 +138,13 @@ typedef struct {
     bool Initialized;
 } ACPIState;
 
-extern ACPIState ACPI;
+extern ACPIState KernelACPI;
 extern const char* PowerProfileStrings[8];
 
 Status ACPIInit(uint32_t InfoPtr);
+int ACPIGetRevision();
+void ACPIMapTables();
+
+Status ACPIGetTableBySignature(const char* signature, size_t sigLen, void** outTable);
 
 #endif //BOREALOS_ACPI_H

@@ -5,6 +5,19 @@
 
 #include "Drivers/IO/PIC.h"
 
+/*
+push    eax
+push    ebx
+push    ecx
+push    edx
+push    esi
+push    edi
+push    ebp
+*/
+typedef struct RegisterState {
+    uint32_t CR3, CR2, EBP, EDI, ESI, EDX, ECX, EBX, EAX;
+} PACKED RegisterState;
+
 typedef struct {
     uint16_t IsrLow;
     uint16_t KernelCodeSegment;
@@ -18,7 +31,7 @@ typedef struct {
     uint32_t Base;
 } PACKED IDTDescriptor;
 
-typedef void (*ExceptionHandlerFn)(uint32_t exceptionNumber);
+typedef void (*ExceptionHandlerFn)(uint32_t exceptionNumber, RegisterState* state);
 
 typedef struct IDTState {
     IDTDescriptor Descriptor;
