@@ -57,6 +57,7 @@ void IDTSetExceptionHandler(uint8_t exceptionNumber, ExceptionHandlerFn handler)
 
 /// Set a handler for a specific IRQ
 /// You must still enable the IRQ line in the PIC for it to be received
+/// This function must be called with the IRQ number (0-15), not the vector number (32-47)
 void IDTSetIRQHandler(uint8_t irqNumber, IRQHandlerFn handler);
 
 #endif //BOREALOS_IDT_H
