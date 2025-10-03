@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <Settings.h>
 
 // Basic definitions, some macros for attributes and the version of the OS
 // Version is MAJOR.MINOR.PATCH

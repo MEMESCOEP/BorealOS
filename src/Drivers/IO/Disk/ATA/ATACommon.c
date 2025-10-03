@@ -6,6 +6,8 @@
 #include <Core/Memory/Memory.h>
 #include "Utility/SerialOperations.h"
 
+#if BOREALOS_ENABLE_ATA
+
 ATAState KernelATA = {};
 
 // The suggestion is to read the Status register FIFTEEN TIMES, and only pay attention to the value returned by the last one -- after selecting a new master or slave device. The point being that you can assume an IO port read takes at least 30ns, so doing the first fourteen creates a 420ns delay -- which allows the drive time to push the correct voltages onto the bus.
@@ -109,3 +111,5 @@ Status ATAInit(void) {
 
     return STATUS_SUCCESS;
 }
+
+#endif // BOREALOS_ENABLE_ATA

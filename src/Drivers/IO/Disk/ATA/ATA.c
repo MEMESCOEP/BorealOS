@@ -4,6 +4,8 @@
 #include "ATACommon.h"
 #include <Drivers/IO/Disk/Block.h>
 
+#if BOREALOS_ENABLE_ATA
+
 Status ReadSectors(uint32_t count, void *buffer, uint16_t ioBase) {
     for (uint32_t sectorIdx = 0; sectorIdx < count; sectorIdx++) {
         // Wait for DRQ for this sector
@@ -186,3 +188,5 @@ Status ATAProbeDevice(uint16_t ioBase, uint8_t drive, ATABlockDriverData* blockD
 
     return STATUS_SUCCESS;
 }
+
+#endif // BOREALOS_ENABLE_ATA

@@ -7,6 +7,8 @@
 #include <Core/Memory/VirtualMemoryManager.h>
 
 #include "../Block.h"
+#if BOREALOS_ENABLE_ATA
+
 
 #define ATA_MAX_DRIVES 4 // Support up to 4 ATA drives (2 channels, master/slave each)
 #define ATA_SECTOR_SIZE 512 // Standard sector size for ATA devices
@@ -125,5 +127,7 @@ void ATAParseIdentify(uint16_t buffer[256], bool* isHDD, bool* supportsLBA48, si
 void ATAWait450ns(uint16_t ioBase);
 Status ATAPollStatus(uint16_t ioBase, uint8_t mask, uint32_t timeout);
 void ATASetCommandRegisters(uint16_t ioBase, uint32_t lba, uint8_t sectorCount, ATADrive drive, uint8_t command);
+
+#endif // BOREALOS_ENABLE_ATA
 
 #endif //BOREALOS_ATACOMMON_H

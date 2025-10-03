@@ -1,4 +1,7 @@
 #include "ATA.h"
+
+#if BOREALOS_ENABLE_ATA
+
 #include <Core/Kernel.h>
 #include "Utility/SerialOperations.h"
 #include "ATACommon.h"
@@ -163,3 +166,5 @@ Status ATAPIProbeDevice(uint16_t ioBase, uint8_t drive, ATABlockDriverData* bloc
 
     return STATUS_SUCCESS;
 }
+
+#endif // BOREALOS_ENABLE_ATA

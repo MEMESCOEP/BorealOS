@@ -228,9 +228,11 @@ Status KernelInit(uint32_t InfoPtr) {
     LOG(LOG_INFO, "Kernel Virtual Memory Manager initialized successfully.\n");
 
     // Initialize the ATA/ATAPI subsystem
+#if BOREALOS_ENABLE_ATA
     if (ATAInit() != STATUS_SUCCESS) {
         PANIC("Failed to initialize ATA/ATAPI subsystem!\n");
     }
+#endif
   
     // Initialize the PS/2 controller and any PS/2 keyboards & mice
     Status PS2InitStatus = PS2ControllerInit();
