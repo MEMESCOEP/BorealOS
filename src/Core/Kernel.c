@@ -9,9 +9,10 @@
 #include <Utility/StringFormatter.h>
 #include <Utility/Color.h>
 #include <Core/Firmware/ACPI.h>
+#include <Drivers/RTC.h>
+#include <Core/Interrupts/PIT.h>
 
 KernelState Kernel = {};
-uint64_t bootDurationMS = 0;
 
 static NORETURN void KernelPanic(const char* message)
 {
@@ -173,6 +174,25 @@ Status KernelInit(uint32_t InfoPtr) {
 
     LOG(LOG_INFO, "IDT initialized successfully.\n");
 
+    if (RTCInit() != STATUS_SUCCESS) {
+        LOG(LOG_WARNING, "RTC init failed!\n");
+    }
+    else {
+        LOGF(LOG_INFO, "RTC initialized successfully. Current time: %u:%u:%u, %u-%u-%u\n",
+             (uint64_t)KernelRTCTime.Hours,
+             (uint64_t)KernelRTCTime.Minutes,
+             (uint64_t)KernelRTCTime.Seconds,
+             (uint64_t)KernelRTCTime.DayOfMonth,
+             (uint64_t)KernelRTCTime.Month,
+             (uint64_t)KernelRTCTime.Year);
+    }
+
+    if (PITInit(1000) != STATUS_SUCCESS) { // 1000Hz = 1ms interval
+        PANIC("Failed to initialize PIT!\n");
+    }
+
+    LOG(LOG_INFO, "PIT initialized successfully.\n");
+
     // Initialize and test paging
     if (PagingInit(&Kernel.Paging) != STATUS_SUCCESS) {
         PANIC("Failed to initialize Paging!\n");
@@ -222,6 +242,6 @@ Status KernelInit(uint32_t InfoPtr) {
         LOG(LOG_INFO, "PS/2 controller init failed!\n");
     }
 
-    LOGF(LOG_INFO, "Kernel base initialization finished successfully (took %ums).\n", bootDurationMS);
+    LOGF(LOG_INFO, "Kernel base initialization finished successfully (took %ums).\n", KernelPIT.Milliseconds);
     return STATUS_SUCCESS;
 }

@@ -29,7 +29,7 @@ case $EMULATOR in
         ;;
     qemu)
         echo "Running in normal mode..."
-        qemu-system-i386 $FLAGS -no-shutdown -no-reboot -serial file:logs/serial.log -cpu qemu32,vendor=QEMU_VirtSys -smp 2 -d int,cpu_reset -m 128M -hda HDD.img -cdrom ./cmake-build-debug/BorealOS.iso -audiodev pa,id=snd0 -machine pcspk-audiodev=snd0 -display gtk
+        qemu-system-i386 $FLAGS -no-shutdown -no-reboot -serial file:logs/serial.log -cpu qemu32,vendor=QEMU_VirtSys -smp 2 -d guest_errors,cpu_reset -m 128M -hda HDD.img -cdrom ./cmake-build-debug/BorealOS.iso -audiodev pa,id=snd0 -machine pcspk-audiodev=snd0 -display gtk
         ;;
     *)
         echo "No emulator specified. Use --Bochs or --QEMU."
