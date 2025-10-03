@@ -193,10 +193,6 @@ Status KernelInit(uint32_t InfoPtr) {
 
     LOG(LOG_INFO, "PIT initialized successfully.\n");
 
-    LOGF(LOG_DEBUG, "Waiting for RTC seconds to change (currently %u)...\n", (uint32_t)KernelRTCTime.Seconds);
-    PITBusyWaitMicroseconds(PIT_SECONDS_TO_MICROSECONDS(10));
-    LOGF(LOG_DEBUG, "Waited 10 seconds, current RTC seconds is %u.\n", (uint32_t)KernelRTCTime.Seconds);
-
     // Initialize and test paging
     if (PagingInit(&Kernel.Paging) != STATUS_SUCCESS) {
         PANIC("Failed to initialize Paging!\n");
