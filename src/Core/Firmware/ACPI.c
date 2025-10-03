@@ -94,6 +94,7 @@ Status ACPIInit(uint32_t MB2InfoPtr) {
         return STATUS_FAILURE;
     }
 
+    LOG(LOG_INFO, "ACPI SDP found!\n");
     PRINTF("\t* *SDP address is 0x%x\n", (uint64_t)(uintptr_t)SDPAddr);
     PRINTF("\t* ACPI %s structs will be used.\n\n", useNewACPI == true ? "2.0+" : "1.0");
 

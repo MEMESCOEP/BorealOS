@@ -50,7 +50,7 @@ void FramebufferMapSelf(PagingState *paging) {
     size_t pages = (fbSize / PMM_PAGE_SIZE) + 1;
 
     uint32_t fbCacheFlags = 0;
-    if (CPUHasPAT()) {
+    if (CPUHasFeature(KernelCPU.FeaturesEDX, CPUID_FEAT_EDX_PAT)) {
         fbCacheFlags = PAGE_WRITE_THROUGH;
     }
 

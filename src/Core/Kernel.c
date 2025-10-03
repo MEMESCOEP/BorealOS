@@ -11,6 +11,7 @@
 #include <Core/Firmware/ACPI.h>
 #include <Drivers/RTC.h>
 #include <Core/Interrupts/PIT.h>
+#include <Drivers/CPU.h>
 
 KernelState Kernel = {};
 
@@ -140,6 +141,12 @@ Status KernelInit(uint32_t InfoPtr) {
     {
         LOG(LOG_WARNING, "Serial failed to initialize properly. This system might not have a serial port, or it is not functioning correctly.\n");
     }
+
+    if (CPUInit() != STATUS_SUCCESS) {
+        PANIC("Failed to initialize CPU!\n");
+    }
+
+    LOGF(LOG_INFO, "CPU initialized successfully. Vendor: %s\n", KernelCPU.Vendor);
 
     // Map the ACPI regions and initialize ACPI
     if (ACPIInit(InfoPtr) != STATUS_SUCCESS) {

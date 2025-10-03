@@ -39,12 +39,6 @@ Status PagingInit(PagingState *state) {
 
     state->PageDirectory[0] = ((uint32_t)state->PageTable[0]) | PAGE_PRESENT | PAGE_WRITABLE;
 
-    // Enable PAT if available
-    if (CPUHasPAT()) {
-        CPUSetupPAT();
-        LOG(LOG_INFO, "PAT supported and enabled.\n");
-    }
-
     return STATUS_SUCCESS;
 }
 
