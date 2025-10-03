@@ -38,49 +38,40 @@ const uint8_t days_in_month[] = {
     31  // December
 };
 
-void increment_time(RTCTimeState * rtc_time_state) {
+void RTCIncrementTime() {
     // Increment seconds
-    rtc_time_state->Seconds++;
-    if (rtc_time_state->Seconds >= 60) {
-        rtc_time_state->Seconds = 0;
-        rtc_time_state->Minutes++;
-        if (rtc_time_state->Minutes >= 60) {
-            rtc_time_state->Minutes = 0;
-            rtc_time_state->Hours++;
-            if (rtc_time_state->Hours >= 24) {
-                rtc_time_state->Hours = 0;
-                rtc_time_state->DayOfMonth++;
+    KernelRTCTime.Seconds++;
+
+    if (KernelRTCTime.Seconds >= 60) {
+        KernelRTCTime.Seconds = 0;
+        KernelRTCTime.Minutes++;
+
+        if (KernelRTCTime.Minutes >= 60) {
+            KernelRTCTime.Minutes = 0;
+            KernelRTCTime.Hours++;
+
+            if (KernelRTCTime.Hours >= 24) {
+                KernelRTCTime.Hours = 0;
+                KernelRTCTime.DayOfMonth++;
 
                 // God this is ugly but whatever
-                uint8_t month_days = days_in_month[rtc_time_state->Month - 1];
-                if (rtc_time_state->Month == 2 && is_leap_year(rtc_time_state->Year)) {
+                uint8_t month_days = days_in_month[KernelRTCTime.Month - 1];
+                if (KernelRTCTime.Month == 2 && is_leap_year(KernelRTCTime.Year)) {
                     month_days = 29; // February in a leap year
                 }
-                if (rtc_time_state->DayOfMonth > month_days) {
-                    rtc_time_state->DayOfMonth = 1;
-                    rtc_time_state->Month++;
-                    if (rtc_time_state->Month > 12) {
-                        rtc_time_state->Month = 1;
-                        rtc_time_state->Year++;
+
+                if (KernelRTCTime.DayOfMonth > month_days) {
+                    KernelRTCTime.DayOfMonth = 1;
+                    KernelRTCTime.Month++;
+
+                    if (KernelRTCTime.Month > 12) {
+                        KernelRTCTime.Month = 1;
+                        KernelRTCTime.Year++;
                     }
                 }
             }
         }
     }
-}
-
-void rtc_interrupt(uint8_t vector, RegisterState* state) {
-    (void)vector, (void)state;
-    static uint32_t tick = 0;
-    tick++;
-    if (tick >= 1024) {
-        // Roughly every second (assuming default rate of 1024Hz)
-        tick = 0;
-        // Update the RTC time
-        increment_time(&KernelRTCTime);
-    }
-
-    clear_rtc_interrupt(); // Acknowledge the interrupt
 }
 
 static inline uint8_t cmos_read(uint8_t reg) {
@@ -131,8 +122,6 @@ void read_rtc_time(uint8_t *sec, uint8_t *min, uint8_t *hour, uint8_t *day, uint
 }
 
 Status RTCInit() {
-    IDTSetIRQHandler(RTC_IRQ, rtc_interrupt);
-
     // Disable interrupts while we configure the RTC
     ASM ("cli");
 

@@ -41,5 +41,6 @@ typedef struct RTCTimeState {
 extern RTCTimeState KernelRTCTime;
 
 Status RTCInit();
+void RTCIncrementTime();
 
 #endif //BOREALOS_RTC_H

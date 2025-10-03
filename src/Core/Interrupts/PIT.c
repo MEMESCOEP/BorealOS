@@ -1,6 +1,7 @@
 #include "PIT.h"
 
 #include <Core/Interrupts/IDT.h>
+#include <Drivers/RTC.h>
 #include <Utility/SerialOperations.h>
 
 PITConfig KernelPITConfig = {
@@ -27,6 +28,15 @@ void pit_interrupt(uint8_t irqNumber, RegisterState* state) {
     if (KernelPIT.TickTracker >= KernelPITConfig.Frequency / 1000) {
         KernelPIT.TickTracker = 0;
         KernelPIT.Milliseconds++;
+
+        static uint32_t ms_tracker = 0;
+        ms_tracker++;
+
+        if (ms_tracker >= 1000) {
+            ms_tracker = 0;
+            // One second has passed, we can update the RTC time
+            RTCIncrementTime();
+        }
     }
 
     // The interrupt is automatically acknowledged by the PIC, so we don't need to do anything here
