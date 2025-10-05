@@ -99,7 +99,10 @@ typedef struct CPUSpec {
 
 extern CPUSpec KernelCPU;
 Status CPUInit();
+
+// Feature enabling functions
 Status CPUSetupPAT();
+Status CPUSetupFPU();
 
 /// Check if the CPU has a specific feature.
 /// Feature set is the register (FeaturesECX, FeaturesEDX)

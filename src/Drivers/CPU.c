@@ -72,6 +72,9 @@ Status CPUInit() {
     if (CPUHasFeature(KernelCPU.FeaturesEDX, CPUID_FEAT_EDX_PAT))
         CPUSetupPAT();
 
+    if (CPUHasFeature(KernelCPU.FeaturesEDX, CPUID_FEAT_EDX_FPU))
+        CPUSetupFPU();
+
     return STATUS_SUCCESS;
 }
 
@@ -86,6 +89,50 @@ Status CPUSetupPAT() {
     pat |= (uint64_t)1 << 8; // set WC
 
     CPUWriteMSR(0x277, pat);
+
+    return STATUS_SUCCESS;
+}
+
+Status CPUSetupFPU() {
+    if (!(CPUHasFeature(KernelCPU.FeaturesEDX, CPUID_FEAT_EDX_FPU))) {
+        LOG(LOG_WARNING, "CPU does not have an FPU, cannot enable it.\n");
+        return STATUS_UNSUPPORTED;
+    }
+
+    /*
+    Check the FPU bit in CPUID
+    Check the EM bit in CR0, if it is set then the FPU is not meant to be used.
+    Check the ET bit in CR0, if it is clear, then the CPU did not detect an 80387 on boot
+    Probe for an FPU
+    */
+
+    uint32_t cr0;
+    ASM("mov %%cr0, %0" : "=r"(cr0));
+
+    if (cr0 & (1 << 2)) {
+        LOG(LOG_WARNING, "FPU Emulation bit is set in CR0, cannot enable FPU.\n");
+        return STATUS_UNSUPPORTED;
+    }
+    if (!(cr0 & (1 << 4))) {
+        LOG(LOG_WARNING, "FPU Extension Type bit is clear in CR0, CPU did not detect an FPU on boot.\n");
+        return STATUS_UNSUPPORTED;
+    }
+    // Clear EM (bit 2) and TS (bit 3) to enable FPU
+    cr0 &= ~(1 << 2);
+    cr0 &= ~(1 << 3);
+    ASM("mov %0, %%cr0" : : "r"(cr0));
+    ASM("finit"); // Initialize the FPU
+
+    // Test it by doing a simple operation
+    ASM("fld1"); // Load 1.0 onto the FPU stack
+    ASM("fld1"); // Load another 1.0 onto the FPU stack
+    ASM("fadd"); // Add the two values together
+    float result;
+    ASM("fstp %0" : "=m"(result)); // Store the result and pop the stack
+    if (result != 2.0f) {
+        LOGF(LOG_WARNING, "FPU test failed, result was %f instead of 2.0\n", result);
+        return STATUS_FAILURE;
+    }
 
     return STATUS_SUCCESS;
 }
