@@ -1,6 +1,7 @@
 #include "CPU.h"
 
 #include <Core/Kernel.h>
+#include <Core/Interrupts/PIT.h>
 #include <Utility/StringTools.h>
 
 CPUSpec KernelCPU = {
@@ -78,6 +79,19 @@ Status CPUInit() {
     return STATUS_SUCCESS;
 }
 
+uint64_t CPUMeasureHZ() {
+    const uint32_t duration = PIT_MILLISECONDS_TO_MICROSECONDS(50);
+
+    uint64_t start = CPUReadTSC();
+    PITBusyWaitMicroseconds(duration);
+    uint64_t end = CPUReadTSC();
+
+    uint64_t cycles = end - start;
+    double seconds = duration / 1e6; // Convert microseconds to seconds
+    uint64_t frequency = (uint64_t)(cycles / seconds);
+    return frequency;
+}
+
 Status CPUSetupPAT() {
     if (!(CPUHasFeature(KernelCPU.FeaturesEDX, CPUID_FEAT_EDX_PAT))) {
         LOG(LOG_WARNING, "CPU does not support PAT, skipping PAT setup.\n");
@@ -135,6 +149,12 @@ Status CPUSetupFPU() {
     }
 
     return STATUS_SUCCESS;
+}
+
+uint64_t CPUReadTSC() {
+    uint32_t lo, hi;
+    ASM("rdtsc" : "=a"(lo), "=d"(hi));
+    return ((uint64_t)hi << 32) | lo;
 }
 
 bool CPUHasFeature(uint32_t reg, uint32_t feature) {

@@ -100,9 +100,14 @@ typedef struct CPUSpec {
 extern CPUSpec KernelCPU;
 Status CPUInit();
 
+/// Measure the CPU frequency in Hz using the PIT timer and the TSC.
+uint64_t CPUMeasureHZ();
+
 // Feature enabling functions
 Status CPUSetupPAT();
 Status CPUSetupFPU();
+
+uint64_t CPUReadTSC();
 
 /// Check if the CPU has a specific feature.
 /// Feature set is the register (FeaturesECX, FeaturesEDX)
