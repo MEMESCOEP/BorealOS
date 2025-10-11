@@ -2,7 +2,6 @@
 #define BOREALOS_ACPI_H
 
 #include <Definitions.h>
-#include "ACPI.h"
 
 #define RSDP_SEARCH_REGION_START 0x000E0000
 #define RSDP_SEARCH_REGION_END 0x000FFFFF
@@ -144,7 +143,7 @@ extern const char* PowerProfileStrings[8];
 Status ACPIInit(uint32_t InfoPtr);
 int ACPIGetRevision();
 void ACPIMapTables();
-
+Status ACPIInitUACPI();
 Status ACPIGetTableBySignature(const char* signature, size_t sigLen, void** outTable);
 
 #endif //BOREALOS_ACPI_H

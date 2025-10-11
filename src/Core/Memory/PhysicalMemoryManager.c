@@ -55,15 +55,18 @@ Status PhysicalMemoryManagerInit(uint32_t InfoPtr) {
     }
 
     // Now we need to find 2 regions for the allocation map and reserved map
-    size_t needed_pages = (total_memory / PMM_PAGE_SIZE) / 8; // 1 bit per page
+    size_t total_pages = total_memory / PMM_PAGE_SIZE;
+    size_t bitmap_bytes = (total_pages + 7) / 8;
+    size_t needed_pages = (bitmap_bytes + PMM_PAGE_SIZE - 1) / PMM_PAGE_SIZE;
     uint32_t allocation_map_addr = 0;
     uint32_t reserved_map_addr = 0;
 
     // Find a region that can fit both maps
     for (uint32_t i = 0; i < count; i++) {
-        if (valid_regions[i].len >= needed_pages * 2) {
+        if ((valid_regions[i].len / PMM_PAGE_SIZE) >= (needed_pages * 2)) {
+            // We found a region that can fit both maps
             allocation_map_addr = valid_regions[i].addr;
-            reserved_map_addr = valid_regions[i].addr + needed_pages;
+            reserved_map_addr = valid_regions[i].addr + needed_pages * PMM_PAGE_SIZE;
             break;
         }
     }
@@ -98,22 +101,15 @@ Status PhysicalMemoryManagerInit(uint32_t InfoPtr) {
     }
 
     // Now mark the allocation map and reserved map regions as reserved
-    uint32_t alloc_start_page = allocation_map_addr / PMM_PAGE_SIZE;
-    uint32_t alloc_end_page = (allocation_map_addr + needed_pages) / PMM_PAGE_SIZE;
-    for (uint32_t page = alloc_start_page; page < alloc_end_page; page++) {
-        KernelPhysicalMemoryManager.ReservedMap[page / 8] |= (1 << (page % 8)); // Mark as reserved
-        KernelPhysicalMemoryManager.AllocationMap[page / 8] |= (1 << (page % 8)); // Mark as allocated
-    }
-
-    uint32_t resv_start_page = reserved_map_addr / PMM_PAGE_SIZE;
-    uint32_t resv_end_page = (reserved_map_addr + needed_pages) / PMM_PAGE_SIZE;
-    for (uint32_t page = resv_start_page; page < resv_end_page; page++) {
+    uint32_t start_page = allocation_map_addr / PMM_PAGE_SIZE;
+    uint32_t end_page = start_page + needed_pages * 2; // Both maps
+    for (uint32_t page = start_page; page < end_page; page++) {
         KernelPhysicalMemoryManager.ReservedMap[page / 8] |= (1 << (page % 8)); // Mark as reserved
         KernelPhysicalMemoryManager.AllocationMap[page / 8] |= (1 << (page % 8)); // Mark as allocated
     }
 
     // Reserve the first 1MB of memory
-    for (uint32_t page = 0; page < 256; page++) {
+    for (uint32_t page = 0; page < (0x100000 / PMM_PAGE_SIZE); page++) {
         KernelPhysicalMemoryManager.ReservedMap[page / 8] |= (1 << (page % 8)); // Mark as reserved
         KernelPhysicalMemoryManager.AllocationMap[page / 8] |= (1 << (page % 8)); // Mark as allocated
     }
