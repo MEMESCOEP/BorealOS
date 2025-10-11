@@ -8,3 +8,4 @@ BuildLog.txt
 /logs
 *.img
 /cmake-build-debug/
+HDD.img.lock

@@ -1,5 +1,6 @@
 #include "PIC.h"
 #include "Utility/SerialOperations.h"
+#include "Core/Kernel.h"
 
 PICConfig KernelPIC = {};
 
@@ -61,6 +62,7 @@ void PICSetIRQMask(uint8_t irqLine) {
 
 void PICClearIRQMask(uint8_t irq) {
     uint16_t port;
+    uint8_t originalIRQ = irq;
     uint8_t mask;
 
     if (irq < 8) {
@@ -73,6 +75,13 @@ void PICClearIRQMask(uint8_t irq) {
     mask = inb(port) & ~(1 << irq); // Clear the specific IRQ bit
     outb(port, mask); // Write the new mask back to the PIC
     io_wait();
+
+    // Enable cascading (IRQs to be handled by the slave) if required
+    // NOTE: This is REQUIRED if you want to handle any IRQs >= 8, as the slave PIC won't handle the IRQ otherwise. Then, since you
+    // can't send an EOI to the slave PIC, the master has zero clue that the IRQ has been handled and you can't handle any IRQs anymore
+    if (originalIRQ > 7) {
+        PICClearIRQMask(2);
+    }
 }
 
 void PICSendEOI(uint8_t irq) {
