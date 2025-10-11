@@ -151,10 +151,52 @@ Status CPUSetupFPU() {
     return STATUS_SUCCESS;
 }
 
+Status CPUSetupPAE() {
+    // Enable PAE by setting the PAE bit (bit 5) in CR4
+    uint32_t cr4;
+    ASM("mov %%cr4, %0" : "=r"(cr4));
+    cr4 |= (1 << 5);
+    ASM("mov %0, %%cr4" : : "r"(cr4));
+
+    return STATUS_SUCCESS;
+}
+
 uint64_t CPUReadTSC() {
     uint32_t lo, hi;
     ASM("rdtsc" : "=a"(lo), "=d"(hi));
     return ((uint64_t)hi << 32) | lo;
+}
+
+void CPUWriteCR3(uint32_t cr3) {
+    ASM ("mov %0, %%cr3" : : "r"(cr3) );
+}
+
+void CPUEnablePaging() {
+    ASM ("cli");
+    uint32_t cr0;
+    ASM("mov %%cr0, %0" : "=r"(cr0));
+    cr0 |= 0x80000000; // Set PG bit
+    ASM("mov %0, %%cr0" : : "r"(cr0));
+    ASM ("sti");
+}
+
+void CPUDisablePaging() {
+    ASM ("cli");
+    uint32_t cr0;
+    ASM("mov %%cr0, %0" : "=r"(cr0));
+    cr0 &= ~0x80000000; // Clear PG bit
+    ASM("mov %0, %%cr0" : : "r"(cr0));
+    ASM ("sti");
+}
+
+uint32_t CPUGetStackPointer() {
+    uint32_t esp;
+    ASM("mov %%esp, %0" : "=r"(esp));
+    return esp;
+}
+
+void CPUSetStackPointer(uintptr_t uintptr) {
+    ASM("mov %0, %%esp" : : "r"(uintptr) );
 }
 
 bool CPUHasFeature(uint32_t reg, uint32_t feature) {

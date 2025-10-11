@@ -17,10 +17,9 @@
 #define PAGE_CUSTOM2        0x800
 #define PAGE_PAT_WRITE_COMBINING 0x1000 // Use PAT entry for write-combining (if PAT is supported and enabled)
 
-// 32 bit
 typedef struct PagingState {
-    uint32_t *PageDirectory;
-    uint32_t **PageTable;
+    uint32_t *PageDirectory; // Page Directory
+    uint32_t **PageTable; // Array of pointers to Page Tables
 } PagingState;
 
 /// Initialize paging structure.
@@ -50,5 +49,8 @@ void PagingDisable();
 
 /// Test the paging implementation by mapping a page, writing to it, and verifying the contents.
 Status PagingTest(PagingState* state);
+
+/// Log detailed information about a page fault for debugging purposes.
+void PagingLogPageFaultInfo(PagingState* state, void* faultingAddress);
 
 #endif //BOREALOS_PAGING_H

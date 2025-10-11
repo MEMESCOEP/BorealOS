@@ -1,10 +1,13 @@
 #include <Definitions.h>
 #include "ACPI.h"
+#include <uacpi/context.h>
+#include <uacpi/uacpi.h>
 #include "Utility/SerialOperations.h"
 #include "Utility/StringTools.h"
 #include "Boot/multiboot.h"
 #include "Boot/MBParser.h"
 #include "Core/Kernel.h"
+#include "Drivers/CPU.h"
 
 #define ACPI_PWR_MGMT_ENABLE_TIMEOUT 1000000
 
@@ -201,12 +204,12 @@ int ACPIGetRevision() {
     return useNewACPI ? (int)KernelACPI.XSDP->Revision : (int)KernelACPI.RSDP->Revision;
 }
 
-void MapRegion(uintptr_t address, size_t length) {
-    uint32_t begin = ALIGN_DOWN(address, PMM_PAGE_SIZE);
-    uint32_t end = ALIGN_UP(address + length, PMM_PAGE_SIZE);
-    size_t numPages = (end - begin) / PMM_PAGE_SIZE;
-    for (size_t i = 0; i < numPages; i++) {
-        PagingMapPage(&Kernel.Paging, (void*)(begin + i * PMM_PAGE_SIZE), (void*)(begin + i * PMM_PAGE_SIZE), true, false, 0);
+void MapRegion(uintptr_t physAddr, size_t length) {
+    // Map a physical region into the ACPI paging state
+    for (uintptr_t addr = ALIGN_DOWN(physAddr, PMM_PAGE_SIZE); addr < ALIGN_UP(physAddr + length, PMM_PAGE_SIZE); addr += PMM_PAGE_SIZE) {
+        if (PagingMapPage(&Kernel.Paging, (void*)addr, (void*)addr, true, false, 0) != STATUS_SUCCESS) {
+            LOGF(LOG_ERROR, "Failed to map ACPI table page at %p!\n", addr);
+        }
     }
 }
 
@@ -251,6 +254,23 @@ void ACPIMapTables() {
         ACPISDTHeader* DSDTHeader = (ACPISDTHeader*)(uintptr_t)KernelACPI.FADT->Dsdt;
         MapRegion((uintptr_t)DSDTHeader, DSDTHeader->Length);
     }
+}
+
+Status ACPIInitUACPI() {
+    uacpi_context_set_log_level(UACPI_LOG_TRACE);
+    uacpi_status status = uacpi_setup_early_table_access((void*)VirtualMemoryManagerAllocate(&Kernel.VMM, PMM_PAGE_SIZE, true, false), PMM_PAGE_SIZE);
+    if (status != UACPI_STATUS_OK) {
+        LOG(LOG_ERROR, "uACPI failed to set up early table access!\n");
+        return STATUS_FAILURE;
+    }
+
+    status = uacpi_initialize(0);
+    if (status != UACPI_STATUS_OK) {
+        LOG(LOG_ERROR, "uACPI failed to initialize!\n");
+        return STATUS_FAILURE;
+    }
+
+    return STATUS_SUCCESS;
 }
 
 Status ACPIGetTableBySignature(const char *signature, size_t sigLen, void **outTable) {

@@ -32,12 +32,21 @@ Status PagingInit(PagingState *state) {
         state->PageTable[0][i] = 0;
     }
 
-    // Identity map first 4 MB
+    // Identity map first 8 MB
     for (size_t i = 0; i < 1024; i++) {
         state->PageTable[0][i] = (i * PMM_PAGE_SIZE) | PAGE_PRESENT | PAGE_WRITABLE;
     }
 
+    state->PageTable[1] = (uint32_t *)PhysicalMemoryManagerAllocatePage();
+    if (!state->PageTable[1]) {
+        PANIC("PagingInit: Failed to allocate second page table!\n");
+    }
+    for (size_t i = 0; i < 1024; i++) {
+        state->PageTable[1][i] = ((i + 1024) * PMM_PAGE_SIZE) | PAGE_PRESENT | PAGE_WRITABLE;
+    }
+
     state->PageDirectory[0] = ((uint32_t)state->PageTable[0]) | PAGE_PRESENT | PAGE_WRITABLE;
+    state->PageDirectory[1] = ((uint32_t)state->PageTable[1]) | PAGE_PRESENT | PAGE_WRITABLE;
 
     return STATUS_SUCCESS;
 }
@@ -100,7 +109,7 @@ Status PagingUnmapPage(PagingState *state, void *virtualAddr) {
     return STATUS_SUCCESS;
 }
 
-void *PagingTranslate(PagingState *state, void *virtualAddr) {
+void* PagingTranslate(PagingState *state, void *virtualAddr) {
     uint32_t vAddr = (uint32_t)virtualAddr;
     size_t dirIndex = (vAddr >> 22) & 0x3FF;
     size_t tableIndex = (vAddr >> 12) & 0x3FF;
@@ -120,13 +129,8 @@ void *PagingTranslate(PagingState *state, void *virtualAddr) {
 
 void PagingEnable(PagingState *state) {
     // Load the page directory into CR3
-    ASM("mov %0, %%cr3" : : "r"(state->PageDirectory));
-
-    // Enable paging by setting the PG bit in CR0
-    uint32_t cr0;
-    ASM("mov %%cr0, %0" : "=r"(cr0));
-    cr0 |= 0x80000000; // Set PG bit
-    ASM("mov %0, %%cr0" : : "r"(cr0));
+    CPUWriteCR3((uint32_t)(uintptr_t)state->PageDirectory);
+    CPUEnablePaging();
 }
 
 void PagingDisable() {
@@ -143,7 +147,7 @@ void PagingDisable() {
 Status PagingTest(PagingState *state) {
     // Allocate a physical page
     void *page = PhysicalMemoryManagerAllocatePage();
-    if (page == NULL) {
+    if (!page) {
         PANIC("PagingTest: Failed to allocate a physical page!\n");
     }
 
@@ -175,4 +179,48 @@ Status PagingTest(PagingState *state) {
 
 
     return STATUS_SUCCESS;
+}
+
+void PagingLogPageFaultInfo(PagingState *state, void* faultingAddress) { // faulting address is the CR2 here
+    uint32_t addr = (uint32_t)faultingAddress;
+    size_t dirIndex = (addr >> 22) & 0x3FF;
+    size_t tableIndex = (addr >> 12) & 0x3FF;
+
+    PRINT("Page Fault Info:\n");
+    PRINTF("\t* Faulting address: %p\n", faultingAddress);
+    PRINTF("\t* Page Directory Index: %u\n", (uint32_t)dirIndex);
+    PRINTF("\t* Page Table Index: %u\n", (uint32_t)tableIndex);
+
+    if (!(state->PageDirectory[dirIndex] & PAGE_PRESENT)) {
+        PRINT("\t* Page Directory Entry not present.\n");
+
+        // Find the nearest present entry before this one
+        for (int32_t i = dirIndex - 1; i >= 0; i--) {
+            if (state->PageDirectory[i] & PAGE_PRESENT) {
+                PRINTF("\t* Nearest present Page Directory Entry before faulting address is at index %u\n", (uint32_t)i);
+                PRINTF("\t* Entry value: %p\n", (void*)state->PageDirectory[i]);
+                break;
+            }
+        }
+        return;
+    }
+
+    uint32_t entry = state->PageTable[dirIndex][tableIndex];
+    if (!(entry & PAGE_PRESENT)) {
+        PRINT("\t* Page Table Entry not present.\n");
+
+        // Find the nearest present entry before this one
+        for (int32_t i = tableIndex - 1; i >= 0; i--) {
+            if (state->PageTable[dirIndex][i] & PAGE_PRESENT) {
+                PRINTF("\t* Nearest present Page Table Entry before faulting address is at index %u\n", (uint32_t)i);
+                PRINTF("\t* Entry value: %p\n", (void*)state->PageTable[dirIndex][i]);
+                break;
+            }
+        }
+        return;
+    }
+
+    PRINTF("\t* Page Table Entry: %p\n", entry);
+    PRINTF("\t* Mapped to physical address: %p\n", (void *)(entry & 0xFFFFF000));
+    PRINTF("\t* Entry flags: 0x%x\n", entry & 0xFFF);
 }

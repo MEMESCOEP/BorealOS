@@ -49,6 +49,27 @@ file(GLOB_RECURSE FLANTERM_SOURCES ${flanterm_SOURCE_DIR}/src/*.c)
 target_sources(BorealOS.elf PRIVATE ${FLANTERM_SOURCES})
 target_include_directories(BorealOS.elf PRIVATE ${flanterm_SOURCE_DIR}/src)
 
+FetchContent_Declare(
+        uacpi
+        GIT_REPOSITORY https://github.com/uACPI/uACPI.git
+        GIT_TAG 3.1.0
+)
+
+FetchContent_MakeAvailable(uacpi)
+
+file(GLOB_RECURSE UACPI_SOURCES ${uacpi_SOURCE_DIR}/source/*.c)
+
+# Disable wpedantic for uacpi sources
+set_source_files_properties(${UACPI_SOURCES} PROPERTIES COMPILE_FLAGS "-Wno-pedantic -Wno-error=format -w")
+
+target_sources(BorealOS.elf PRIVATE ${UACPI_SOURCES})
+target_include_directories(BorealOS.elf PRIVATE ${uacpi_SOURCE_DIR}/include)
+
+# Enable the UACPI_PHYS_ADDR_IS_32BITS, UACPI_SIZED_FREES, UACPI_NATIVE_ALLOC_ZEROED macros
+target_compile_definitions(BorealOS.elf PRIVATE UACPI_PHYS_ADDR_IS_32BITS UACPI_SIZED_FREES UACPI_NATIVE_ALLOC_ZEROED)
+# Set UACPI_DEFAULT_LOG_LEVEL to UACPI_LOG_DEBUG
+target_compile_definitions(BorealOS.elf PRIVATE UACPI_DEFAULT_LOG_LEVEL=UACPI_LOG_DEBUG)
+
 # Now we need to create the actual ISO.
 # First in the build directory, create a directory called "iso" and create the following directory structure:
 # boot/grub/fonts

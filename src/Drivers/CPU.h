@@ -106,8 +106,16 @@ uint64_t CPUMeasureHZ();
 // Feature enabling functions
 Status CPUSetupPAT();
 Status CPUSetupFPU();
+Status CPUSetupPAE();
 
 uint64_t CPUReadTSC();
+void CPUWriteCR3(uint32_t cr3);
+
+void CPUEnablePaging();
+void CPUDisablePaging();
+
+uint32_t CPUGetStackPointer();
+void CPUSetStackPointer(uintptr_t uintptr);
 
 /// Check if the CPU has a specific feature.
 /// Feature set is the register (FeaturesECX, FeaturesEDX)

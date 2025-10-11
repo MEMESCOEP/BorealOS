@@ -76,9 +76,10 @@ void exception_handler(uint32_t err, RegisterState *regs) {
 
 void page_fault_handler(uint32_t vector, RegisterState* regs) {
     PRINT("Page fault occured. Panicking.\n");
-    PRINTF("\t* Faulting address: %p\n", (void*)regs->CR2);
-
     (void)vector, (void)regs;
+
+    // Tell the paging system to log more info
+    PagingLogPageFaultInfo(&Kernel.Paging, (void*)regs->CR2);
 
     PANIC("Page fault.");
 }

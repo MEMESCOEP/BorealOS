@@ -251,6 +251,14 @@ Status KernelInit(uint32_t InfoPtr) {
         LOG(LOG_INFO, "PS/2 controller init failed!\n");
     }
 
+    // Initialize UACPI.
+    if (ACPIInitUACPI() != STATUS_SUCCESS) {
+        LOG(LOG_WARNING, "uACPI initialization failed!\n");
+    }
+    else {
+        LOG(LOG_INFO, "uACPI initialized successfully.\n");
+    }
+
     LOGF(LOG_INFO, "Kernel base initialization finished successfully (took %ums).\n", KernelPIT.Milliseconds);
     return STATUS_SUCCESS;
 }
