@@ -31,15 +31,12 @@ Status FramebufferInit(uint32_t InfoPtr)
     KernelFramebuffer.CanUse = true;
 
     // Print the framebuffer properties
-    LOGF(LOG_INFO, "Framebuffer at address %p is set up for %ux%u@%u\n",
+    LOGF(LOG_INFO, "Framebuffer at address %p is set up for %zx%z@%z\n",
         KernelFramebuffer.Address,
         KernelFramebuffer.Width,
         KernelFramebuffer.Height,
         KernelFramebuffer.BitDepth
     );
-
-    // Clear the framebuffer to remove any previous data that may have been there, it's always a good idea to start with a known state
-    ClearScreen(OURBLE);
 
     // Let whoever called this function know that the init succeeded
     return STATUS_SUCCESS;

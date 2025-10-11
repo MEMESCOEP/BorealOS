@@ -102,6 +102,7 @@ Status IDTInit() {
     for (uint8_t irq_handle = 0; irq_handle < 16; irq_handle++) {
         KernelIDT.IRQSet[irq_handle] = false;
         KernelIDT.ExceptionHandlers[irq_handle] = nullptr; // Initialize exception handlers to nullptr
+        KernelIDT.IRQHandlers[irq_handle] = nullptr; // Initialize irq handlers to nullptr
     }
 
     ASM ("lidt %0" : : "m"(KernelIDT.Descriptor)); // Load IDT descriptor

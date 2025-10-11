@@ -1,17 +1,16 @@
 #include "Kernel.h"
 
 #include <Definitions.h>
+#include <Utility/StringFormatter.h>
+#include <Utility/Color.h>
 #include <Drivers/Graphics/DefaultFont.h>
 #include <Drivers/Graphics/Framebuffer.h>
 #include <Drivers/IO/FramebufferConsole.h>
-#include <Drivers/IO/HID/PS2Controller.h>
 #include <Drivers/IO/Disk/ATA/ATACommon.h>
-#include <Utility/StringFormatter.h>
-#include <Utility/Color.h>
-#include <Core/Firmware/ACPI.h>
 #include <Drivers/RTC.h>
-#include <Core/Interrupts/PIT.h>
 #include <Drivers/CPU.h>
+#include <Core/Firmware/ACPI.h>
+#include <Core/Interrupts/PIT.h>
 
 KernelState Kernel = {};
 
@@ -240,16 +239,6 @@ Status KernelInit(uint32_t InfoPtr) {
         PANIC("Failed to initialize ATA/ATAPI subsystem!\n");
     }
 #endif
-  
-    // Initialize the PS/2 controller and any PS/2 keyboards & mice
-    Status PS2InitStatus = PS2ControllerInit();
-
-    if (PS2InitStatus == STATUS_UNSUPPORTED) {
-        LOG(LOG_INFO, "No PS/2 controllers exist on this system.\n");
-    }
-    else if (PS2InitStatus != STATUS_SUCCESS) {
-        LOG(LOG_INFO, "PS/2 controller init failed!\n");
-    }
 
     // Initialize UACPI.
     if (ACPIInitUACPI() != STATUS_SUCCESS) {
@@ -258,6 +247,9 @@ Status KernelInit(uint32_t InfoPtr) {
     else {
         LOG(LOG_INFO, "uACPI initialized successfully.\n");
     }
+
+    // Initialize the PS/2 controller and any devices connected to it
+    // NOTE: IBM should be ashamed of this fuckass protocol >:(
 
     LOGF(LOG_INFO, "Kernel base initialization finished successfully (took %ums).\n", KernelPIT.Milliseconds);
     return STATUS_SUCCESS;

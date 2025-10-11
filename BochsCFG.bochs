@@ -43,7 +43,7 @@ info: action=report
 error: action=report
 panic: action=ask
 keyboard: type=mf, serial_delay=150, paste_delay=100000, user_shortcut=none
-mouse: type=ps2, enabled=false, toggle=ctrl+mbutton
+mouse: type=imps2, enabled=false, toggle=ctrl+mbutton
 sound: waveoutdrv=dummy, waveout=none, waveindrv=dummy, wavein=none, midioutdrv=dummy, midiout=none
 speaker: enabled=true, mode=sound, volume=15
 parport1: enabled=true, file=none
