@@ -11,6 +11,7 @@
 #include <Drivers/CPU.h>
 #include <Core/Firmware/ACPI.h>
 #include <Core/Interrupts/PIT.h>
+#include <Core/Memory/HeapAllocator.h>
 
 KernelState Kernel = {};
 
@@ -232,6 +233,15 @@ Status KernelInit(uint32_t InfoPtr) {
     }
 
     LOG(LOG_INFO, "Kernel Virtual Memory Manager initialized successfully.\n");
+
+    // Initialize the kernel heap allocator
+    if (HeapAllocatorInit(&Kernel.Heap, MiB, MiB, 16 * MiB, &Kernel.VMM) != STATUS_SUCCESS) { // Start at 1MiB, max 16MiB for now
+        PANIC("Failed to initialize Kernel Heap Allocator!\n");
+    }
+
+    if (HeapAllocatorTest(&Kernel.Heap) != STATUS_SUCCESS) {
+        PANIC("Kernel Heap Allocator test failed!\n");
+    }
 
     // Initialize the ATA/ATAPI subsystem
 #if BOREALOS_ENABLE_ATA

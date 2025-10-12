@@ -7,6 +7,7 @@
 #include "Memory/PhysicalMemoryManager.h"
 #include "Drivers/IO/PIC.h"
 #include "Interrupts/IDT.h"
+#include "Memory/HeapAllocator.h"
 #include "Memory/Paging.h"
 #include "Memory/VirtualMemoryManager.h"
 
@@ -24,6 +25,7 @@ typedef struct KernelState {
     SerialPort Serial;
     PagingState Paging; // The root kernel paging structure
     VirtualMemoryManagerState VMM; // The root kernel virtual memory manager
+    HeapAllocatorState Heap; // The kernel heap allocator
 } KernelState;
 
 // The global kernel state.
