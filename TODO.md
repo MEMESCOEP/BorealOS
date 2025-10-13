@@ -16,6 +16,7 @@ This is the tracker for features & bugs.
 
 ## Doing:
 
+- PCI (must be done before USB, as USB add-in cards exist)
 - USB (OHCI, UHCI) (m & andrew)
 - FAT32 (m & andrew)
 
