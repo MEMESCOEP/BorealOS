@@ -16,17 +16,18 @@ This is the tracker for features & bugs.
 
 ## Doing:
 
+- USB (OHCI, UHCI) (m & andrew)
+- FAT32 (m & andrew)
 
 ## To Do:
 
 * Highest priority:
-  - Drivers 
-    - PS/2 (KB/Mouse) (andrew)
+  - Drivers
     - USB (HID, storage, etc) (m & andrew)
     - Storage Drivers
       - AHCI (SATA) (andrew)
       - NVMe (m)
-    - ACPI (andrew)
+    - ACPI (m & andrew)
     - NIC
       - AMD PCNet III (andrew)
       - Intel PRO/1000 (andrew)
@@ -42,6 +43,7 @@ This is the tracker for features & bugs.
 
 * Lower priority:
   - Drivers
+    - PS/2 (Controller/KB/Mouse) (andrew)
     - Storage Drivers
       - Floppy (andrew, maybe?)
     - Sound
@@ -53,4 +55,6 @@ This is the tracker for features & bugs.
 
   - Multitasking
   - User mode
-  - More features (networking, sound, etc)
+  - Networking
+  - Sound
+  - More features
