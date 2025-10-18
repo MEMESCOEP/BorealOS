@@ -1,7 +1,5 @@
 #include <Definitions.h>
 #include "ACPI.h"
-#include <uacpi/context.h>
-#include <uacpi/uacpi.h>
 #include "Utility/SerialOperations.h"
 #include "Utility/StringTools.h"
 #include "Boot/multiboot.h"
@@ -256,54 +254,78 @@ void ACPIMapTables() {
     }
 }
 
-Status ACPIInitUACPI() {
-    uacpi_context_set_log_level(UACPI_LOG_TRACE);
-    uacpi_status status = uacpi_setup_early_table_access((void*)VirtualMemoryManagerAllocate(&Kernel.VMM, PMM_PAGE_SIZE, true, false), PMM_PAGE_SIZE);
-    if (status != UACPI_STATUS_OK) {
-        LOG(LOG_ERROR, "uACPI failed to set up early table access!\n");
-        return STATUS_FAILURE;
-    }
+static void SCIInterrupt(uint8_t irqNumber, RegisterState* state) {
+    (void)state;
+    // Handle ACPI SCI interrupts later, for now just acknowledge
+    LOGF(LOG_DEBUG, "Received ACPI SCI interrupt on IRQ %u\n", irqNumber);
+}
 
-    status = uacpi_initialize(0);
-    if (status != UACPI_STATUS_OK) {
-        LOG(LOG_ERROR, "uACPI failed to initialize!\n");
-        return STATUS_FAILURE;
-    }
-
+Status ACPIInitLAI() {
+    // lai_enable_tracing(LAI_TRACE_OP | LAI_TRACE_IO | LAI_TRACE_NS);
+    lai_set_acpi_revision(KernelACPI.RSDP->Revision);
+    ASM ("cli"); // Disable interrupts for safety.
+    lai_create_namespace();
+    ASM ("sti"); // Re-enable interrupts.
+    IDTSetIRQHandler(KernelACPI.FADT->SCI_Interrupt, SCIInterrupt);
+    // lai_enable_acpi(0); TODO: enable after creating PCI.
+    // We can now do stuff like sleeping!
     return STATUS_SUCCESS;
 }
 
-Status ACPIGetTableBySignature(const char *signature, size_t sigLen, void **outTable) {
-    if (!KernelACPI.Initialized || !outTable || sigLen == 0 || sigLen > 4) {
+Status ACPIGetTableBySignature(const char *signature, size_t index, void **outTable) {
+    if (!KernelACPI.Initialized || !outTable || !signature) {
         return STATUS_INVALID_PARAMETER;
     }
+    *outTable = NULL;  // default if not found
+    size_t matchCount = 0;
 
-    if (!strncmp(signature, "DSDT", sigLen)) {
-        // DSDT is a special case, it's pointed to by the FADT
-        if (!KernelACPI.FADT) {
+    if (!strncmp(signature, "DSDT", 4)) {
+        if (!KernelACPI.FADT) return STATUS_FAILURE;
+        if (index == 0) {
+            *outTable = (void*)(uintptr_t)KernelACPI.FADT->Dsdt;
+            return STATUS_SUCCESS;
+        } else {
+            return STATUS_FAILURE; // no more than one DSDT
+        }
+    }
+
+    if (!strncmp(signature, "FADT", 4)) {
+        if (!KernelACPI.FADT) return STATUS_FAILURE;
+        if (index == 0) {
+            *outTable = (void*)KernelACPI.FADT;
+            return STATUS_SUCCESS;
+        } else {
             return STATUS_FAILURE;
         }
-
-        *outTable = (void*)(uintptr_t)KernelACPI.FADT->Dsdt;
-        return STATUS_SUCCESS;
     }
 
-    if (useNewACPI) {
+    if (useNewACPI && KernelACPI.XSDT) {
         int entries = (KernelACPI.XSDT->SDTHeader.Length - sizeof(KernelACPI.XSDT->SDTHeader)) / 8;
         for (int i = 0; i < entries; i++) {
-            ACPISDTHeader* SDTHeader = (ACPISDTHeader*) (uint32_t)KernelACPI.XSDT->PointerToOtherSDT[i]; // WILDLY UNSAFE CAST
-            if (!strncmp(SDTHeader->Signature, signature, sigLen)) {
-                *outTable = SDTHeader; return STATUS_SUCCESS;
+            uint64_t addr = KernelACPI.XSDT->PointerToOtherSDT[i];  // 64-bit physical
+            ACPISDTHeader* SDTHeader = (ACPISDTHeader*)(uintptr_t)addr;
+            if (!strncmp(SDTHeader->Signature, signature, 4)) {
+                if (matchCount == index) {
+                    *outTable = SDTHeader;
+                    return STATUS_SUCCESS;
+                }
+                matchCount++;
             }
         }
-    } else {
+    } else if (KernelACPI.RSDT) {
         int entries = (KernelACPI.RSDT->SDTHeader.Length - sizeof(KernelACPI.RSDT->SDTHeader)) / 4;
         for (int i = 0; i < entries; i++) {
-            ACPISDTHeader* SDTHeader = (ACPISDTHeader*) KernelACPI.RSDT->PointerToOtherSDT[i];
-            if (!strncmp(SDTHeader->Signature, signature, sigLen)) {
-                *outTable = SDTHeader; return STATUS_SUCCESS;
+            uint32_t addr = KernelACPI.RSDT->PointerToOtherSDT[i];
+            ACPISDTHeader* SDTHeader = (ACPISDTHeader*)(uintptr_t)addr;
+            if (!strncmp(SDTHeader->Signature, signature, 4)) {
+                if (matchCount == index) {
+                    *outTable = SDTHeader;
+                    return STATUS_SUCCESS;
+                }
+                matchCount++;
             }
         }
     }
-    return STATUS_FAILURE;
+
+    return STATUS_FAILURE; // not found
 }

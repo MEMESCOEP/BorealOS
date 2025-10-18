@@ -143,7 +143,7 @@ extern const char* PowerProfileStrings[8];
 Status ACPIInit(uint32_t InfoPtr);
 int ACPIGetRevision();
 void ACPIMapTables();
-Status ACPIInitUACPI();
-Status ACPIGetTableBySignature(const char* signature, size_t sigLen, void** outTable);
+Status ACPIInitLAI();
+Status ACPIGetTableBySignature(const char* signature, size_t index, void** outTable);
 
 #endif //BOREALOS_ACPI_H
