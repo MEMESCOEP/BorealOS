@@ -8,6 +8,8 @@
 #define RSDP_TABLE_LEN 20
 #define RSDP_SEARCH_STR "RSD PTR "
 
+#define ACPI_VIRT 0xC0000000 // 3GB
+
 // These structs were provided by the OSDEV wiki, and have been edited to comply with this project's code standards
 typedef struct {
     char Signature[8];
@@ -143,7 +145,7 @@ extern const char* PowerProfileStrings[8];
 Status ACPIInit(uint32_t InfoPtr);
 int ACPIGetRevision();
 void ACPIMapTables();
-Status ACPIInitUACPI();
-Status ACPIGetTableBySignature(const char* signature, size_t sigLen, void** outTable);
+Status ACPIInitLAI();
+Status ACPIGetTableBySignature(const char* signature, size_t index, void** outTable);
 
 #endif //BOREALOS_ACPI_H
