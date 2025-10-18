@@ -7,6 +7,9 @@
 #include "Core/Kernel.h"
 #include "Drivers/CPU.h"
 
+#include <lai/core.h>
+#include <lai/helpers/sci.h>
+
 #define ACPI_PWR_MGMT_ENABLE_TIMEOUT 1000000
 
 ACPIState KernelACPI = {};
