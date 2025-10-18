@@ -250,12 +250,9 @@ Status KernelInit(uint32_t InfoPtr) {
     }
 #endif
 
-    // Initialize UACPI.
-    if (ACPIInitUACPI() != STATUS_SUCCESS) {
-        LOG(LOG_WARNING, "uACPI initialization failed!\n");
-    }
-    else {
-        LOG(LOG_INFO, "uACPI initialized successfully.\n");
+    // Initialize LAI for ACPI AML interpretation
+    if (ACPIInitLAI() != STATUS_SUCCESS) {
+        LOG(LOG_WARNING, "LAI initialization failed!\n");
     }
 
     // Initialize the PS/2 controller and any devices connected to it
