@@ -254,9 +254,6 @@ Status KernelInit(uint32_t InfoPtr) {
     if (ACPIInitLAI() != STATUS_SUCCESS) {
         LOG(LOG_WARNING, "LAI initialization failed!\n");
     }
-    else {
-        LOG(LOG_INFO, "LAI initialized successfully.\n");
-    }
 
     // Initialize the PS/2 controller and any devices connected to it
     // NOTE: IBM should be ashamed of this fuckass protocol >:(
