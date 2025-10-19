@@ -13,7 +13,17 @@ typedef struct HeapBlock {
     size_t size; // Size of the block, including the header
     bool free; // Whether the block is free or used
     struct HeapBlock* next; // Pointer to the next block in the linked list
+    uint64_t magic;
 } HeapBlock;
+
+static inline int is_in_heap(HeapAllocatorState *heap, void *p) {
+    uintptr_t base = (uintptr_t)heap->Data;
+    uintptr_t v = (uintptr_t)p;
+    return (v >= base) && (v < base + heap->TotalSize);
+}
+
+#define HEAP_MAGIC 0x4845504D45474701ULL  // "HEPMG..." example
+#define HEAP_MAGIC_FREED 0xDEADBEEFDEADBEEFULL
 
 Status HeapAllocatorInit(HeapAllocatorState *heap, size_t initialSize, size_t minSize, size_t maxSize,
     VirtualMemoryManagerState *vmm) {
@@ -40,31 +50,37 @@ Status HeapAllocatorInit(HeapAllocatorState *heap, size_t initialSize, size_t mi
     block->size = initialSize;
     block->free = true;
     block->next = nullptr;
+    block->magic = HEAP_MAGIC;
 
     heap->Data = block;
     return STATUS_SUCCESS;
 }
 
-void * HeapAllocate(HeapAllocatorState *heap, size_t size, size_t alignment) {
+void * HeapAllocate(HeapAllocatorState *heap, size_t req_size, size_t alignment) {
+    if (!heap) return nullptr;
     HeapBlock* current = (HeapBlock*)heap->Data;
     if (!current) return nullptr;
 
-    size = ALIGN_UP(size, 8); // Align size to 8 bytes
+    // Sanitize inputs
+    if (alignment == 0) alignment = 8;
+    if (alignment & (alignment - 1)) return nullptr; // not power-of-two
+    req_size = ALIGN_UP(req_size, 8);
 
-    if (alignment && (alignment & (alignment - 1)) != 0) {
-        // Alignment is not a power of two
-        return nullptr;
-    }
+    // Prevent overflow when adding header
+    if (req_size > SIZE_MAX - sizeof(HeapBlock)) return nullptr;
+    size_t total_req = req_size + sizeof(HeapBlock); // total bytes needed in a single block
 
-    size += sizeof(HeapBlock); // Include header size
     HeapBlock* selectedBlock = nullptr;
     while (current) {
-        if (current->free && current->size >= size) {
-            // Check alignment
-            size_t dataAddr = (size_t)current + sizeof(HeapBlock);
-            size_t alignedAddr = ALIGN_UP(dataAddr, alignment);
-            size_t padding = alignedAddr - dataAddr;
-            if (current->size >= size + padding) {
+        if (current->free && current->size >= total_req) {
+            // compute alignment padding relative to data area
+            uintptr_t dataAddr = (uintptr_t)current + sizeof(HeapBlock);
+            uintptr_t alignedData = ALIGN_UP(dataAddr, alignment);
+            size_t padding = (size_t)(alignedData - dataAddr);
+
+            // ensure block has space for header and padding
+            // current->size is total block size including header
+            if (current->size >= total_req + padding) {
                 selectedBlock = current;
                 break;
             }
@@ -73,55 +89,70 @@ void * HeapAllocate(HeapAllocatorState *heap, size_t size, size_t alignment) {
     }
 
     if (selectedBlock) {
-        size_t dataAddr = (size_t)selectedBlock + sizeof(HeapBlock);
-        size_t alignedAddr = ALIGN_UP(dataAddr, alignment);
-        size_t padding = alignedAddr - dataAddr;
+        // recompute safely
+        uintptr_t selectedBase = (uintptr_t)selectedBlock;
+        uintptr_t dataAddr = selectedBase + sizeof(HeapBlock);
+        uintptr_t alignedData = ALIGN_UP(dataAddr, alignment);
+        size_t padding = (size_t)(alignedData - dataAddr);
 
-        // If we need padding, create a new block for the padding.
-        if (padding > 0) {
-            // We need to calculate with the header size in mind, otherwise we'll overwrite memory
-            if (selectedBlock->size <= padding + sizeof(HeapBlock)) {
-                // Not enough space for padding block
-                return nullptr;
-            }
-            HeapBlock* paddingBlock = (HeapBlock*)((size_t)selectedBlock + sizeof(HeapBlock) + padding);
+        // if padding needed, create a small leading block
+        if (padding >= sizeof(HeapBlock)) {
+            uintptr_t paddingBlockAddr = alignedData - sizeof(HeapBlock);
+            HeapBlock* paddingBlock = (HeapBlock*)paddingBlockAddr;
             paddingBlock->size = selectedBlock->size - padding - sizeof(HeapBlock);
             paddingBlock->free = true;
             paddingBlock->next = selectedBlock->next;
-            selectedBlock->next = paddingBlock;
+            paddingBlock->magic = HEAP_MAGIC;
+
             selectedBlock->size = padding + sizeof(HeapBlock);
+            selectedBlock->next = paddingBlock;
             selectedBlock = paddingBlock;
-            size += padding; // Increase the size to account for the padding
         }
 
-        size_t totalSizeNeeded = size; // This already includes the header size
-        if (selectedBlock->size > totalSizeNeeded + sizeof(HeapBlock)) { // Split the block if it's significantly larger
-            HeapBlock* remaining = (HeapBlock*)((size_t)selectedBlock + totalSizeNeeded);
-            remaining->size = selectedBlock->size - totalSizeNeeded;
+        // split if large enough to leave a remaining free block
+        if (selectedBlock->size > total_req + sizeof(HeapBlock)) {
+            uintptr_t selBase = (uintptr_t)selectedBlock;
+            uintptr_t remainingAddr = selBase + total_req;
+            // bounds check
+            if (remainingAddr + sizeof(HeapBlock) > selBase + selectedBlock->size) {
+                // shouldn't happen due to check above, but be defensive
+                return nullptr;
+            }
+            HeapBlock* remaining = (HeapBlock*)remainingAddr;
+            remaining->size = selectedBlock->size - total_req;
             remaining->free = true;
             remaining->next = selectedBlock->next;
+            remaining->magic = HEAP_MAGIC;
+
             selectedBlock->next = remaining;
-            selectedBlock->size = totalSizeNeeded;
+            selectedBlock->size = total_req;
         }
 
+        // allocate
         selectedBlock->free = false;
         heap->UsedSize += selectedBlock->size;
+        selectedBlock->magic = HEAP_MAGIC;
 
-        return (void*)((size_t)selectedBlock + sizeof(HeapBlock));
+        void* userAddr = (void*)((uintptr_t)selectedBlock + sizeof(HeapBlock));
+        if (userAddr < (void*)(MiB * 1)) {
+            PANIC("HeapAllocate: Allocated an address below 1MB!\n");
+        }
+        return userAddr;
     }
 
-    // No suitable block found, try to grow the heap
-    size_t newSize = heap->TotalSize * 2; // Double the heap size
-    if (newSize < size) newSize = size;
+    // grow heap
+    size_t newSize = heap->TotalSize ? heap->TotalSize * 2 : PMM_PAGE_SIZE;
+    if (newSize < total_req) newSize = total_req;
     newSize = ALIGN_UP(newSize, PMM_PAGE_SIZE);
+
     if (newSize > heap->MaxSize - heap->TotalSize) {
         newSize = heap->MaxSize - heap->TotalSize;
-        if (newSize < size) return nullptr; // Cannot satisfy the allocation
+        if (newSize < total_req) return nullptr;
     }
 
-    // Request more memory from the VMM
     void* addr = VirtualMemoryManagerAllocate(heap->VMM, newSize, true, false);
     if (!addr) return nullptr;
+
     heap->TotalSize += newSize;
     HeapBlock* newBlock = (HeapBlock*)addr;
     newBlock->size = newSize;
@@ -129,7 +160,8 @@ void * HeapAllocate(HeapAllocatorState *heap, size_t size, size_t alignment) {
     newBlock->next = (HeapBlock*)heap->Data;
     heap->Data = newBlock;
 
-    return HeapAllocate(heap, size - sizeof(HeapBlock), alignment); // Retry allocation
+    // retry with a clean, well-defined requested user size
+    return HeapAllocate(heap, req_size, alignment);
 }
 
 void * HeapAlloc(HeapAllocatorState *heap, size_t size) {
@@ -157,28 +189,76 @@ void * HeapRealloc(HeapAllocatorState *heap, void *addr, size_t size) {
 }
 
 void HeapFree(HeapAllocatorState *heap, void *addr) {
-    // Get the block header
     if (!addr) return;
-    HeapBlock* block = (HeapBlock*)((size_t)addr - sizeof(HeapBlock));
-    if (block->free) {
-        PANIC("Double free detected in HeapFree!\n");
-    }
 
+    // compute block pointer and basic validation
+    uintptr_t user = (uintptr_t)addr;
+    if (user < sizeof(HeapBlock)) PANIC("HeapFree: user pointer too small\n");
+    HeapBlock *block = (HeapBlock*)(user - sizeof(HeapBlock));
+
+    if (!is_in_heap(heap, block)) PANIC("HeapFree: pointer not in heap\n");
+
+    // header sanity checks (add these fields to HeapBlock in debug builds)
+    if (block->magic != HEAP_MAGIC)
+        PANIC("HeapFree: header magic mismatch (corruption)\n");
+    if (block->size < sizeof(HeapBlock) || block->size > heap->TotalSize)
+        PANIC("HeapFree: invalid block size\n");
+
+    if (block->free) PANIC("HeapFree: double free detected\n");
+
+    // poison payload to expose use-after-free
+    uintptr_t payload_sz = block->size - sizeof(HeapBlock);
+    void *payload = (void*)((uintptr_t)block + sizeof(HeapBlock));
+    memset(payload, 0xAB, payload_sz);
+
+    // mark as freed and update metrics
     block->free = true;
+    block->magic = HEAP_MAGIC_FREED;
     heap->UsedSize -= block->size;
 
-    HeapBlock* current = (HeapBlock*)heap->Data;
+    // Coalesce adjacent free blocks safely.
+    // Walk list but always validate next pointer and bounds before deref.
+    HeapBlock *current = (HeapBlock*)heap->Data;
+    uintptr_t heap_base = (uintptr_t)heap->Data;
+    uintptr_t heap_end = heap_base + heap->TotalSize;
+
     while (current) {
-        if (current->free && current->next && current->next->free) {
-            size_t currentEnd = (size_t)current + current->size;
-            size_t nextStart = (size_t)current->next;
-            if (currentEnd == nextStart) {
-                // Merge current and next
-                current->size += current->next->size;
-                current->next = current->next->next;
-                continue; // stay on current to check further merges
+        // validate current header
+        if (!is_in_heap(heap, current)) PANIC("HeapFree: current pointer out of heap\n");
+        if (current->size < sizeof(HeapBlock) || (uintptr_t)current + current->size > heap_end) {
+            PANIC("HeapFree: corrupted current->size\n");
+        }
+
+        HeapBlock *next = current->next;
+        if (!next) {
+            current = NULL;
+            continue;
+        }
+
+        // validate next before using
+        if (!is_in_heap(heap, next)) {
+            PANIC("HeapFree: invalid next pointer detected (possible corruption)\n");
+        }
+        if (next->size < sizeof(HeapBlock) || (uintptr_t)next + next->size > heap_end) {
+            PANIC("HeapFree: corrupted next->size\n");
+        }
+
+        // only merge if both free and physically adjacent
+        if (current->free && next->free) {
+            uintptr_t current_end = (uintptr_t)current + current->size;
+            uintptr_t next_start = (uintptr_t)next;
+            if (current_end == next_start) {
+                // safe to merge
+                // check for addition overflow
+                size_t new_size = current->size + next->size;
+                if (new_size < current->size) PANIC("HeapFree: size overflow on merge\n");
+                current->size = new_size;
+                current->next = next->next;
+                // continue on current to try multi-merge
+                continue;
             }
         }
+
         current = current->next;
     }
 }

@@ -8,6 +8,8 @@
 #define RSDP_TABLE_LEN 20
 #define RSDP_SEARCH_STR "RSD PTR "
 
+#define ACPI_VIRT 0xC0000000 // 3GB
+
 // These structs were provided by the OSDEV wiki, and have been edited to comply with this project's code standards
 typedef struct {
     char Signature[8];

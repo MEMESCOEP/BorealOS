@@ -151,7 +151,7 @@ Status PagingTest(PagingState *state) {
         PANIC("PagingTest: Failed to allocate a physical page!\n");
     }
 
-    void *address = (void *)(MiB * 8); // 8 MiB virtual address
+    void *address = (void *)(GiB * 3);
     if (PagingTranslate(state, address) != NULL) {
         PANIC("PagingTest: Address should not be mapped yet!\n");
     }

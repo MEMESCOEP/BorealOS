@@ -3,6 +3,7 @@
 #include <Core/Interrupts/PIT.h>
 #include <lai/host.h>
 #include <Utility/SerialOperations.h>
+
 #include "ACPI.h"
 
 void laihost_log(int level, const char *msg) {
@@ -70,11 +71,9 @@ void laihost_unmap(void *addrress, size_t count) {
 void *laihost_scan(const char *sig, size_t idx) {
     void* result = nullptr;
     Status status = ACPIGetTableBySignature(sig, idx, &result);
-
     if (status != STATUS_SUCCESS) {
         return nullptr;
     }
-
     return result;
 }
 
@@ -128,6 +127,7 @@ void laihost_pci_writew(uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, ui
 void laihost_pci_writed(uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset, uint32_t val){
     LOGF(LOG_DEBUG, "LAI PCI WRITEX from seg: %u, bus: %u, slot: %u, fun: %u, offset: %u, val: %u\n", (uint64_t)seg, (uint64_t)bus, (uint64_t)slot, (uint64_t)fun, (uint64_t)offset, (uint64_t)val);
 }
+
 
 void laihost_sleep(uint64_t ms) {
     PITBusyWaitMicroseconds(PIT_MILLISECONDS_TO_MICROSECONDS(ms));

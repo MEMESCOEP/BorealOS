@@ -1,14 +1,15 @@
 #include <Definitions.h>
 #include "ACPI.h"
+
+#include <lai/core.h>
+#include <lai/helpers/sci.h>
+
 #include "Utility/SerialOperations.h"
 #include "Utility/StringTools.h"
 #include "Boot/multiboot.h"
 #include "Boot/MBParser.h"
 #include "Core/Kernel.h"
 #include "Drivers/CPU.h"
-
-#include <lai/core.h>
-#include <lai/helpers/sci.h>
 
 #define ACPI_PWR_MGMT_ENABLE_TIMEOUT 1000000
 
@@ -227,10 +228,16 @@ void ACPIMapTables() {
         uint32_t xsdpLength = KernelACPI.XSDP->Length;
         MapRegion((uintptr_t)KernelACPI.XSDP, xsdpLength);
 
+        LOGF(LOG_DEBUG, "Mapping XSDT at address %p with length %u\n", (void*)(uintptr_t)KernelACPI.XSDT, xsdtLength);
+        LOGF(LOG_DEBUG, "Mapping XSDP at address %p with length %u\n", (void*)(uintptr_t)KernelACPI.XSDP, xsdpLength);
+
         // Now map every item in the XSDT
         int entries = (KernelACPI.XSDT->SDTHeader.Length - sizeof(KernelACPI.XSDT->SDTHeader)) / 8;
         for (int i = 0; i < entries; i++) {
             ACPISDTHeader* SDTHeader = (ACPISDTHeader*) (uint32_t)KernelACPI.XSDT->PointerToOtherSDT[i]; // WILDLY UNSAFE CAST
+            char safe[5] = {0};
+            memcpy(safe, SDTHeader->Signature, 4);
+            LOGF(LOG_DEBUG, "Mapping ACPI table with signature %s at address %p\n", safe, (void*)(uintptr_t)SDTHeader);
             MapRegion((uintptr_t)SDTHeader, SDTHeader->Length);
         }
     } else {
@@ -239,10 +246,16 @@ void ACPIMapTables() {
         uint32_t rsdpLength = RSDP_TABLE_LEN;
         MapRegion((uintptr_t)KernelACPI.RSDP, rsdpLength);
 
+        LOGF(LOG_DEBUG, "Mapping RSDT at address %p with length %u\n", (void*)(uintptr_t)KernelACPI.RSDT, rsdtLength);
+        LOGF(LOG_DEBUG, "Mapping RSDP at address %p with length %u\n", (void*)(uintptr_t)KernelACPI.RSDP, rsdpLength);
+
         // Now map every item in the RSDT
         int entries = (KernelACPI.RSDT->SDTHeader.Length - sizeof(KernelACPI.RSDT->SDTHeader)) / 4;
         for (int i = 0; i < entries; i++) {
             ACPISDTHeader* SDTHeader = (ACPISDTHeader*) KernelACPI.RSDT->PointerToOtherSDT[i];
+            char safe[5] = {0};
+            memcpy(safe, SDTHeader->Signature, 4);
+            LOGF(LOG_DEBUG, "Mapping ACPI table with signature %s at address %p\n", safe, (void*)(uintptr_t)SDTHeader);
             MapRegion((uintptr_t)SDTHeader, SDTHeader->Length);
         }
     }
@@ -253,6 +266,7 @@ void ACPIMapTables() {
     // Get the size of the DSDT and map it in
     if (KernelACPI.FADT->Dsdt) {
         ACPISDTHeader* DSDTHeader = (ACPISDTHeader*)(uintptr_t)KernelACPI.FADT->Dsdt;
+        LOGF(LOG_DEBUG, "Mapping DSDT at address %p with length %u\n", (void*)(uintptr_t)DSDTHeader, DSDTHeader->Length);
         MapRegion((uintptr_t)DSDTHeader, DSDTHeader->Length);
     }
 }
@@ -269,9 +283,15 @@ Status ACPIInitLAI() {
     ASM ("cli"); // Disable interrupts for safety.
     lai_create_namespace();
     ASM ("sti"); // Re-enable interrupts.
+
     IDTSetIRQHandler(KernelACPI.FADT->SCI_Interrupt, SCIInterrupt);
+
     // lai_enable_acpi(0); TODO: enable after creating PCI.
     // We can now do stuff like sleeping!
+
+    // THIS TOOK LIKE 2 WEEKS OF TRAIL AND ERROR...
+    // BUT FINALLY! IT WORKS ON QEMU!
+
     return STATUS_SUCCESS;
 }
 
