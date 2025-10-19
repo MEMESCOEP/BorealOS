@@ -251,7 +251,12 @@ Status KernelInit(uint32_t InfoPtr) {
 #endif
 
     // Initialize LAI for ACPI AML interpretation
-    if (ACPIInitLAI() != STATUS_SUCCESS) {
+    Status LAIInitStatus = ACPIInitLAI();
+
+    if (LAIInitStatus == STATUS_UNSUPPORTED) {
+        LOG(LOG_WARNING, "ACPI is not supported on this system, so LAI initialization has been skipped.\n");
+    }
+    else if (LAIInitStatus != STATUS_SUCCESS) {
         LOG(LOG_WARNING, "LAI initialization failed!\n");
     }
 

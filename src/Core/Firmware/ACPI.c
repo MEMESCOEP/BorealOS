@@ -278,6 +278,11 @@ static void SCIInterrupt(uint8_t irqNumber, RegisterState* state) {
 }
 
 Status ACPIInitLAI() {
+    // Skip LAI setup if ACPI isn't enabled
+    if (KernelACPI.Initialized == false) {
+        return STATUS_UNSUPPORTED;
+    }
+
     // lai_enable_tracing(LAI_TRACE_OP | LAI_TRACE_IO | LAI_TRACE_NS);
     lai_set_acpi_revision(KernelACPI.RSDP->Revision);
     ASM ("cli"); // Disable interrupts for safety.
