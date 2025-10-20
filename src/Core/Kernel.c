@@ -12,6 +12,10 @@
 #include <Core/Firmware/ACPI.h>
 #include <Core/Interrupts/PIT.h>
 #include <Core/Memory/HeapAllocator.h>
+#include <Drivers/IO/FS/RD/CPIO.h>
+#include <Drivers/IO/FS/RD/RamDisk.h>
+#include <Utility/File/Cat.h>
+#include <Utility/File/LS.h>
 
 KernelState Kernel = {};
 
@@ -242,6 +246,36 @@ Status KernelInit(uint32_t InfoPtr) {
     if (HeapAllocatorTest(&Kernel.Heap) != STATUS_SUCCESS) {
         PANIC("Kernel Heap Allocator test failed!\n");
     }
+
+    if (VFSInit(&Kernel.VFS) != STATUS_SUCCESS) {
+        PANIC("Failed to initialize Virtual File System!\n");
+    }
+
+    void* initrdBase = nullptr;
+    size_t initrdSize = 0;
+    if (CPIOFromModule(InfoPtr, &Kernel.Heap, &initrdBase, &initrdSize) != STATUS_SUCCESS) {
+        PANIC("Failed to locate Init Ram Disk module!\n");
+    }
+
+    FileSystem* initrd = nullptr;
+    if (RamDiskInit(&Kernel.Heap, &initrd) != STATUS_SUCCESS) {
+        PANIC("Failed to initialize Init Ram Disk!\n");
+    }
+
+    // Extract the actual CPIO filesystem onto the ramdisk filesystem
+    if (CPIOLoadArchive(initrdBase, initrdSize, initrd) != STATUS_SUCCESS) {
+        PANIC("Failed to load CPIO archive from Init Ram Disk!\n");
+    }
+
+    // mount the initrd to /initrd in the VFS
+    if (VFSRegisterFileSystem(&Kernel.VFS, initrd, "/initrd", MOUNT_FLAG_READONLY) != STATUS_SUCCESS) {
+        PANIC("Failed to mount Init Ram Disk to /initrd\n");
+    }
+
+    LOG(LOG_INFO, "Testing init ramdisk by catting /initrd/test123/test2.txt:\n");
+    CatFile(&Kernel.VFS, "/initrd/test123/subdirectory/anotherone/hi.txt");
+    LOG(LOG_INFO, "Listing the root VFS directory:\n");
+    LSDirectory(&Kernel.VFS, "/", 0, "/");
 
     // Initialize the ATA/ATAPI subsystem
 #if BOREALOS_ENABLE_ATA
