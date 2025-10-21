@@ -2,6 +2,8 @@
 #define BOREALOS_KERNEL_H
 
 #include <Definitions.h>
+#include <Drivers/IO/Disk/Block.h>
+#include <Drivers/IO/FS/VFS.h>
 
 #include "Drivers/IO/Serial.h"
 #include "Memory/PhysicalMemoryManager.h"
@@ -26,6 +28,7 @@ typedef struct KernelState {
     PagingState Paging; // The root kernel paging structure
     VirtualMemoryManagerState VMM; // The root kernel virtual memory manager
     HeapAllocatorState Heap; // The kernel heap allocator
+    VFSState VFS; // The kernel virtual file system
 } KernelState;
 
 // The global kernel state.

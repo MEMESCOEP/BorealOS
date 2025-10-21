@@ -77,6 +77,8 @@ target_include_directories(BorealOS.elf PRIVATE ${lai_SOURCE_DIR}/include)
 # Then copy ./config/grub.cfg to boot/grub/grub.cfg
 # Then copy the compiled kernel to boot/BorealOS.elf
 # Then copy the font file from ./config/fonts/Terminus-18.pf2 to boot/grub/fonts/Terminus-18.pf2
+# Then run the make-cpio.sh script to create the initrd.img file from the rootfs directory.
+# Copy the initrd.img to boot/initrd.img
 # And then finally, we can copy the shellx64.efi in config/EFI to the root of the ISO.
 # Then using grub-mkrescue, we can create the ISO file.
 
@@ -87,6 +89,7 @@ add_custom_target(iso
         COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/config/fonts/Terminus-18.pf2 ${CMAKE_BINARY_DIR}/iso/boot/grub/fonts/Terminus-18.pf2
         COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/config/images/wallpaper.png ${CMAKE_BINARY_DIR}/iso/boot/grub/images/wallpaper.png
         COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/config/EFI/shellx64.efi ${CMAKE_BINARY_DIR}/iso/shellx64.efi
+        COMMAND ${CMAKE_SOURCE_DIR}/config/make-cpio.sh ${CMAKE_SOURCE_DIR}/config/rootfs ${CMAKE_BINARY_DIR}/iso/boot/initrd.cpio
         COMMAND grub-mkrescue -o BorealOS.iso ${CMAKE_BINARY_DIR}/iso
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
 )

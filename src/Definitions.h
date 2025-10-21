@@ -57,6 +57,8 @@ typedef enum {
     STATUS_INVALID_PARAMETER = -3,
     STATUS_OUT_OF_MEMORY = -4,
     STATUS_TIMEOUT = -5,
+    STATUS_ALREADY_EXISTS = -6,
+    STATUS_NOT_FOUND = -7,
 } Status;
 
 typedef enum {
