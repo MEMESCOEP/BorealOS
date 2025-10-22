@@ -39,22 +39,36 @@
 #define PCI_CLASS_WIRELESS_CONTROLLER            0x0D
 #define PCI_CLASS_NETWORK_CONTROLLER             0x02
 
+#define PCI_BAR_ADDR_START 0x10
+#define PCI_BAR_ADDR_END 0x24
+#define PCI_MAX_BARS 6
+
 typedef struct {
-    uint16_t DeviceStatus;  // A 16-bit register used to store PCI bus events
-    uint16_t DeviceID;      // Identifies this PCI device
-    uint16_t VendorID;      // Identifies the manufacturer of this PCI device (see https://pcisig.com/membership/member-companies for valid values)
-    uint16_t Command;       // Used to control a PCI device's ability to generate & respond to PCI cycles
-    uint8_t CacheLineSize;  // Specifies the system cache line size in 32-bit units
-    uint8_t LatencyTimer;   // Specifies the latency timer in units of PCI bus clocks
-    uint8_t HeaderType;     // Identifies the layout of the rest of the header beginning at byte 0x10 (bit 7 set means the device has multipel functions; see https://wiki.osdev.org/PCI#PCI_Device_Structure)
-    uint8_t RevisionID;     // Specifies the revision of the PCI device
-    uint8_t SubClass;       // Specifies the specific PCI device function (READ ONLY)
-    uint8_t Class;          // Specifies the general PCI device function (READ ONLY)
-    uint8_t ProgIF;         // Programming Interface Byte; specifies a register-level programming interface (READ ONLY; NOT PRESENT IN ALL DEVICES)
-    uint8_t BIST;           // Represents and allows control of a PCI device's Built-In Self Test
-    uint8_t FunctionNumber; // Represents the PCI function of this device
-    uint8_t SlotNumber;     // Identifies the slot that this device is installed in
-    uint8_t BusNumber;      // Identifies the bus that this device is connected to
+    uint64_t Address;  // Full address                  (32 or 64-bit)
+    uint32_t RawLow;   // Raw low DWORD
+    uint32_t RawHigh;  // Raw high DWORD                (only used if 64-bit)
+    bool IsIO;         // If this is false, assume the BAR contains a memory address
+    bool Is64Bit;      // only relevant for memory BARs
+    bool Valid;        // true if BAR is implemented
+} PCIBar;
+
+typedef struct {
+    uint64_t BARs[PCI_MAX_BARS]; // A list of this PCI device's Base Address Registers (BARs)
+    uint16_t DeviceStatus;       // A 16-bit register used to store PCI bus events
+    uint16_t DeviceID;           // Identifies this PCI device
+    uint16_t VendorID;           // Identifies the manufacturer of this PCI device (see https://pcisig.com/membership/member-companies for valid values)
+    uint16_t Command;            // Used to control a PCI device's ability to generate & respond to PCI cycles
+    uint8_t CacheLineSize;       // Specifies the system cache line size in 32-bit units
+    uint8_t LatencyTimer;        // Specifies the latency timer in units of PCI bus clocks
+    uint8_t HeaderType;          // Identifies the layout of the rest of the header beginning at byte 0x10 (bit 7 set means the device has multipel functions; see https://wiki.osdev.org/PCI#PCI_Device_Structure)
+    uint8_t RevisionID;          // Specifies the revision of the PCI device
+    uint8_t SubClass;            // Specifies the specific PCI device function (READ ONLY)
+    uint8_t Class;               // Specifies the general PCI device function (READ ONLY)
+    uint8_t ProgIF;              // Programming Interface Byte; specifies a register-level programming interface (READ ONLY; NOT PRESENT IN ALL DEVICES)
+    uint8_t BIST;                // Represents and allows control of a PCI device's Built-In Self Test
+    uint8_t FunctionNumber;      // Represents the PCI function of this device
+    uint8_t SlotNumber;          // Identifies the slot that this device is installed in
+    uint8_t BusNumber;           // Identifies the bus that this device is connected to
 } PCIDevice;
 
 /// Scan for and initialize any devices that are connected to the PCI bus

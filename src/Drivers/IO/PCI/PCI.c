@@ -325,6 +325,16 @@ bool PCIIsUSBController(PCIDevice* dev) {
            (dev->SubClass == || );
 }*/
 
+// Does this BAR hold a memory address?
+bool PCIBarIsMemAddr(uint32_t BAR) {
+    return (BAR & 0x1) == 0;
+}
+
+// Does this BAR hold an I/O address?
+bool PCIBarIsIOAddr(uint32_t BAR) {
+    return (BAR & 0x1) == 1;
+}
+
 Status PCIInit() {
     // Create an initial array to store PCI device info structs
     LOG(LOG_INFO, "Initializing PCI device buffer...\n");
@@ -377,6 +387,57 @@ Status PCIInit() {
     /*for (uint32_t PCIDevIndex = 0; PCIDevIndex < deviceCount; PCIDevIndex++) {
         PCIPrintDeviceInfo(&PCIDevices[PCIDevIndex]);
     }*/
+
+
+
+    // Map BARs
+    LOGF(LOG_INFO, "Mapping BARs for %u device(s)...\n", (uint64_t)deviceCount);
+    for (uint32_t PCIDevIndex = 0; PCIDevIndex < deviceCount; PCIDevIndex++) {
+        PCIDevice* currentDevice = &PCIDevices[PCIDevIndex];
+        uint64_t BAR = 0x00;
+
+        // Figure out how many BARs to map
+        uint32_t maxBARs = currentDevice->HeaderType == 0x01 ? 2 : PCI_MAX_BARS;
+
+        PRINTF("\t* Mapping %u BAR(s) for device at %u:%u:%u...\n", (uint64_t)maxBARs, (uint64_t)currentDevice->BusNumber, (uint64_t)currentDevice->SlotNumber, (uint64_t)currentDevice->FunctionNumber);
+
+        // Read the BAR
+        for (uint8_t barIndex = 0; barIndex < maxBARs; barIndex++) {
+            uint8_t BAROffset = 0x10 + (barIndex * 4);
+            uint16_t BARLowerWord = PCIReadConfigWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset);
+            uint16_t BARUpperWord = PCIReadConfigWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset + 2);
+            uint32_t BAR32 = (BARUpperWord << 16) | BARLowerWord;
+
+            // Check if the bar is 64 bit
+            if (((BAR32 >> 1) & 0x3) == 0x02) {
+                // It's 64 nit, which means we read the next bar
+                uint8_t nextBAROffset = BAROffset + 4;
+                uint16_t BARUpperLower = PCIReadConfigWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, nextBAROffset);
+                uint16_t BARUpperUpper = PCIReadConfigWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, nextBAROffset + 2);
+                uint32_t BARUpperDWord = (BARUpperUpper << 16) | BARUpperLower;
+                uint64_t BAR64 = ((uint64_t)BARUpperDWord << 32) | (BAR32 & 0xFFFFFFF0);
+                BAR = BAR64;
+
+                PRINTF("\t\t* BAR #%u (64-bit): %p\n", (uint64_t)barIndex, BAR);
+                barIndex++;
+            }
+            else {
+                BAR = (uint64_t)BAR32;
+                PRINTF("\t\t* BAR #%u (32-bit): %p\n", (uint64_t)barIndex, BAR32);
+            }
+
+            // Now that we have the bar, we need to check its type (memory mapped or direct I/O port)
+            // NOTE: If bit 0 of the BAR is 0, it's a memory bar. If it's 1, it's an I/O bar
+            if (BAR & (1 << 0) == 0) {
+
+            }
+            else {
+                
+            }
+
+        }
+        PRINT("\n");
+    }
 
 
     // Enable bus mastering for all valid controller types now
