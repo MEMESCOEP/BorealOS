@@ -1,0 +1,452 @@
+#include "PCI.h"
+#include <Utility/SerialOperations.h>
+#include <Core/Memory/HeapAllocator.h>
+#include <Core/Kernel.h>
+
+#define INITIAL_DEVICE_ARRAY_SIZE 8
+
+PCIDevice* PCIDevices;
+uint8_t* UniqueBuses;
+uint32_t deviceArraySize = INITIAL_DEVICE_ARRAY_SIZE;
+uint32_t busArraySize = INITIAL_DEVICE_ARRAY_SIZE;
+uint32_t deviceCount = 0;
+uint16_t busCount = 0;
+uint16_t maxBuses = 256;
+uint8_t maxSlots = 32;
+
+// NOTE: This function uses PCI Configuration Space Access Mechanism #1
+void PCIWriteConfigWord(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset, uint16_t value) {
+    // Construct the 32-bit configuration address
+    uint32_t address = (uint32_t)(
+        (bus  << 16) |      // Bus number
+        (slot << 11) |      // Device/slot number
+        (func << 8)  |      // Function number
+        (offset & 0xFC) |   // Register offset, 4-byte aligned
+        0x80000000           // Enable bit
+    );
+
+    // Tell the PCI controller which configuration register we want to access
+    outl(PCI_CONFIGSPACE_ADDRESS, address);
+
+    // Read the current 32-bit value first so we can preserve upper/lower half if needed
+    uint32_t currentData = inl(PCI_CONFIGSPACE_DATA);
+
+    // Determine which half of the dword to modify
+    uint32_t shift = (offset & 2) * 8;
+
+    // Clear the 16 bits we want to write, then OR in the new value
+    currentData &= ~(0xFFFF << shift);
+    currentData |= ((uint32_t)value) << shift;
+
+    // Write the updated 32-bit value back
+    outl(PCI_CONFIGSPACE_DATA, currentData);
+}
+
+// Function adapted from https://wiki.osdev.org/PCI#Configuration_Space_Access_Mechanism_#1
+// NOTE: This function uses configspace access mechanism #1
+uint16_t PCIReadConfigWord(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset) {
+    // Cast 8-bit values to 32-bit ones for safe shifting later
+    uint32_t lbus  = (uint32_t)bus;
+    uint32_t lslot = (uint32_t)slot;
+    uint32_t lfunc = (uint32_t)func;
+  
+    // Construct the 32-bit configuration address
+    // NOTE: This address has the following format:
+    //  Bit  31:    Enable bit      (must be 1)
+    //  Bits 30-24: Reserved        (must be 0)
+    //  Bits 23-16: Bus number
+    //  Bits 15-11: Device number   (often called the slot number)
+    //  Bits 10-8:  Function number
+    //  Bits 7-2:   Register offset (must be 4-byte aligned)
+    //  Bits 1-0:   Must be zero; for 32-bit alignment purposes
+    uint32_t address = (uint32_t)((
+        lbus << 16) |          // Bus number
+        (lslot << 11) |        // Device number
+        (lfunc << 8) |         // Function number
+        (offset & 0xFC) |      // Register offset; 4-byte boundary aligned
+        ((uint32_t)0x80000000) // Enable bit
+    );
+  
+    // Tell the PCI chipset which configuration register we want to access
+    outl(PCI_CONFIGSPACE_ADDRESS, address);
+
+    // Read a dword (32-bit) value in from the config data port
+    uint32_t data = inl(PCI_CONFIGSPACE_DATA);
+
+    // Determine whether to take the lower or upper 16 bits of the 32-bit value:
+    //   - If (offset & 2) == 0, low  word (bits 15:0)
+    //   - If (offset & 2) == 2, high word (bits 31:16)
+    return (uint16_t)(((data >> (((offset & 2) * 8))) & 0xFFFF));
+}
+
+// Adapted version of PCIReadConfigWord; reads a byte (8 bits) instead of a word (16 bits)
+// NOTE: This function uses configspace access mechanism #1
+uint8_t PCIReadConfigByte(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset) {
+    // Construct the 32-bit configuration address
+    // NOTE: This address has the following format:
+    //  Bit  31:    Enable bit      (must be 1)
+    //  Bits 30-24: Reserved        (must be 0)
+    //  Bits 23-16: Bus number
+    //  Bits 15-11: Device number   (often called the slot number)
+    //  Bits 10-8:  Function number
+    //  Bits 7-2:   Register offset (must be 4-byte aligned)
+    //  Bits 1-0:   Must be zero; for 32-bit alignment purposes
+    uint32_t address = (uint32_t)(
+        (bus << 16) |     // Bus number
+        (slot << 11) |    // Device number
+        (func << 8) |     // Function number
+        (offset & 0xFC) | // Register offset; 4-byte boundary aligned
+        0x80000000        // Enable bit
+    );
+
+    // Tell the PCI chipset which configuration register we want to access
+    outl(PCI_CONFIGSPACE_ADDRESS, address);
+    
+    // Read a dword (32-bit) value in from the config data port
+    uint32_t data = inl(PCI_CONFIGSPACE_DATA);
+    
+    // Calculate which byte within the 32-bit value we want
+    // (offset & 3) extracts the byte index [0..3]
+    // Multiply by 8 to convert the byte index into a bit shift count
+    uint8_t shift = (offset & 3) * 8;
+
+    // Shift the dword to align the target byte to bits [7:0], then mask and return it
+    return (data >> shift) & 0xFF;
+}
+
+// Add information about a specific PCI device to the list and resize the list as necessary
+Status PCIStoreDevice(PCIDevice DeviceInfoStruct) {
+    // Make sure the device's vendor ID is valid before adding it to the list
+    if (DeviceInfoStruct.VendorID == 0x0000 || DeviceInfoStruct.VendorID == 0xFFFF) {
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    // Make sure the device's header type is valid (low 7 bits should be 0x0, 0x1, or 0x2)
+    if ((DeviceInfoStruct.HeaderType & 0x7F) > 0x02) {
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    // Resize the PCI device buffer when it gets full
+    // NOTE: The array doubles in size because it's more efficient; memory allocations are very expensive, so just allocating more in one go means we can avoid doing this work later when timing is critical
+    if (deviceCount >= deviceArraySize) {
+        deviceArraySize *= 2;
+        PCIDevices = HeapRealloc(&Kernel.Heap, PCIDevices, sizeof(PCIDevice) * deviceArraySize);
+
+        if (!PCIDevices) {
+            LOG(LOG_WARNING, "PCI devices array allocation failed!\n");
+            return STATUS_FAILURE;
+        }
+    }
+
+    // Finally, store the device info struct in the list
+    PCIDevices[deviceCount] = DeviceInfoStruct;
+    deviceCount++;
+    return STATUS_SUCCESS;
+}
+
+Status PCIStoreUniqueBus(uint8_t bus) {
+    // Resize the unique buses buffer when it gets full
+    // NOTE: The array doubles in size because it's more efficient; memory allocations are very expensive, so just allocating more in one go means we can avoid doing this work later when timing is critical
+    if (busCount >= busArraySize) {
+        busArraySize *= 2;
+        UniqueBuses = HeapRealloc(&Kernel.Heap, UniqueBuses, sizeof(uint8_t) * busArraySize);
+
+        if (!UniqueBuses) {
+            LOG(LOG_WARNING, "PCI unique buses array allocation failed!\n");
+            return STATUS_FAILURE;
+        }
+    }
+
+    // Finally, store the bus in the array
+    UniqueBuses[busCount] = bus;
+    return STATUS_SUCCESS;
+}
+
+// Populate a PCI device info struct based on the configspace values it provides
+Status PCIPopulateDevice(uint8_t bus, uint8_t slot, uint8_t function, PCIDevice* dev) {
+    // Make sure the device's vendor ID is valid before adding it to the list
+    uint16_t vendorID = PCIReadConfigWord(bus, slot, function, PCI_HEADER_VENDOR_ID_OFFSET);
+    if (vendorID == 0x0000 || vendorID == 0xFFFF) return STATUS_INVALID_PARAMETER;
+
+    // Make sure the device's header type is valid (low 7 bits should be 0x0, 0x1, or 0x2)
+    uint8_t headerType = PCIReadConfigByte(bus, slot, function, PCI_HEADER_HDRTYPE_OFFSET);
+    if ((headerType & 0x7F) > 0x02) return STATUS_INVALID_PARAMETER;
+
+    dev->VendorID       = vendorID;
+    dev->DeviceID       = PCIReadConfigWord(bus, slot, function, PCI_HEADER_DEVICE_ID_OFFSET);
+    dev->Command        = PCIReadConfigWord(bus, slot, function, PCI_HEADER_COMMAND_OFFSET);
+    dev->DeviceStatus   = PCIReadConfigWord(bus, slot, function, PCI_HEADER_STATUS_OFFSET);
+    dev->RevisionID     = PCIReadConfigByte(bus, slot, function, PCI_HEADER_REVISION_OFFSET);
+    dev->ProgIF         = PCIReadConfigByte(bus, slot, function, PCI_HEADER_PROGIF_OFFSET);
+    dev->SubClass       = PCIReadConfigByte(bus, slot, function, PCI_HEADER_SUBCLASS_OFFSET);
+    dev->Class          = PCIReadConfigByte(bus, slot, function, PCI_HEADER_CLASS_OFFSET);
+    dev->CacheLineSize  = PCIReadConfigByte(bus, slot, function, PCI_HEADER_CACHELINE_OFFSET);
+    dev->LatencyTimer   = PCIReadConfigByte(bus, slot, function, PCI_HEADER_LATENCY_TIMER_OFFSET);
+    dev->HeaderType     = headerType;
+    dev->BIST           = PCIReadConfigByte(bus, slot, function, PCI_HEADER_BIST_OFFSET);
+    dev->FunctionNumber = function;
+    dev->SlotNumber     = slot;
+    dev->BusNumber      = bus;
+
+    return STATUS_SUCCESS;
+}
+
+void PCIPrintDeviceInfo(PCIDevice* dev) {
+    PRINTF("<===[ \033[0;38;2;255;0;255;49mPCI DEVICE %u:%u:%u\033[0m ]===>\n", (uint64_t)dev->BusNumber, (uint64_t)dev->SlotNumber, (uint64_t)dev->FunctionNumber);
+    PRINTF("| Cache line size: %p\n", (uint64_t)dev->CacheLineSize);
+    PRINTF("| Latency timer: %p\n", (uint64_t)dev->LatencyTimer);
+    PRINTF("| Header type: %p\n", (uint64_t)dev->HeaderType);
+    PRINTF("| Base class: %p\n", (uint64_t)dev->Class);
+    PRINTF("| Subclass: %p\n", (uint64_t)dev->SubClass);
+    PRINTF("| Revision: %p\n", (uint64_t)dev->RevisionID);
+    PRINTF("| Command: %p\n", (uint64_t)dev->Command);
+    PRINTF("| Device: %p\n", (uint64_t)dev->DeviceID);
+    PRINTF("| ProgIF: %p\n", (uint64_t)dev->ProgIF);
+    PRINTF("| Vendor: %p\n", (uint64_t)dev->VendorID);
+    PRINTF("| Status: %p\n", (uint64_t)dev->DeviceStatus);
+    PRINTF("| BIST: %p\n\n", (uint64_t)dev->BIST);
+}
+
+void PCIDetectDeviceSpecialFunction(PCIDevice* device) {
+    // We're only interested in devices with a class of 0x06
+    if (device->Class != 0x06) return;
+
+    // Get and validate the secondary bus
+    uint8_t secondaryBus = PCIReadConfigByte(device->BusNumber, device->SlotNumber, device->FunctionNumber, PCI_HEADER_SECONDARY_BUS_OFFSET);
+
+    if (secondaryBus == device->BusNumber) {
+        PRINTF("\t* Secondary bus %u and current bus %u are the same, skipping...\n", (uint64_t)secondaryBus, (uint64_t)device->BusNumber);
+        return;
+    }
+
+    if (secondaryBus == 0 || secondaryBus > maxBuses) {
+        PRINTF("\t* Secondary bus %u is invalid or larger than %u, skipping this device...\n", (uint64_t)secondaryBus, (uint64_t)maxBuses);
+        return;
+    }
+
+    // Check if the device's subclass is something we need to be interested in
+    switch (device->SubClass) {
+        case 0x00:
+            PRINT("\t\t* PCI host controller detected.\n\n");
+            break;
+
+        case 0x04:
+            PRINT("\t\t* PCI-PCI bridge detected.\n\n");
+            break;
+
+        default:
+            return;
+    }
+
+    // It's now okay to scan the secondary bus
+    busCount++;
+    PCIScanBus(secondaryBus);
+}
+
+// Scan all slots (32 max) in a PCI bus
+// NOTE: This function uses the recursive scan method, which finds all valid buses in the system
+// NOTE: Function 0 must be handled first
+void PCIScanBus(uint8_t bus) {
+    for (uint8_t slot = 0; slot < maxSlots; slot++) {
+        PCIDevice newDevice = {0};
+        Status populateDevStatus = PCIPopulateDevice(bus, slot, 0, &newDevice);
+
+        if (populateDevStatus != STATUS_SUCCESS) {
+            if (populateDevStatus != STATUS_INVALID_PARAMETER) {
+                PRINTF("\t\t* Failed to populate device info struct at bus #%u, slot #%u, function #%u (device may not exist or data may be invalid)\n", (uint64_t)bus, (uint64_t)slot, 0);
+            }
+            
+            continue;
+        }
+
+        // Make sure the device information is correctly stored
+        if (PCIStoreDevice(newDevice) != STATUS_SUCCESS) {
+            PRINTF("\t\t* Failed to store device at bus #%u, slot #%u, function #%u (device data may be invalid)\n", (uint64_t)bus, (uint64_t)slot, 0);
+            continue;
+        }
+
+        PRINTF("\t* Device found at %u:%u:%u; vendor=%p, class=%p, subclass=%p, dev_id=%p\n",
+            (uint64_t)bus,
+            (uint64_t)slot,
+            0,
+            (uint64_t)newDevice.VendorID,
+            (uint64_t)newDevice.Class,
+            (uint64_t)newDevice.SubClass,
+            (uint64_t)newDevice.DeviceID
+        );
+
+        PCIDetectDeviceSpecialFunction(&newDevice);
+
+        // Check if this is a multifunction device
+        if ((newDevice.HeaderType & PCI_HEADER_MULTIFUNCTION_MASK) != 0) {
+            for (uint8_t function = 1; function < 8; function++) {
+                PCIDevice newFuncDevice = {0};
+                populateDevStatus = PCIPopulateDevice(bus, slot, function, &newFuncDevice);
+
+                if (populateDevStatus != STATUS_SUCCESS) {
+                    if (populateDevStatus != STATUS_INVALID_PARAMETER) {
+                        PRINTF("\t* Failed to populate device info struct at bus #%u, slot #%u, function #%u (device may not exist or data may be invalid)\n", (uint64_t)bus, (uint64_t)slot, (uint64_t)function);
+                    }
+                    
+                    continue;
+                }
+
+                // Make sure the device information is correctly stored
+                if (PCIStoreDevice(newFuncDevice) != STATUS_SUCCESS) {
+                    PRINTF("\t* Failed to store device at bus #%u, slot #%u, function #%u (device data may be invalid)\n", (uint64_t)bus, (uint64_t)slot, (uint64_t)function);
+                    continue;
+                }
+
+                PRINTF("\t* Device found at %u:%u:%u; vendor=%p, class=%p, subclass=%p, dev_id=%p\n",
+                    (uint64_t)bus,
+                    (uint64_t)slot,
+                    (uint64_t)function,
+                    (uint64_t)newFuncDevice.VendorID,
+                    (uint64_t)newFuncDevice.Class,
+                    (uint64_t)newFuncDevice.SubClass,
+                    (uint64_t)newFuncDevice.DeviceID
+                );
+
+                PCIDetectDeviceSpecialFunction(&newFuncDevice);
+            }
+        }
+    }
+}
+
+// Is the device a USB controller?
+bool PCIIsUSBController(PCIDevice* dev) {
+    return dev->Class == PCI_CLASS_SERIAL_BUS_CONTROLLER &&
+           dev->SubClass == PCI_SUBCLASS_USB;
+}
+
+// Is the device a NIC?
+/*bool PCIIsNIC(PCIDevice* dev) {
+    return (dev->Class == || dev->Class == )  &&
+           (dev->SubClass == || );
+}*/
+
+Status PCIInit() {
+    // Create an initial array to store PCI device info structs
+    LOG(LOG_INFO, "Initializing PCI device buffer...\n");
+    PCIDevices = HeapAlloc(&Kernel.Heap, sizeof(PCIDevice) * 8);
+    deviceCount = 0;
+
+    if (!PCIDevices) {
+        LOG(LOG_WARNING, "PCI devices array allocation failed!\n");
+        return STATUS_FAILURE;
+    }
+
+
+
+    // Scan the PCI bus(es)
+    LOG(LOG_INFO, "Scanning PCI bus(es)...\n");
+    uint8_t headerType = PCIReadConfigByte(0, 0, 0, PCI_HEADER_HDRTYPE_OFFSET);
+
+    // We need to check the function bits if the device identifies itself as multifunction; some devices have multiple PCI host controllers
+    // NOTE: This only scans bus 0, finding more host controllers at other buses might be needed later
+    if ((headerType & 0x80) == 0) {
+        busCount++;
+        PCIStoreUniqueBus(0);
+        PCIScanBus(0);
+    }
+    else {
+        for (uint8_t function = 0; function < 8; function++) {
+            // Validate the vendor ID
+            if (PCIReadConfigWord(0, 0, function, PCI_HEADER_VENDOR_ID_OFFSET) == 0xFFFF) continue;
+
+            // Check if the system has multiple PCI host controllers
+            uint8_t classCode = PCIReadConfigByte(0, 0, function, PCI_HEADER_CLASS_OFFSET);
+            uint8_t subclass = PCIReadConfigByte(0, 0, function, PCI_HEADER_SUBCLASS_OFFSET);
+
+            if (classCode == 0x06 && subclass == 0x00) {
+                uint8_t secondaryBus = PCIReadConfigByte(0, 0, function, PCI_HEADER_SECONDARY_BUS_OFFSET);
+
+                PRINTF("\t\t* Scanning PCI bus from extra PCI host controller (%u)...\n", (uint64_t)secondaryBus);
+                busCount++;
+                PCIStoreUniqueBus(secondaryBus);
+                PCIScanBus(secondaryBus);
+                
+                PRINT("\t\t\t* PCI controller bus scan complete.\n\n");
+            }
+        }
+    }
+    
+    PRINTF("\t* PCI scanning complete; detected %u device(s) on %u bus(es).\n\n", (uint64_t)deviceCount, (uint64_t)busCount);
+
+    // Print each device's info (for debugging)
+    /*for (uint32_t PCIDevIndex = 0; PCIDevIndex < deviceCount; PCIDevIndex++) {
+        PCIPrintDeviceInfo(&PCIDevices[PCIDevIndex]);
+    }*/
+
+
+    // Enable bus mastering for all valid controller types now
+    LOGF(LOG_INFO, "Enabling bus mastering for up to %u devices...\n", (uint64_t)deviceCount);
+
+    for (uint32_t PCIDevIndex = 0; PCIDevIndex < deviceCount; PCIDevIndex++) {
+        PCIDevice* currentDevice = &PCIDevices[PCIDevIndex];
+        bool skipDevice = true;
+
+        // Figure out what device type we're working with
+        if (PCIIsUSBController(currentDevice) == true) {
+            // The device is a USB controller, let's determine the type
+            PRINTF("\t* PCI USB controller detected at %u:%u:%u\n", (uint64_t)currentDevice->BusNumber, (uint64_t)currentDevice->SlotNumber, (uint64_t)currentDevice->FunctionNumber);
+
+            switch (currentDevice->ProgIF) {
+                case PCI_PROGIF_USB_UHCI:
+                    PRINT("\t\t* USB controller is UHCI\n");
+                    skipDevice = false;
+                    break;
+
+                case PCI_PROGIF_USB_OHCI:
+                    PRINT("\t\t* USB controller is OHCI\n");
+                    skipDevice = false;
+                    break;
+
+                case PCI_PROGIF_USB_EHCI:
+                    PRINT("\t\t* USB controller is EHCI\n");
+                    skipDevice = false;
+                    break;
+
+                case PCI_PROGIF_USB_XHCI:
+                    PRINT("\t\t* USB controller is XHCI\n");
+                    skipDevice = false;
+                    break;
+
+                default:
+                    PRINTF("\t\t* USB controller type is unknown, or this is a usb device: %u\n\n", (uint64_t)currentDevice->ProgIF);
+                    break;
+            }
+        }
+
+        if (skipDevice == true) continue;
+
+        // Enable bus mastering now
+        uint16_t cmdRegisterData = PCIReadConfigWord(currentDevice->BusNumber,
+            currentDevice->SlotNumber,
+            currentDevice->FunctionNumber,
+            PCI_HEADER_COMMAND_OFFSET
+        );
+
+        // Check if bus mastering is already enabled
+        if (!(cmdRegisterData & 0x04)) {
+            // It's not enabled, we can proceed. Now we set bit 2
+            cmdRegisterData |= 0x04;
+
+            // Finally, write the cmd data back to the device
+            PCIWriteConfigWord(
+                currentDevice->BusNumber,
+                currentDevice->SlotNumber,
+                currentDevice->FunctionNumber,
+                PCI_HEADER_COMMAND_OFFSET,
+                cmdRegisterData
+            );
+            
+            PRINT("\t\t* Bus mastering is now enabled for this device\n\n");
+        }
+        else {
+            PRINT("\t\t* Bus mastering is already enabled for this device, no need to re-enable it\n\n");
+        }
+    }
+
+    return STATUS_SUCCESS;
+}
