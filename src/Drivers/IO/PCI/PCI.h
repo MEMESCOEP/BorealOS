@@ -3,6 +3,14 @@
 
 #include <Definitions.h>
 
+#define PCI_BAR_IS_MEM_ADDR(bar)   (((bar) & 0x1) == 0)
+#define PCI_BAR_IS_IO_ADDR(bar)    (((bar) & 0x1) == 1)
+#define PCI_BAR_IS_64BIT(bar)      ((((bar) >> 1) & 0x3) == 0x2)
+#define PCI_BAR_MEM_ADDR(bar)      ((uint64_t)((bar) & 0xFFFFFFF0u))
+#define PCI_BAR_IO_ADDR(bar)       ((uint64_t)((bar) & 0xFFFFFFFCu))
+#define PCI_BAR_COMBINE_ADDR(high, low) \
+    ((((uint64_t)(high)) << 32) | PCI_BAR_MEM_ADDR(low))
+
 #define PCI_SUBCLASS_WIRELESS_ETHERNET_8021a     0x20
 #define PCI_SUBCLASS_WIRELESS_ETHERNET_8021b     0x21
 #define PCI_SUBCLASS_WIRELESS_CONSUMER_IR        0x01
@@ -44,16 +52,16 @@
 #define PCI_MAX_BARS 6
 
 typedef struct {
-    uint64_t Address;  // Full address                  (32 or 64-bit)
+    uint64_t Address;  // BAR address
     uint32_t RawLow;   // Raw low DWORD
-    uint32_t RawHigh;  // Raw high DWORD                (only used if 64-bit)
+    uint32_t RawHigh;  // Raw high DWORD (64-bit only)
+    bool Is64Bit;      // Only relevant for memory BARs
+    bool Valid;        // True if BAR is implemented
     bool IsIO;         // If this is false, assume the BAR contains a memory address
-    bool Is64Bit;      // only relevant for memory BARs
-    bool Valid;        // true if BAR is implemented
 } PCIBar;
 
 typedef struct {
-    uint64_t BARs[PCI_MAX_BARS]; // A list of this PCI device's Base Address Registers (BARs)
+    PCIBar BARs[PCI_MAX_BARS];   // A list of this PCI device's Base Address Registers (BARs)
     uint16_t DeviceStatus;       // A 16-bit register used to store PCI bus events
     uint16_t DeviceID;           // Identifies this PCI device
     uint16_t VendorID;           // Identifies the manufacturer of this PCI device (see https://pcisig.com/membership/member-companies for valid values)

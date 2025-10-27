@@ -1,6 +1,7 @@
 #include "PCI.h"
 #include <Utility/SerialOperations.h>
 #include <Core/Memory/HeapAllocator.h>
+#include <Core/Memory/Paging.h>
 #include <Core/Kernel.h>
 
 #define INITIAL_DEVICE_ARRAY_SIZE 8
@@ -15,6 +16,24 @@ uint16_t maxBuses = 256;
 uint8_t maxSlots = 32;
 
 // NOTE: This function uses PCI Configuration Space Access Mechanism #1
+void PCIWriteConfigDWord(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset, uint32_t value) {
+    // Construct the 32-bit configuration address
+    uint32_t address = (uint32_t)(
+        (bus  << 16) |      // Bus number
+        (slot << 11) |      // Device/slot number
+        (func << 8)  |      // Function number
+        (offset & 0xFC) |   // Register offset, 4-byte aligned
+        0x80000000          // Enable bit
+    );
+
+    // Tell the PCI controller which configuration register we want to access
+    outl(PCI_CONFIGSPACE_ADDRESS, address);
+
+    // Write the 32-bit value
+    outl(PCI_CONFIGSPACE_DATA, value);
+}
+
+// NOTE: This function uses PCI Configuration Space Access Mechanism #1
 void PCIWriteConfigWord(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset, uint16_t value) {
     // Construct the 32-bit configuration address
     uint32_t address = (uint32_t)(
@@ -22,7 +41,7 @@ void PCIWriteConfigWord(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset,
         (slot << 11) |      // Device/slot number
         (func << 8)  |      // Function number
         (offset & 0xFC) |   // Register offset, 4-byte aligned
-        0x80000000           // Enable bit
+        0x80000000          // Enable bit
     );
 
     // Tell the PCI controller which configuration register we want to access
@@ -40,6 +59,37 @@ void PCIWriteConfigWord(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset,
 
     // Write the updated 32-bit value back
     outl(PCI_CONFIGSPACE_DATA, currentData);
+}
+
+// NOTE: This function uses configspace access mechanism #1
+uint32_t PCIReadConfigDWord(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset) {
+    // Cast 8-bit values to 32-bit ones for safe shifting later
+    uint32_t lbus  = (uint32_t)bus;
+    uint32_t lslot = (uint32_t)slot;
+    uint32_t lfunc = (uint32_t)func;
+  
+    // Construct the 32-bit configuration address
+    // NOTE: This address has the following format:
+    //  Bit  31:    Enable bit      (must be 1)
+    //  Bits 30-24: Reserved        (must be 0)
+    //  Bits 23-16: Bus number
+    //  Bits 15-11: Device number   (often called the slot number)
+    //  Bits 10-8:  Function number
+    //  Bits 7-2:   Register offset (must be 4-byte aligned)
+    //  Bits 1-0:   Must be zero; for 32-bit alignment purposes
+    uint32_t address = (uint32_t)((
+        lbus << 16) |          // Bus number
+        (lslot << 11) |        // Device number
+        (lfunc << 8) |         // Function number
+        (offset & 0xFC) |      // Register offset; 4-byte boundary aligned
+        ((uint32_t)0x80000000) // Enable bit
+    );
+  
+    // Tell the PCI chipset which configuration register we want to access
+    outl(PCI_CONFIGSPACE_ADDRESS, address);
+
+    // Return the config data
+    return inl(PCI_CONFIGSPACE_DATA);
 }
 
 // Function adapted from https://wiki.osdev.org/PCI#Configuration_Space_Access_Mechanism_#1
@@ -325,16 +375,6 @@ bool PCIIsUSBController(PCIDevice* dev) {
            (dev->SubClass == || );
 }*/
 
-// Does this BAR hold a memory address?
-bool PCIBarIsMemAddr(uint32_t BAR) {
-    return (BAR & 0x1) == 0;
-}
-
-// Does this BAR hold an I/O address?
-bool PCIBarIsIOAddr(uint32_t BAR) {
-    return (BAR & 0x1) == 1;
-}
-
 Status PCIInit() {
     // Create an initial array to store PCI device info structs
     LOG(LOG_INFO, "Initializing PCI device buffer...\n");
@@ -394,49 +434,116 @@ Status PCIInit() {
     LOGF(LOG_INFO, "Mapping BARs for %u device(s)...\n", (uint64_t)deviceCount);
     for (uint32_t PCIDevIndex = 0; PCIDevIndex < deviceCount; PCIDevIndex++) {
         PCIDevice* currentDevice = &PCIDevices[PCIDevIndex];
-        uint64_t BAR = 0x00;
+        PCIBar newBar;
+        uint64_t barSize = 0;
+        uint8_t storedBARIndex = 0;
 
         // Figure out how many BARs to map
         uint32_t maxBARs = currentDevice->HeaderType == 0x01 ? 2 : PCI_MAX_BARS;
-
         PRINTF("\t* Mapping %u BAR(s) for device at %u:%u:%u...\n", (uint64_t)maxBARs, (uint64_t)currentDevice->BusNumber, (uint64_t)currentDevice->SlotNumber, (uint64_t)currentDevice->FunctionNumber);
 
         // Read the BAR
         for (uint8_t barIndex = 0; barIndex < maxBARs; barIndex++) {
             uint8_t BAROffset = 0x10 + (barIndex * 4);
-            uint16_t BARLowerWord = PCIReadConfigWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset);
-            uint16_t BARUpperWord = PCIReadConfigWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset + 2);
-            uint32_t BAR32 = (BARUpperWord << 16) | BARLowerWord;
+            newBar.RawLow = PCIReadConfigDWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset);
+            newBar.RawHigh = 0x0;
+            newBar.Is64Bit = PCI_BAR_IS_64BIT(newBar.RawLow);
+            newBar.IsIO = PCI_BAR_IS_IO_ADDR(newBar.RawLow);
+            newBar.Valid = true;
+
+            // Is the BAR implemented?
+            if (newBar.RawLow == 0x0) {
+                newBar.Valid = false;
+                currentDevice->BARs[barIndex] = newBar;
+                continue;
+            }           
+
+            // 64-bit BARs should always be memory BARs, they should never be marked as I/O
+            if (newBar.Is64Bit == true && newBar.IsIO == true) {
+                newBar.Valid = false;
+                currentDevice->BARs[barIndex] = newBar;
+                continue;
+            }
 
             // Check if the bar is 64 bit
-            if (((BAR32 >> 1) & 0x3) == 0x02) {
-                // It's 64 nit, which means we read the next bar
-                uint8_t nextBAROffset = BAROffset + 4;
-                uint16_t BARUpperLower = PCIReadConfigWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, nextBAROffset);
-                uint16_t BARUpperUpper = PCIReadConfigWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, nextBAROffset + 2);
-                uint32_t BARUpperDWord = (BARUpperUpper << 16) | BARUpperLower;
-                uint64_t BAR64 = ((uint64_t)BARUpperDWord << 32) | (BAR32 & 0xFFFFFFF0);
-                BAR = BAR64;
-
-                PRINTF("\t\t* BAR #%u (64-bit): %p\n", (uint64_t)barIndex, BAR);
+            if (newBar.Is64Bit == true) {
+                // It's 64 bit, which means we read the next bar
+                // NOTE: We need to skip the next BAR since it's part of this one
+                newBar.RawHigh = PCIReadConfigDWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset + 4);
                 barIndex++;
-            }
-            else {
-                BAR = (uint64_t)BAR32;
-                PRINTF("\t\t* BAR #%u (32-bit): %p\n", (uint64_t)barIndex, BAR32);
             }
 
             // Now that we have the bar, we need to check its type (memory mapped or direct I/O port)
             // NOTE: If bit 0 of the BAR is 0, it's a memory bar. If it's 1, it's an I/O bar
-            if (BAR & (1 << 0) == 0) {
+            if (newBar.IsIO == true) {
+                PRINTF("\t\t* BAR #%u is an I/O port\n", (uint64_t)(newBar.Is64Bit == true ? barIndex - 1 : barIndex));
+                newBar.Address = PCI_BAR_IO_ADDR(newBar.RawLow);
 
+                PRINTF("\t\t\t* I/O BAR address is %p\n\n", newBar.Address);
             }
             else {
+                PRINTF("\t\t* BAR #%u is memory mapped\n", (uint64_t)(newBar.Is64Bit == true ? barIndex - 1 : barIndex));
+                newBar.Address = newBar.Is64Bit
+                    ? PCI_BAR_COMBINE_ADDR(newBar.RawHigh, newBar.RawLow)
+                    : PCI_BAR_MEM_ADDR(newBar.RawLow);
+
+                PRINTF("\t\t\t* MEM BAR address is %p\n", newBar.Address);
+
+                if (newBar.Is64Bit == true) {
+                    uint32_t lowOrig = PCIReadConfigDWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset);
+                    uint32_t highOrig = PCIReadConfigDWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset + 4);
+
+                    PCIWriteConfigDWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset, 0xFFFFFFFF);
+                    PCIWriteConfigDWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset + 4, 0xFFFFFFFF);
+
+                    uint32_t lowMask = PCIReadConfigDWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset);
+                    uint32_t highMask = PCIReadConfigDWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset + 4);
+
+                    barSize = ~(PCI_BAR_COMBINE_ADDR(highMask, lowMask) & ~0xFULL) + 1;
+
+                    // Restore original values
+                    PCIWriteConfigDWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset, lowOrig);
+                    PCIWriteConfigDWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset + 4, highOrig);
+                } else {
+                    // Get the original dword so it can be restored later
+                    uint32_t originalBAR = PCIReadConfigDWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset);
+
+                    // Write all 1s, then read the BAR to calculate the size (excluding the BAR properties!)
+                    PCIWriteConfigDWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset, 0xFFFFFFFF);
+                    barSize = (uint64_t)PCIReadConfigDWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset);
+                    barSize = ~(barSize & ~0xF) + 1;
+
+                    // Restore the original BAR
+                    PCIWriteConfigDWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset, originalBAR);
+                }
                 
+                PRINTF("\t\t\t* MEM BAR size is %u bytes (%u KB)\n", barSize, (int)barSize / 1024);
+
+                // Figure out how many pages to map
+                uint64_t pageCount = BYTES_TO_PAGES((size_t)barSize);
+                void* alignedBARAddress = (void*)(uintptr_t)ALIGN_DOWN(newBar.Address, PMM_PAGE_SIZE);
+
+                // Now map the page(s)
+                PRINTF("\t\t\t* Mapping BAR into kernel address space (%z page(s))...\n", pageCount);
+                for (size_t i = 0; i < pageCount; i++) {
+                    void* vAddr = (void*)((size_t)alignedBARAddress + i * PMM_PAGE_SIZE);
+                    void* pAddr = (void*)((size_t)alignedBARAddress + i * PMM_PAGE_SIZE);
+
+                    PRINTF("\t\t\t\t* VADDR = %p; PADDR = %p\n", vAddr, pAddr);
+                    //while(true);
+
+                    // Map the BAR pages as writable and kernel-level, 
+                    if (PagingMapPage(&Kernel.Paging, vAddr, pAddr, true, false, PAGE_CACHE_DISABLE) != STATUS_SUCCESS) {
+                        PANIC("Failed to map PCI BAR page!\n");
+                    }
+                }
+
+                PRINT("\n");
             }
 
+            currentDevice->BARs[storedBARIndex] = newBar;
+            storedBARIndex++;
         }
-        PRINT("\n");
     }
 
 
