@@ -18,6 +18,11 @@ extern PhysicalMemoryManagerState KernelPhysicalMemoryManager;
 /// InfoPtr is a pointer to the multiboot2 information structure.
 Status PhysicalMemoryManagerInit(uint32_t InfoPtr);
 
+/// Reserve a region of physical memory. This region will not be allocated by the physical memory manager.
+/// Start addr must be page-aligned.
+/// Size is in pages (check PMM_PAGE_SIZE for page size).
+void PhysicalMemoryManagerReserveRegion(void *startAddr, size_t size);
+
 /// Allocate a single 4 KiB page of physical memory. Returns NULL if no pages are available.
 void* PhysicalMemoryManagerAllocatePage();
 

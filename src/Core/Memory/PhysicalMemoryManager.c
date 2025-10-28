@@ -29,92 +29,107 @@ Status PhysicalMemoryManagerInit(uint32_t InfoPtr) {
     }
 
     uint32_t count = 0;
-    struct {
-        uint32_t addr;
-        uint32_t len;
-    } valid_regions[128];
-
-    uint32_t total_memory = 0;
 
     // Collect all valid memory regions, skipping those below 1MB
     for (uint8_t *entry_ptr = (uint8_t *)mmap->entries;
          entry_ptr < (uint8_t *)mmap + mmap->size;
          entry_ptr += mmap->entry_size) {
-        struct multiboot_mmap_entry *entry = (struct multiboot_mmap_entry *)entry_ptr;
-
-        if (entry->type == MULTIBOOT_MEMORY_AVAILABLE) {
-            if (entry->addr == 0 && entry->len < 0x100000) {
-                // Skip memory below 1MB
-                continue;
-            }
-            valid_regions[count].addr = entry->addr;
-            valid_regions[count].len = entry->len;
-            total_memory += entry->len;
-            count++;
-        }
+        count++;
     }
 
-    // Now we need to find 2 regions for the allocation map and reserved map
-    size_t total_pages = total_memory / PMM_PAGE_SIZE;
-    size_t bitmap_bytes = (total_pages + 7) / 8;
-    size_t needed_pages = (bitmap_bytes + PMM_PAGE_SIZE - 1) / PMM_PAGE_SIZE;
-    uint32_t allocation_map_addr = 0;
-    uint32_t reserved_map_addr = 0;
+    struct {
+        uint64_t addr;
+        uint64_t len;
+    } validRegions[count];
+    size_t totalMemory = 0;
+    size_t validCount = 0;
 
-    // Find a region that can fit both maps
-    for (uint32_t i = 0; i < count; i++) {
-        if ((valid_regions[i].len / PMM_PAGE_SIZE) >= (needed_pages * 2)) {
-            // We found a region that can fit both maps
-            allocation_map_addr = valid_regions[i].addr;
-            reserved_map_addr = valid_regions[i].addr + needed_pages * PMM_PAGE_SIZE;
+    for (uint8_t *entry_ptr = (uint8_t *)mmap->entries;
+         entry_ptr < (uint8_t *)mmap + mmap->size;
+         entry_ptr += mmap->entry_size) {
+        struct multiboot_mmap_entry *entry = (struct multiboot_mmap_entry *)entry_ptr;
+
+        // We only care about available RAM regions
+        if (entry->type != MULTIBOOT_MEMORY_AVAILABLE) {
+            continue;
+        }
+
+        // Skip regions below 1MB
+        if (entry->addr + entry->len <= 1 * MiB) {
+            continue;
+        }
+
+        validRegions[validCount].addr = entry->addr;
+        validRegions[validCount].len = entry->len;
+        totalMemory += entry->len;
+        validCount++;
+    }
+
+    // We need to find the space for our bitmaps, which will be 2 byte arrays, where each bit represents a page
+    size_t totalPages = totalMemory / PMM_PAGE_SIZE;
+    size_t bitmapSizeBytes = ALIGN_UP((totalPages / 8), PMM_PAGE_SIZE); // Round up to nearest page size
+    size_t necessaryBitmapSize = bitmapSizeBytes * 2; // We need 2 bitmaps: one for allocation, one for reservation
+    void* bitmapMemory = nullptr; // size of necessaryBitmapSize
+
+    for (size_t i = 0; i < count; i++) {
+        size_t region_start = ALIGN_UP(validRegions[i].addr, PMM_PAGE_SIZE);
+        size_t region_end = ALIGN_DOWN(validRegions[i].addr + validRegions[i].len, PMM_PAGE_SIZE);
+        size_t region_size = region_end - region_start;
+
+        if (region_size >= necessaryBitmapSize) {
+            bitmapMemory = (void *)(uintptr_t)region_start;
+            validRegions[i].addr = region_start + necessaryBitmapSize;
+            validRegions[i].len = region_size - necessaryBitmapSize;
             break;
         }
     }
 
-    if (!allocation_map_addr || !reserved_map_addr) {
-        return STATUS_FAILURE; // We couldn't find a suitable region
+    if (!bitmapMemory) {
+        return STATUS_FAILURE; // Could not find space for bitmaps
+    }
+    KernelPhysicalMemoryManager.TotalPages = totalPages;
+    KernelPhysicalMemoryManager.AllocationMap = (uint8_t *)bitmapMemory;
+    KernelPhysicalMemoryManager.ReservedMap = (uint8_t *)bitmapMemory + bitmapSizeBytes;
+
+    // Set all bits to F (reserved) initially
+    for (size_t i = 0; i < bitmapSizeBytes; i++) {
+        KernelPhysicalMemoryManager.AllocationMap[i] = 0xFF;
+        KernelPhysicalMemoryManager.ReservedMap[i] = 0xFF;
     }
 
-    // Initialize the state
-    KernelPhysicalMemoryManager.TotalPages = total_memory / PMM_PAGE_SIZE;
-    KernelPhysicalMemoryManager.AllocationMap = (uint8_t *)allocation_map_addr;
-    KernelPhysicalMemoryManager.ReservedMap = (uint8_t *)reserved_map_addr;
-    KernelPhysicalMemoryManager.MapSize = needed_pages;
-
-    // Now we need to mark these regions as reserved
-    // Any region not marked in the valid regions is considered reserved
-    // Or the region marked by allocation_map_addr/reserved_map_addr + their sizes
-    for (uint32_t i = 0; i < KernelPhysicalMemoryManager.TotalPages / 8; i++) {
-        KernelPhysicalMemoryManager.AllocationMap[i] = 0xFF; // Mark all as allocated
-        KernelPhysicalMemoryManager.ReservedMap[i] = 0xFF; // Mark all as reserved
-    }
-
-    // Now mark the valid regions as free in the allocation map and not reserved in the reserved map
-    for (uint32_t i = 0; i < count; i++) {
-        uint32_t start_page = ALIGN_UP(valid_regions[i].addr, PMM_PAGE_SIZE) / PMM_PAGE_SIZE;
-        uint32_t end_page = ALIGN_DOWN(valid_regions[i].addr + valid_regions[i].len, PMM_PAGE_SIZE) / PMM_PAGE_SIZE;
-
-        for (uint32_t page = start_page; page < end_page; page++) {
+    // Now mark all valid regions as free
+    for (size_t i = 0; i < validCount; i++) {
+        size_t region_start = ALIGN_UP(validRegions[i].addr, PMM_PAGE_SIZE);
+        size_t region_end = ALIGN_DOWN(validRegions[i].addr + validRegions[i].len, PMM_PAGE_SIZE);
+        size_t start_page = region_start / PMM_PAGE_SIZE;
+        size_t end_page = region_end / PMM_PAGE_SIZE;
+        for (size_t page = start_page; page < end_page; page++) {
             KernelPhysicalMemoryManager.AllocationMap[page / 8] &= ~(1 << (page % 8)); // Mark as free
-            KernelPhysicalMemoryManager.ReservedMap[page / 8] &= ~(1 << (page % 8)); // Mark as not reserved
+            KernelPhysicalMemoryManager.ReservedMap[page / 8] &= ~(1 << (page % 8)); // Mark as unreserved
         }
     }
 
-    // Now mark the allocation map and reserved map regions as reserved
-    uint32_t start_page = allocation_map_addr / PMM_PAGE_SIZE;
-    uint32_t end_page = start_page + needed_pages * 2; // Both maps
-    for (uint32_t page = start_page; page < end_page; page++) {
-        KernelPhysicalMemoryManager.ReservedMap[page / 8] |= (1 << (page % 8)); // Mark as reserved
-        KernelPhysicalMemoryManager.AllocationMap[page / 8] |= (1 << (page % 8)); // Mark as allocated
-    }
-
     // Reserve the first 1MB of memory
-    for (uint32_t page = 0; page < (0x100000 / PMM_PAGE_SIZE); page++) {
-        KernelPhysicalMemoryManager.ReservedMap[page / 8] |= (1 << (page % 8)); // Mark as reserved
-        KernelPhysicalMemoryManager.AllocationMap[page / 8] |= (1 << (page % 8)); // Mark as allocated
+    PhysicalMemoryManagerReserveRegion((void *)0x0, BYTES_TO_PAGES(1 * MiB));
+
+
+    struct multiboot_tag_module* initrdTag = (struct multiboot_tag_module*)MBGetTag(InfoPtr, MULTIBOOT_TAG_TYPE_MODULE);
+    if (initrdTag) {
+        PhysicalMemoryManagerReserveRegion((void*)(uintptr_t)initrdTag->mod_start, BYTES_TO_PAGES(initrdTag->mod_end - initrdTag->mod_start));
     }
 
     return STATUS_SUCCESS;
+}
+
+void PhysicalMemoryManagerReserveRegion(void *startAddr, size_t size) {
+    // Reserve a region of physical memory
+    size_t start_address = (size_t)startAddr;
+    size_t start_page = start_address / PMM_PAGE_SIZE;
+    size_t end_page = start_page + size;
+    for (size_t page = start_page; page < end_page; page++) {
+        KernelPhysicalMemoryManager.ReservedMap[page / 8] |= (1 << (page % 8)); // Mark as reserved
+        KernelPhysicalMemoryManager.AllocationMap[page / 8] |= (1 << (page % 8)); // Mark as allocated
+    }
 }
 
 void * PhysicalMemoryManagerAllocatePage() {

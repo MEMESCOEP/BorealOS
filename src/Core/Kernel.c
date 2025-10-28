@@ -285,6 +285,12 @@ Status KernelInit(uint32_t InfoPtr) {
     }
 #endif
 
+    // Initialize PCI
+    // NOTE: This is done before other things like USB and PS/2 so that add-in cards for those functions can work properly
+    if (PCIInit() != STATUS_SUCCESS) {
+        LOG(LOG_WARNING, "PCI init failed!\n");
+    }
+
     // Initialize LAI for ACPI AML interpretation
     Status LAIInitStatus = ACPIInitLAI();
 
@@ -293,12 +299,6 @@ Status KernelInit(uint32_t InfoPtr) {
     }
     else if (LAIInitStatus != STATUS_SUCCESS) {
         LOG(LOG_WARNING, "LAI initialization failed!\n");
-    }
-    
-    // Initialize PCI
-    // NOTE: This is done before other things like USB and PS/2 so that add-in cards for those functions can work properly
-    if (PCIInit() != STATUS_SUCCESS) {
-        LOG(LOG_WARNING, "PCI init failed!\n");
     }
 
     // Initialize the PS/2 controller and any devices connected to it

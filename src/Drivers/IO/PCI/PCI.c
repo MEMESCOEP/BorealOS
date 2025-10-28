@@ -3,6 +3,7 @@
 #include <Core/Memory/HeapAllocator.h>
 #include <Core/Memory/Paging.h>
 #include <Core/Kernel.h>
+#include <Drivers/CPU.h>
 
 #define INITIAL_DEVICE_ARRAY_SIZE 8
 
@@ -55,6 +56,33 @@ void PCIWriteConfigWord(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset,
 
     // Clear the 16 bits we want to write, then OR in the new value
     currentData &= ~(0xFFFF << shift);
+    currentData |= ((uint32_t)value) << shift;
+
+    // Write the updated 32-bit value back
+    outl(PCI_CONFIGSPACE_DATA, currentData);
+}
+
+void PCIWriteConfigByte(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset, uint8_t value) {
+    // Construct the 32-bit configuration address
+    uint32_t address = (uint32_t)(
+        (bus  << 16) |      // Bus number
+        (slot << 11) |      // Device/slot number
+        (func << 8)  |      // Function number
+        (offset & 0xFC) |   // Register offset, 4-byte aligned
+        0x80000000          // Enable bit
+    );
+
+    // Tell the PCI controller which configuration register we want to access
+    outl(PCI_CONFIGSPACE_ADDRESS, address);
+
+    // Read the current 32-bit value first so we can preserve other bytes
+    uint32_t currentData = inl(PCI_CONFIGSPACE_DATA);
+
+    // Determine which byte of the dword to modify
+    uint32_t shift = (offset & 3) * 8;
+
+    // Clear the 8 bits we want to write, then OR in the new value
+    currentData &= ~(0xFF << shift);
     currentData |= ((uint32_t)value) << shift;
 
     // Write the updated 32-bit value back
@@ -450,6 +478,8 @@ Status PCIInit() {
             newBar.Is64Bit = PCI_BAR_IS_64BIT(newBar.RawLow);
             newBar.IsIO = PCI_BAR_IS_IO_ADDR(newBar.RawLow);
             newBar.Valid = true;
+            barSize = 0;
+            newBar.Size = 0;
 
             // Is the BAR implemented?
             if (newBar.RawLow == 0x0) {
@@ -478,6 +508,7 @@ Status PCIInit() {
             if (newBar.IsIO == true) {
                 PRINTF("\t\t* BAR #%u is an I/O port\n", (uint64_t)(newBar.Is64Bit == true ? barIndex - 1 : barIndex));
                 newBar.Address = PCI_BAR_IO_ADDR(newBar.RawLow);
+                newBar.Size = 0;
 
                 PRINTF("\t\t\t* I/O BAR address is %p\n\n", newBar.Address);
             }
@@ -505,40 +536,22 @@ Status PCIInit() {
                     PCIWriteConfigDWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset, lowOrig);
                     PCIWriteConfigDWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset + 4, highOrig);
                 } else {
-                    // Get the original dword so it can be restored later
                     uint32_t originalBAR = PCIReadConfigDWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset);
-
-                    // Write all 1s, then read the BAR to calculate the size (excluding the BAR properties!)
                     PCIWriteConfigDWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset, 0xFFFFFFFF);
-                    barSize = (uint64_t)PCIReadConfigDWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset);
-                    barSize = ~(barSize & ~0xF) + 1;
 
-                    // Restore the original BAR
+                    uint32_t barMask = PCIReadConfigDWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset);
+                    uint32_t size32 = ~(barMask & ~0xF) + 1; // we do this in 32 bits so it doesnt create a massive size (0xFFFFFFFXXXXXXXX) where X is the 32 bit size
+
+                    barSize = (uint64_t)size32;
                     PCIWriteConfigDWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, BAROffset, originalBAR);
                 }
                 
                 PRINTF("\t\t\t* MEM BAR size is %u bytes (%u KB)\n", barSize, (int)barSize / 1024);
-
-                // Figure out how many pages to map
-                uint64_t pageCount = BYTES_TO_PAGES((size_t)barSize);
-                void* alignedBARAddress = (void*)(uintptr_t)ALIGN_DOWN(newBar.Address, PMM_PAGE_SIZE);
-
-                // Now map the page(s)
-                PRINTF("\t\t\t* Mapping BAR into kernel address space (%z page(s))...\n", pageCount);
-                for (size_t i = 0; i < pageCount; i++) {
-                    void* vAddr = (void*)((size_t)alignedBARAddress + i * PMM_PAGE_SIZE);
-                    void* pAddr = (void*)((size_t)alignedBARAddress + i * PMM_PAGE_SIZE);
-
-                    PRINTF("\t\t\t\t* VADDR = %p; PADDR = %p\n", vAddr, pAddr);
-                    //while(true);
-
-                    // Map the BAR pages as writable and kernel-level, 
-                    if (PagingMapPage(&Kernel.Paging, vAddr, pAddr, true, false, PAGE_CACHE_DISABLE) != STATUS_SUCCESS) {
-                        PANIC("Failed to map PCI BAR page!\n");
-                    }
-                }
-
+                newBar.Size = barSize;
                 PRINT("\n");
+
+                // Reverse the pages from the PMM so we cant override them
+                PhysicalMemoryManagerReserveRegion((void*)(uintptr_t)ALIGN_DOWN(newBar.Address, PMM_PAGE_SIZE), ALIGN_UP(BYTES_TO_PAGES(newBar.Size), 1));
             }
 
             currentDevice->BARs[storedBARIndex] = newBar;
@@ -546,6 +559,15 @@ Status PCIInit() {
         }
     }
 
+    // now map the BARs
+    for (uint32_t PCIDevIndex = 0; PCIDevIndex < deviceCount; PCIDevIndex++) {
+        PCIDevice* currentDevice = &PCIDevices[PCIDevIndex];
+        Status mapStatus = PCIMapDeviceBARs(currentDevice);
+        if (mapStatus != STATUS_SUCCESS) {
+            PRINTF("\t* Failed to map BARs for device at %u:%u:%u\n", (uint64_t)currentDevice->BusNumber, (uint64_t)currentDevice->SlotNumber, (uint64_t)currentDevice->FunctionNumber);
+            continue;
+        }
+    }
 
     // Enable bus mastering for all valid controller types now
     LOGF(LOG_INFO, "Enabling bus mastering for up to %u devices...\n", (uint64_t)deviceCount);
@@ -614,6 +636,51 @@ Status PCIInit() {
         else {
             PRINT("\t\t* Bus mastering is already enabled for this device, no need to re-enable it\n\n");
         }
+    }
+
+    return STATUS_SUCCESS;
+}
+
+Status PCIMapDeviceBARs(PCIDevice *device) {
+    PCIBar* current = &device->BARs[0];
+    uint8_t barIndex = 0;
+    while (current->Valid) {
+        if (current->IsIO) {
+            PRINTF("\t* Skipping I/O BAR at address %p\n", current->Address);
+            current++;
+            barIndex++;
+            continue;
+        }
+
+        // Map the BAR into the kernel's virtual address space
+        uintptr_t aligned_bar_addr = ALIGN_DOWN(current->Address, PMM_PAGE_SIZE);
+        uintptr_t aligned_bar_end = ALIGN_UP(current->Address + current->Size, PMM_PAGE_SIZE);
+
+        if (aligned_bar_addr > UINT32_MAX || aligned_bar_end > UINT32_MAX) {
+            PRINTF("\t* BAR at address %p is above 4GB, cannot map it in 32-bit address space\n", (void*)(uintptr_t)current->Address);
+            return STATUS_FAILURE;
+        }
+
+        PRINTF("\t* Mapping %u:%u:%u BAR %u at physical address %p to virtual address %p (size: %u bytes)\n",
+            (uint64_t)device->BusNumber,
+            (uint64_t)device->SlotNumber,
+            (uint64_t)device->FunctionNumber,
+            (uint64_t)barIndex,
+            (void*)(uintptr_t)current->Address,
+            (void*)aligned_bar_addr,
+            (uint64_t)(aligned_bar_end - aligned_bar_addr)
+        );
+
+        for (uintptr_t addr = aligned_bar_addr; addr < aligned_bar_end; addr += PMM_PAGE_SIZE) {
+            Status mapState = PagingMapPage(&Kernel.Paging, (void*)addr, (void*)addr, true, false, PAGE_CACHE_DISABLE);
+            if (mapState != STATUS_SUCCESS) {
+                PRINTF("\t\t* Failed to map page at address %p for BAR mapping\n", (void*)addr);
+                return STATUS_FAILURE;
+            }
+        }
+
+        current++;
+        barIndex++;
     }
 
     return STATUS_SUCCESS;

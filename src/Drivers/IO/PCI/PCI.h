@@ -55,6 +55,7 @@ typedef struct {
     uint64_t Address;  // BAR address
     uint32_t RawLow;   // Raw low DWORD
     uint32_t RawHigh;  // Raw high DWORD (64-bit only)
+    uint64_t Size;     // Size of the BAR
     bool Is64Bit;      // Only relevant for memory BARs
     bool Valid;        // True if BAR is implemented
     bool IsIO;         // If this is false, assume the BAR contains a memory address
@@ -79,8 +80,16 @@ typedef struct {
     uint8_t BusNumber;           // Identifies the bus that this device is connected to
 } PCIDevice;
 
+void PCIWriteConfigDWord(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset, uint32_t value);
+void PCIWriteConfigWord(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset, uint16_t value);
+void PCIWriteConfigByte(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset, uint8_t value);
+uint32_t PCIReadConfigDWord(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset);
+uint16_t PCIReadConfigWord(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset);
+uint8_t PCIReadConfigByte(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset);
+
 /// Scan for and initialize any devices that are connected to the PCI bus
 Status PCIInit();
+Status PCIMapDeviceBARs(PCIDevice* device);
 
 // Scan all slots (32 max) in a PCI bus
 // NOTE: This function uses the recursive scan method, which finds all valid buses in the system

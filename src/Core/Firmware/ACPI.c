@@ -291,7 +291,7 @@ Status ACPIInitLAI() {
 
     IDTSetIRQHandler(KernelACPI.FADT->SCI_Interrupt, SCIInterrupt);
 
-    // lai_enable_acpi(0); TODO: enable after creating PCI.
+    lai_enable_acpi(0);
     // We can now do stuff like sleeping!
 
     // THIS TOOK LIKE 2 WEEKS OF TRAIL AND ERROR...

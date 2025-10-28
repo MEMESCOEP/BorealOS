@@ -9,3 +9,4 @@ BuildLog.txt
 *.img
 /cmake-build-debug/
 HDD.img.lock
+/mnt/
