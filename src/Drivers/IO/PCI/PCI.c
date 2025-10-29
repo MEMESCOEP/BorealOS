@@ -510,7 +510,7 @@ Status PCIInit() {
                 newBar.Address = PCI_BAR_IO_ADDR(newBar.RawLow);
                 newBar.Size = 0;
 
-                PRINTF("\t\t\t* I/O BAR address is %p\n\n", newBar.Address);
+                PRINTF("\t\t\t* I/O BAR address is %p\n", newBar.Address);
             }
             else {
                 PRINTF("\t\t* BAR #%u is memory mapped\n", (uint64_t)(newBar.Is64Bit == true ? barIndex - 1 : barIndex));
@@ -548,24 +548,22 @@ Status PCIInit() {
                 
                 PRINTF("\t\t\t* MEM BAR size is %u bytes (%u KB)\n", barSize, (int)barSize / 1024);
                 newBar.Size = barSize;
-                PRINT("\n");
 
-                // Reverse the pages from the PMM so we cant override them
+                // Reverse the pages from the PMM so we can't override them
                 PhysicalMemoryManagerReserveRegion((void*)(uintptr_t)ALIGN_DOWN(newBar.Address, PMM_PAGE_SIZE), ALIGN_UP(BYTES_TO_PAGES(newBar.Size), 1));
             }
 
+            // Store the BAR in the device's info struct's BAR array
+            PRINT("\t\t\t* Storing BAR...\n");
             currentDevice->BARs[storedBARIndex] = newBar;
             storedBARIndex++;
-        }
-    }
 
-    // now map the BARs
-    for (uint32_t PCIDevIndex = 0; PCIDevIndex < deviceCount; PCIDevIndex++) {
-        PCIDevice* currentDevice = &PCIDevices[PCIDevIndex];
-        Status mapStatus = PCIMapDeviceBARs(currentDevice);
-        if (mapStatus != STATUS_SUCCESS) {
-            PRINTF("\t* Failed to map BARs for device at %u:%u:%u\n", (uint64_t)currentDevice->BusNumber, (uint64_t)currentDevice->SlotNumber, (uint64_t)currentDevice->FunctionNumber);
-            continue;
+            // Map the device's BARs
+            if (PCIMapDeviceBARs(currentDevice) != STATUS_SUCCESS) {
+                PRINTF("\t* Failed to map BARs for device at %u:%u:%u\n", (uint64_t)currentDevice->BusNumber, (uint64_t)currentDevice->SlotNumber, (uint64_t)currentDevice->FunctionNumber);
+            }
+
+            PRINT("\n");
         }
     }
 
@@ -638,6 +636,155 @@ Status PCIInit() {
         }
     }
 
+    // Enable Message Signaled Interrupts (MSI)
+    // NOTE: This is NOT MSI-X! PCIe devices require MSI-X, but this is just regular PCI and thus only MSI is supported
+    LOGF(LOG_INFO, "Enabling Message Signaled Interrupts (MSI) for up to %u devices...\n", (uint64_t)deviceCount);
+    for (uint32_t PCIDevIndex = 0; PCIDevIndex < deviceCount; PCIDevIndex++) {
+        PCIDevice* currentDevice = &PCIDevices[PCIDevIndex];
+        bool devHasCapabilities = true;
+        
+        // Check if the device has a pointer to the capabilities list (status bit 4 set to 1)
+        uint16_t devStatus = PCIReadConfigWord(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, PCI_HEADER_STATUS_OFFSET);
+
+        if (devStatus & (1 << 4)) {
+            PRINTF("\t* Capabilities pointer exists for device %u:%u:%u\n",
+                (uint64_t)currentDevice->BusNumber,
+                (uint64_t)currentDevice->SlotNumber,
+                (uint64_t)currentDevice->FunctionNumber
+            );
+
+            // Get the device's capability register based on the header type
+            // NOTE: CardBus bridge devices use 0x14 as the offset instead of 0x34
+            uint8_t capabilitiesPointer = PCIReadConfigByte(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, (currentDevice->HeaderType == 0x02) ? 0x14 : 0x34);
+
+            // Verify the capabilities pointer
+            if (capabilitiesPointer == 0x0) {
+                PRINTF("\t\t* Capabilities pointer device %u:%u:%u is invalid!\n\n",
+                    (uint64_t)currentDevice->BusNumber,
+                    (uint64_t)currentDevice->SlotNumber,
+                    (uint64_t)currentDevice->FunctionNumber
+                );
+
+                devHasCapabilities = false;
+                continue;
+            }
+
+            // Now walk the capabilities list
+            uint8_t capabilityOffset = capabilitiesPointer;
+
+            // NOTE: See https://pcisig.com/sites/default/files/files/PCI_Code-ID_r_1_11__v24_Jan_2019.pdf for capability IDs
+            while (capabilityOffset != 0) {
+                uint8_t capabilityID  = PCIReadConfigByte(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, capabilityOffset);
+                uint8_t nextPtr = PCIReadConfigByte(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, capabilityOffset + 1);
+
+                switch (capabilityID) {
+                    // --- STANDARD CAPABILITIES ---
+                    case 0x00: // Null capability
+                        PRINT("\t\t* This device has a NULL capability, its function is not specified\n");
+                        break;
+
+                    case 0x01: // Power Management
+                        PRINT("\t\t* This device has power management capabilities (unsupported)\n");
+                        break;
+
+                    case 0x02: // AGP (Accelerated Graphics Port) features
+                        PRINT("\t\t* This device can use AGP features (unsupported)\n");
+                        break;
+
+                    case 0x03: // VPD (Vital Product Data)
+                        PRINT("\t\t* This device supports Vital Product Data (VPD) (unsupported)\n");
+                        break;
+
+                    case 0x04: // External expansion bridge
+                        PRINT("\t\t* This device provides external expansion (unsupported)\n");
+                        break;
+
+                    case 0x05: // MSI
+                        PRINT("\t\t* This device is MSI capable\n");
+                        break;
+
+                    case 0x06: // CompactPCI hot swap
+                        PRINT("\t\t* This device is CompactPCI hot swap capable (unsupported)\n");
+                        break;
+
+                    case 0x07: // PCI-X
+                        PRINT("\t\t* This is a PCI-X device (unsupported)\n");
+                        break;
+
+                    case 0x08: // HyperTransport
+                        PRINT("\t\t* This device is HyperTransport capable (unsupported)\n");
+                        break;
+                    
+                    case 0x09: // Vendor specific
+                        PRINTF("\t\t* Vendor specific capability detected at offset %p\n", capabilityOffset);
+                        break;
+
+                    case 0x0A: // Debug port
+                        PRINT("\t\t* This device is a debug port (unsupported)\n");
+                        break;
+
+                    case 0x0B: // CompactPCI central resource control
+                        PRINT("\t\t* This device is a CompactPCI central resource control (unsupported)\n");
+                        break;
+
+                    case 0x0C: // PCI hot plug
+                        PRINT("\t\t* This device is PCIe hot plug capable (unsupported)\n");
+                        break;
+
+                    case 0x0D: // PCI bridge subsystem vendor ID
+                        PRINT("\t\t* This device is a PCI bridge with a subsystem vendor ID (unsupported)\n");
+                        break;
+
+                    case 0x0E: // AGP 8x
+                        PRINT("\t\t* This is an AGP 8x device (unsupported)\n");
+                        break;
+
+                    case 0x0F: // Secure device
+                        PRINT("\t\t* This device is a secure device (details unknown)\n");
+                        break;
+
+                    case 0x10: // PCIe
+                        PRINT("\t\t* This is a PCIe device (unsupported)\n");
+                        break;
+
+                    case 0x11: // MSI-X
+                        PRINT("\t\t* This device is MSI-X capable (unsupported)\n");
+                        break;
+
+                    case 0x12: // SATA data/index configuration
+                        PRINT("\t\t* This device supports SATA data/index config (unsupported)\n");
+                        break;
+
+                    case 0x13: // PCIe advanced features
+                        PRINT("\t\t* This device is PCIe Advanced Features capable (unsupported)\n");
+                        break;
+
+                    case 0x14: // Enhanced allocation
+                        PRINT("\t\t* This device supports enhanced allocation (unsupported)\n");
+                        break;
+
+                    case 0x15: // Flattening portal bridge
+                        PRINT("\t\t* This device is a flattening portal bridge (unsupported)\n");
+                        break;
+
+                    // --- EXTENDED CAPABILITIES ---
+                    // To be implemented later
+
+                    default: // Unknown / unimplemented / reserved
+                        PRINTF("\t\t* Unknown / unimplemented / reserved capability ID %p at offset %p\n", capabilityID, capabilityOffset);
+                        break;
+                }
+
+                capabilityOffset = nextPtr;
+            }
+
+            if (devHasCapabilities == true) PRINT("\n");
+        }
+        else {
+            devHasCapabilities = false;
+        }
+    }
+
     return STATUS_SUCCESS;
 }
 
@@ -646,7 +793,7 @@ Status PCIMapDeviceBARs(PCIDevice *device) {
     uint8_t barIndex = 0;
     while (current->Valid) {
         if (current->IsIO) {
-            PRINTF("\t* Skipping I/O BAR at address %p\n", current->Address);
+            PRINTF("\t\t\t* Skipping I/O BAR at address %p\n", current->Address);
             current++;
             barIndex++;
             continue;
@@ -657,11 +804,11 @@ Status PCIMapDeviceBARs(PCIDevice *device) {
         uintptr_t aligned_bar_end = ALIGN_UP(current->Address + current->Size, PMM_PAGE_SIZE);
 
         if (aligned_bar_addr > UINT32_MAX || aligned_bar_end > UINT32_MAX) {
-            PRINTF("\t* BAR at address %p is above 4GB, cannot map it in 32-bit address space\n", (void*)(uintptr_t)current->Address);
+            PRINTF("\t\t\t* BAR at address %p is above 4GB, cannot map it in 32-bit address space\n", (void*)(uintptr_t)current->Address);
             return STATUS_FAILURE;
         }
 
-        PRINTF("\t* Mapping %u:%u:%u BAR %u at physical address %p to virtual address %p (size: %u bytes)\n",
+        PRINTF("\t\t\t* Mapping %u:%u:%u BAR %u at physical address %p to virtual address %p (size: %u bytes)\n",
             (uint64_t)device->BusNumber,
             (uint64_t)device->SlotNumber,
             (uint64_t)device->FunctionNumber,
@@ -674,7 +821,7 @@ Status PCIMapDeviceBARs(PCIDevice *device) {
         for (uintptr_t addr = aligned_bar_addr; addr < aligned_bar_end; addr += PMM_PAGE_SIZE) {
             Status mapState = PagingMapPage(&Kernel.Paging, (void*)addr, (void*)addr, true, false, PAGE_CACHE_DISABLE);
             if (mapState != STATUS_SUCCESS) {
-                PRINTF("\t\t* Failed to map page at address %p for BAR mapping\n", (void*)addr);
+                PRINTF("\t\t\t\t* Failed to map page at address %p for BAR mapping\n", (void*)addr);
                 return STATUS_FAILURE;
             }
         }
