@@ -799,6 +799,11 @@ Status PCIMapDeviceBARs(PCIDevice *device) {
             continue;
         }
 
+        if (current->Size == 0 || current->Size > UINT32_MAX) {
+            PRINTF("\t\t\t* BAR at address %p has invalid size %u, cannot map it\n", (void*)(uintptr_t)current->Address, (uint64_t)current->Size);
+            return STATUS_FAILURE;
+        }
+
         // Map the BAR into the kernel's virtual address space
         uintptr_t aligned_bar_addr = ALIGN_DOWN(current->Address, PMM_PAGE_SIZE);
         uintptr_t aligned_bar_end = ALIGN_UP(current->Address + current->Size, PMM_PAGE_SIZE);
