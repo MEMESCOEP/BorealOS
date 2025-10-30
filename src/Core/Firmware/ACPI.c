@@ -272,9 +272,9 @@ void ACPIMapTables() {
 }
 
 static void SCIInterrupt(uint8_t irqNumber, RegisterState* state) {
-    (void)state;
-    // Handle ACPI SCI interrupts later, for now just acknowledge
-    LOGF(LOG_DEBUG, "Received ACPI SCI interrupt on IRQ %u\n", irqNumber);
+    (void)state, (void)irqNumber;
+    uint16_t sciEvent = lai_get_sci_event();
+    LOGF(LOG_INFO, "SCI Interrupt received! Event register value: %u\n", (uint64_t)sciEvent);
 }
 
 Status ACPIInitLAI() {
@@ -290,6 +290,7 @@ Status ACPIInitLAI() {
     ASM ("sti"); // Re-enable interrupts.
 
     IDTSetIRQHandler(KernelACPI.FADT->SCI_Interrupt, SCIInterrupt);
+    PICClearIRQMask(KernelACPI.FADT->SCI_Interrupt);
 
     lai_enable_acpi(0);
     // We can now do stuff like sleeping!

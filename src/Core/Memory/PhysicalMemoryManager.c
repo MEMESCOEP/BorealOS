@@ -67,19 +67,23 @@ Status PhysicalMemoryManagerInit(uint32_t InfoPtr) {
 
     // We need to find the space for our bitmaps, which will be 2 byte arrays, where each bit represents a page
     size_t totalPages = totalMemory / PMM_PAGE_SIZE;
-    size_t bitmapSizeBytes = ALIGN_UP((totalPages / 8), PMM_PAGE_SIZE); // Round up to nearest page size
+    size_t bitmapSizeBytes = (totalPages + 7) / 8; // Round up to nearest byte
+    bitmapSizeBytes = ALIGN_UP(bitmapSizeBytes, PMM_PAGE_SIZE); // Align to page size
     size_t necessaryBitmapSize = bitmapSizeBytes * 2; // We need 2 bitmaps: one for allocation, one for reservation
     void* bitmapMemory = nullptr; // size of necessaryBitmapSize
 
-    for (size_t i = 0; i < count; i++) {
+    for (size_t i = 0; i < validCount; i++) {
         size_t region_start = ALIGN_UP(validRegions[i].addr, PMM_PAGE_SIZE);
         size_t region_end = ALIGN_DOWN(validRegions[i].addr + validRegions[i].len, PMM_PAGE_SIZE);
-        size_t region_size = region_end - region_start;
+        size_t region_size = (region_end > region_start) ? (region_end - region_start) : 0;
 
         if (region_size >= necessaryBitmapSize) {
             bitmapMemory = (void *)(uintptr_t)region_start;
             validRegions[i].addr = region_start + necessaryBitmapSize;
             validRegions[i].len = region_size - necessaryBitmapSize;
+            if (validRegions[i].len + validRegions[i].addr > UINT32_MAX) {
+                validRegions[i].len = UINT32_MAX - validRegions[i].addr;
+            }
             break;
         }
     }
@@ -101,6 +105,15 @@ Status PhysicalMemoryManagerInit(uint32_t InfoPtr) {
     for (size_t i = 0; i < validCount; i++) {
         size_t region_start = ALIGN_UP(validRegions[i].addr, PMM_PAGE_SIZE);
         size_t region_end = ALIGN_DOWN(validRegions[i].addr + validRegions[i].len, PMM_PAGE_SIZE);
+        if (region_start > UINT32_MAX) {
+            // Region starts above 4GB, skip
+            continue;
+        }
+
+        if (region_end > UINT32_MAX) {
+            region_end = UINT32_MAX;
+        }
+
         size_t start_page = region_start / PMM_PAGE_SIZE;
         size_t end_page = region_end / PMM_PAGE_SIZE;
         for (size_t page = start_page; page < end_page; page++) {
@@ -110,7 +123,18 @@ Status PhysicalMemoryManagerInit(uint32_t InfoPtr) {
     }
 
     // Reserve the first 1MB of memory
-    PhysicalMemoryManagerReserveRegion((void *)0x0, BYTES_TO_PAGES(1 * MiB));
+    for (size_t page = 0; page < (1 * MiB) / PMM_PAGE_SIZE; page++) {
+        KernelPhysicalMemoryManager.ReservedMap[page / 8] |= (1 << (page % 8)); // Mark as reserved
+        KernelPhysicalMemoryManager.AllocationMap[page / 8] |= (1 << (page % 8)); // Mark as allocated
+    }
+
+    // Reserve the 2 bitmaps
+    size_t bitmap_start_page = (size_t)(uintptr_t)bitmapMemory / PMM_PAGE_SIZE;
+    size_t bitmap_end_page = bitmap_start_page + BYTES_TO_PAGES(necessaryBitmapSize);
+    for (size_t page = bitmap_start_page; page < bitmap_end_page; page++) {
+        KernelPhysicalMemoryManager.ReservedMap[page / 8] |= (1 << (page % 8)); // Mark as reserved
+        KernelPhysicalMemoryManager.AllocationMap[page / 8] |= (1 << (page % 8)); // Mark as allocated
+    }
 
 
     struct multiboot_tag_module* initrdTag = (struct multiboot_tag_module*)MBGetTag(InfoPtr, MULTIBOOT_TAG_TYPE_MODULE);
