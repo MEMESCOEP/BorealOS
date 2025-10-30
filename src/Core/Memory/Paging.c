@@ -92,6 +92,11 @@ Status PagingUnmapPage(PagingState *state, void *virtualAddr) {
     size_t dirIndex = (vAddr >> 22) & 0x3FF;
     size_t tableIndex = (vAddr >> 12) & 0x3FF;
 
+    // Don't unmap the kernel's 4MB, just lie >:3 (evil)
+    if (dirIndex == 0) {
+        return STATUS_SUCCESS;
+    }
+
     if (!(state->PageDirectory[dirIndex] & PAGE_PRESENT)) {
         return STATUS_FAILURE;
     }
