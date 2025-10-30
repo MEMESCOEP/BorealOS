@@ -117,7 +117,6 @@ Status PhysicalMemoryManagerInit(uint32_t InfoPtr) {
         size_t start_page = region_start / PMM_PAGE_SIZE;
         size_t end_page = region_end / PMM_PAGE_SIZE;
         for (size_t page = start_page; page < end_page; page++) {
-            KernelPhysicalMemoryManager.AllocationMap[page / 8] &= ~(1 << (page % 8)); // Mark as free
             KernelPhysicalMemoryManager.ReservedMap[page / 8] &= ~(1 << (page % 8)); // Mark as unreserved
         }
     }
@@ -125,7 +124,6 @@ Status PhysicalMemoryManagerInit(uint32_t InfoPtr) {
     // Reserve the first 1MB of memory
     for (size_t page = 0; page < (1 * MiB) / PMM_PAGE_SIZE; page++) {
         KernelPhysicalMemoryManager.ReservedMap[page / 8] |= (1 << (page % 8)); // Mark as reserved
-        KernelPhysicalMemoryManager.AllocationMap[page / 8] |= (1 << (page % 8)); // Mark as allocated
     }
 
     // Reserve the 2 bitmaps
@@ -136,6 +134,10 @@ Status PhysicalMemoryManagerInit(uint32_t InfoPtr) {
         KernelPhysicalMemoryManager.AllocationMap[page / 8] |= (1 << (page % 8)); // Mark as allocated
     }
 
+    // Free up the allocation map for use (now that we've reserved necessary regions)
+    for (size_t i = 0; i < bitmapSizeBytes; i++) {
+        KernelPhysicalMemoryManager.AllocationMap[i] = 0x00;
+    }
 
     struct multiboot_tag_module* initrdTag = (struct multiboot_tag_module*)MBGetTag(InfoPtr, MULTIBOOT_TAG_TYPE_MODULE);
     if (initrdTag) {
@@ -152,8 +154,21 @@ void PhysicalMemoryManagerReserveRegion(void *startAddr, size_t size) {
     size_t end_page = start_page + size;
     for (size_t page = start_page; page < end_page; page++) {
         KernelPhysicalMemoryManager.ReservedMap[page / 8] |= (1 << (page % 8)); // Mark as reserved
-        KernelPhysicalMemoryManager.AllocationMap[page / 8] |= (1 << (page % 8)); // Mark as allocated
     }
+}
+
+uint64_t PhysicalMemoryManagerCountFreePages() {
+    uint64_t freePages = 0;
+    for (size_t i = 0; i < KernelPhysicalMemoryManager.TotalPages; i++) {
+        size_t byte_index = i / 8;
+        size_t bit_index = i % 8;
+
+        // Check if the page is free
+        if (!(KernelPhysicalMemoryManager.AllocationMap[byte_index] & (1 << bit_index)) && (!(KernelPhysicalMemoryManager.ReservedMap[byte_index] & (1 << bit_index)))) {
+            freePages++;
+        }
+    }
+    return freePages;
 }
 
 void * PhysicalMemoryManagerAllocatePage() {
@@ -168,6 +183,11 @@ void * PhysicalMemoryManagerAllocatePage() {
             return (void *)(i * PMM_PAGE_SIZE); // Return the address of the allocated page
         }
     }
+
+    LOGF(LOG_WARNING, "PhysicalMemoryManagerAllocatePage: Out of memory! No free pages available. Used %u out of %u pages.\n",
+        KernelPhysicalMemoryManager.TotalPages - PhysicalMemoryManagerCountFreePages(),
+        KernelPhysicalMemoryManager.TotalPages
+    );
 
     return nullptr; // No free pages available
 }
