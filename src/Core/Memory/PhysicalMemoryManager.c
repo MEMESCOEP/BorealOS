@@ -29,106 +29,181 @@ Status PhysicalMemoryManagerInit(uint32_t InfoPtr) {
     }
 
     uint32_t count = 0;
-    struct {
-        uint32_t addr;
-        uint32_t len;
-    } valid_regions[128];
-
-    uint32_t total_memory = 0;
 
     // Collect all valid memory regions, skipping those below 1MB
     for (uint8_t *entry_ptr = (uint8_t *)mmap->entries;
          entry_ptr < (uint8_t *)mmap + mmap->size;
          entry_ptr += mmap->entry_size) {
-        struct multiboot_mmap_entry *entry = (struct multiboot_mmap_entry *)entry_ptr;
-
-        if (entry->type == MULTIBOOT_MEMORY_AVAILABLE) {
-            if (entry->addr == 0 && entry->len < 0x100000) {
-                // Skip memory below 1MB
-                continue;
-            }
-            valid_regions[count].addr = entry->addr;
-            valid_regions[count].len = entry->len;
-            total_memory += entry->len;
-            count++;
-        }
+        count++;
     }
 
-    // Now we need to find 2 regions for the allocation map and reserved map
-    size_t total_pages = total_memory / PMM_PAGE_SIZE;
-    size_t bitmap_bytes = (total_pages + 7) / 8;
-    size_t needed_pages = (bitmap_bytes + PMM_PAGE_SIZE - 1) / PMM_PAGE_SIZE;
-    uint32_t allocation_map_addr = 0;
-    uint32_t reserved_map_addr = 0;
+    struct {
+        uint64_t addr;
+        uint64_t len;
+    } validRegions[count];
+    size_t totalMemory = 0;
+    size_t validCount = 0;
 
-    // Find a region that can fit both maps
-    for (uint32_t i = 0; i < count; i++) {
-        if ((valid_regions[i].len / PMM_PAGE_SIZE) >= (needed_pages * 2)) {
-            // We found a region that can fit both maps
-            allocation_map_addr = valid_regions[i].addr;
-            reserved_map_addr = valid_regions[i].addr + needed_pages * PMM_PAGE_SIZE;
+    for (uint8_t *entry_ptr = (uint8_t *)mmap->entries;
+         entry_ptr < (uint8_t *)mmap + mmap->size;
+         entry_ptr += mmap->entry_size) {
+        struct multiboot_mmap_entry *entry = (struct multiboot_mmap_entry *)entry_ptr;
+
+        // We only care about available RAM regions
+        if (entry->type != MULTIBOOT_MEMORY_AVAILABLE) {
+            continue;
+        }
+
+        // Skip regions below 1MB
+        if (entry->addr + entry->len <= 1 * MiB) {
+            continue;
+        }
+
+        validRegions[validCount].addr = entry->addr;
+        validRegions[validCount].len = entry->len;
+        totalMemory += entry->len;
+        validCount++;
+    }
+
+    // We need to find the space for our bitmaps, which will be 2 byte arrays, where each bit represents a page
+    size_t totalPages = totalMemory / PMM_PAGE_SIZE;
+    size_t bitmapSizeBytes = (totalPages + 7) / 8; // Round up to nearest byte
+    bitmapSizeBytes = ALIGN_UP(bitmapSizeBytes, PMM_PAGE_SIZE); // Align to page size
+    size_t necessaryBitmapSize = bitmapSizeBytes * 2; // We need 2 bitmaps: one for allocation, one for reservation
+    void* bitmapMemory = nullptr; // size of necessaryBitmapSize
+
+    for (size_t i = 0; i < validCount; i++) {
+        size_t region_start = ALIGN_UP(validRegions[i].addr, PMM_PAGE_SIZE);
+        size_t region_end = ALIGN_DOWN(validRegions[i].addr + validRegions[i].len, PMM_PAGE_SIZE);
+        size_t region_size = (region_end > region_start) ? (region_end - region_start) : 0;
+
+        if (region_size >= necessaryBitmapSize) {
+            bitmapMemory = (void *)(uintptr_t)region_start;
+            validRegions[i].addr = region_start + necessaryBitmapSize;
+            validRegions[i].len = region_size - necessaryBitmapSize;
+            if (validRegions[i].len + validRegions[i].addr > UINT32_MAX) {
+                validRegions[i].len = UINT32_MAX - validRegions[i].addr;
+            }
             break;
         }
     }
 
-    if (!allocation_map_addr || !reserved_map_addr) {
-        return STATUS_FAILURE; // We couldn't find a suitable region
+    if (!bitmapMemory) {
+        return STATUS_FAILURE; // Could not find space for bitmaps
+    }
+    KernelPhysicalMemoryManager.TotalPages = totalPages;
+    KernelPhysicalMemoryManager.AllocationMap = (uint8_t *)bitmapMemory;
+    KernelPhysicalMemoryManager.ReservedMap = (uint8_t *)bitmapMemory + bitmapSizeBytes;
+    KernelPhysicalMemoryManager.EndOfBitmap = (uint8_t *)bitmapMemory + necessaryBitmapSize;
+    KernelPhysicalMemoryManager.MapSize = bitmapSizeBytes;
+
+    // Set all bits to F (reserved) initially
+    for (size_t i = 0; i < bitmapSizeBytes; i++) {
+        KernelPhysicalMemoryManager.AllocationMap[i] = 0xFF;
+        KernelPhysicalMemoryManager.ReservedMap[i] = 0xFF;
     }
 
-    // Initialize the state
-    KernelPhysicalMemoryManager.TotalPages = total_memory / PMM_PAGE_SIZE;
-    KernelPhysicalMemoryManager.AllocationMap = (uint8_t *)allocation_map_addr;
-    KernelPhysicalMemoryManager.ReservedMap = (uint8_t *)reserved_map_addr;
-    KernelPhysicalMemoryManager.MapSize = needed_pages;
+    // Now mark all valid regions as free
+    for (size_t i = 0; i < validCount; i++) {
+        size_t region_start = ALIGN_UP(validRegions[i].addr, PMM_PAGE_SIZE);
+        size_t region_end = ALIGN_DOWN(validRegions[i].addr + validRegions[i].len, PMM_PAGE_SIZE);
+        if (region_start > UINT32_MAX) {
+            // Region starts above 4GB, skip
+            continue;
+        }
 
-    // Now we need to mark these regions as reserved
-    // Any region not marked in the valid regions is considered reserved
-    // Or the region marked by allocation_map_addr/reserved_map_addr + their sizes
-    for (uint32_t i = 0; i < KernelPhysicalMemoryManager.TotalPages / 8; i++) {
-        KernelPhysicalMemoryManager.AllocationMap[i] = 0xFF; // Mark all as allocated
-        KernelPhysicalMemoryManager.ReservedMap[i] = 0xFF; // Mark all as reserved
-    }
+        if (region_end > UINT32_MAX) {
+            region_end = UINT32_MAX;
+        }
 
-    // Now mark the valid regions as free in the allocation map and not reserved in the reserved map
-    for (uint32_t i = 0; i < count; i++) {
-        uint32_t start_page = ALIGN_UP(valid_regions[i].addr, PMM_PAGE_SIZE) / PMM_PAGE_SIZE;
-        uint32_t end_page = ALIGN_DOWN(valid_regions[i].addr + valid_regions[i].len, PMM_PAGE_SIZE) / PMM_PAGE_SIZE;
-
-        for (uint32_t page = start_page; page < end_page; page++) {
-            KernelPhysicalMemoryManager.AllocationMap[page / 8] &= ~(1 << (page % 8)); // Mark as free
-            KernelPhysicalMemoryManager.ReservedMap[page / 8] &= ~(1 << (page % 8)); // Mark as not reserved
+        size_t start_page = region_start / PMM_PAGE_SIZE;
+        size_t end_page = region_end / PMM_PAGE_SIZE;
+        for (size_t page = start_page; page < end_page; page++) {
+            KernelPhysicalMemoryManager.ReservedMap[page / 8] &= ~(1 << (page % 8)); // Mark as unreserved
         }
     }
 
-    // Now mark the allocation map and reserved map regions as reserved
-    uint32_t start_page = allocation_map_addr / PMM_PAGE_SIZE;
-    uint32_t end_page = start_page + needed_pages * 2; // Both maps
-    for (uint32_t page = start_page; page < end_page; page++) {
+    // Reserve the first 1MB of memory
+    for (size_t page = 0; page < (1 * MiB) / PMM_PAGE_SIZE; page++) {
         KernelPhysicalMemoryManager.ReservedMap[page / 8] |= (1 << (page % 8)); // Mark as reserved
-        KernelPhysicalMemoryManager.AllocationMap[page / 8] |= (1 << (page % 8)); // Mark as allocated
     }
 
-    // Reserve the first 1MB of memory
-    for (uint32_t page = 0; page < (0x100000 / PMM_PAGE_SIZE); page++) {
+    // Reserve the 2 bitmaps
+    size_t bitmap_start_page = (size_t)(uintptr_t)bitmapMemory / PMM_PAGE_SIZE;
+    size_t bitmap_end_page = bitmap_start_page + BYTES_TO_PAGES(necessaryBitmapSize);
+    for (size_t page = bitmap_start_page; page < bitmap_end_page; page++) {
         KernelPhysicalMemoryManager.ReservedMap[page / 8] |= (1 << (page % 8)); // Mark as reserved
-        KernelPhysicalMemoryManager.AllocationMap[page / 8] |= (1 << (page % 8)); // Mark as allocated
     }
+
+    // Free up the allocation map for use (now that we've reserved necessary regions)
+    for (size_t i = 0; i < bitmapSizeBytes; i++) {
+        KernelPhysicalMemoryManager.AllocationMap[i] = 0x00;
+    }
+
+    struct multiboot_tag_module* initrdTag = (struct multiboot_tag_module*)MBGetTag(InfoPtr, MULTIBOOT_TAG_TYPE_MODULE);
+    if (initrdTag) {
+        PhysicalMemoryManagerReserveRegion((void*)(uintptr_t)initrdTag->mod_start, BYTES_TO_PAGES(initrdTag->mod_end - initrdTag->mod_start));
+    }
+
+    LOGF(LOG_INFO, "PhysicalMemoryManagerInit: Initialized with %u total pages (%u MB total memory).\n",
+        (uint64_t)KernelPhysicalMemoryManager.TotalPages,
+        (uint64_t)(KernelPhysicalMemoryManager.TotalPages * PMM_PAGE_SIZE / MiB)
+    );
+
+    PRINTF("\t* Bitmap memory located at %p, size %u bytes.\n", bitmapMemory, (uint64_t)necessaryBitmapSize);
 
     return STATUS_SUCCESS;
+}
+
+void PhysicalMemoryManagerReserveRegion(void *startAddr, size_t size) {
+    // Reserve a region of physical memory
+    size_t start_address = (size_t)startAddr;
+    size_t start_page = start_address / PMM_PAGE_SIZE;
+    size_t end_page = start_page + size;
+    for (size_t page = start_page; page < end_page; page++) {
+        KernelPhysicalMemoryManager.ReservedMap[page / 8] |= (1 << (page % 8)); // Mark as reserved
+    }
+}
+
+uint64_t PhysicalMemoryManagerCountFreePages() {
+    uint64_t freePages = 0;
+    for (size_t i = 0; i < KernelPhysicalMemoryManager.TotalPages; i++) {
+        size_t byte_index = i / 8;
+        size_t bit_index = i % 8;
+
+        // Check if the page is free
+        if (!(KernelPhysicalMemoryManager.AllocationMap[byte_index] & (1 << bit_index)) && (!(KernelPhysicalMemoryManager.ReservedMap[byte_index] & (1 << bit_index)))) {
+            freePages++;
+        }
+    }
+    return freePages;
 }
 
 void * PhysicalMemoryManagerAllocatePage() {
     for (size_t i = 0; i < KernelPhysicalMemoryManager.TotalPages; i++) {
         size_t byte_index = i / 8;
-        size_t bit_index = i % 8;
+        if (byte_index >= KernelPhysicalMemoryManager.MapSize) {
+            break; // Out of bounds
+        }
+        uint8_t bit_index = (uint8_t)(i % 8);
 
         // Check if the page is free and not reserved
-        if (!(KernelPhysicalMemoryManager.AllocationMap[byte_index] & (1 << bit_index)) && (!(KernelPhysicalMemoryManager.ReservedMap[byte_index] & (1 << bit_index)))) {
+        if (!(KernelPhysicalMemoryManager.AllocationMap[byte_index] & (uint8_t)(1 << bit_index)) && (!(KernelPhysicalMemoryManager.ReservedMap[byte_index] & (uint8_t)(1 << bit_index)))) {
             // Found a free page, mark it as allocated
-            KernelPhysicalMemoryManager.AllocationMap[byte_index] |= (1 << bit_index);
-            return (void *)(i * PMM_PAGE_SIZE); // Return the address of the allocated page
+            KernelPhysicalMemoryManager.AllocationMap[byte_index] |= (uint8_t)(1 << bit_index);
+            void* addr = (void *)(i * PMM_PAGE_SIZE);
+            if ((void*)KernelPhysicalMemoryManager.AllocationMap <= addr && addr < (void*)KernelPhysicalMemoryManager.EndOfBitmap) {
+                PANIC ("Address of allocated page overlaps with Physical Memory Manager bitmap memory!\n");
+            }
+            return addr;
+
         }
     }
+
+    LOGF(LOG_WARNING, "PhysicalMemoryManagerAllocatePage: Out of memory! No free pages available. Used %u out of %u pages.\n",
+        KernelPhysicalMemoryManager.TotalPages - PhysicalMemoryManagerCountFreePages(),
+        KernelPhysicalMemoryManager.TotalPages
+    );
 
     return nullptr; // No free pages available
 }
@@ -140,9 +215,12 @@ void * PhysicalMemoryManagerAllocatePages(size_t numPages) {
     // Look for a sequence of free pages
     for (size_t i = 0; i < KernelPhysicalMemoryManager.TotalPages; i++) {
         size_t byte_index = i / 8;
-        size_t bit_index = i % 8;
+        if (byte_index >= KernelPhysicalMemoryManager.MapSize) {
+            break; // Out of bounds
+        }
+        uint8_t bit_index = (uint8_t)(i % 8);
 
-        if (!(KernelPhysicalMemoryManager.AllocationMap[byte_index] & (1 << bit_index)) && (!(KernelPhysicalMemoryManager.ReservedMap[byte_index] & (1 << bit_index)))) {
+        if (!(KernelPhysicalMemoryManager.AllocationMap[byte_index] & (uint8_t)(1 << bit_index)) && (!(KernelPhysicalMemoryManager.ReservedMap[byte_index] & (uint8_t)(1 << bit_index)))) {
             // Found a free page
             if (contiguousCount == 0) {
                 firstPage = (void *)(i * PMM_PAGE_SIZE);
@@ -178,17 +256,20 @@ Status PhysicalMemoryManagerFreePage(void *page) {
 
     size_t page_index = address / PMM_PAGE_SIZE;
     size_t byte_index = page_index / 8;
-    size_t bit_index = page_index % 8;
+    if (byte_index >= KernelPhysicalMemoryManager.MapSize) {
+        return STATUS_FAILURE; // Page index out of bounds
+    }
+    uint8_t bit_index = (uint8_t)(page_index % 8);
 
     // Check if the bit is reserved or not allocated
-    if (KernelPhysicalMemoryManager.ReservedMap[byte_index] & (1 << bit_index)) {
+    if (KernelPhysicalMemoryManager.ReservedMap[byte_index] & (uint8_t)(1 << bit_index)) {
         return STATUS_FAILURE; // Attempting to free a reserved page, which is not allowed
     }
-    if (!(KernelPhysicalMemoryManager.AllocationMap[byte_index] & (1 << bit_index))) {
+    if (!(KernelPhysicalMemoryManager.AllocationMap[byte_index] & (uint8_t)(1 << bit_index))) {
         return STATUS_FAILURE; // Page is not allocated, cannot free
     }
 
-    KernelPhysicalMemoryManager.AllocationMap[byte_index] &= ~(1 << bit_index); // Mark the page as free
+    KernelPhysicalMemoryManager.AllocationMap[byte_index] &= ~(uint8_t)(1 << bit_index); // Mark the page as free
 
     return STATUS_SUCCESS;
 }

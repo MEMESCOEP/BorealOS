@@ -15,5 +15,8 @@ void EntryPoint(uint32_t Magic, uint32_t InfoPtr) {
         PANIC("Failed to load kernel!\n");
     }
 
-    PANIC("No more instructions to run!\n");
+    LOG(LOG_WARNING, "Kernel initialized successfully, but no further instructions are implemented in EntryPoint. Waiting for interrupts...\n");
+    while (true) {
+        ASM("hlt");
+    }
 }

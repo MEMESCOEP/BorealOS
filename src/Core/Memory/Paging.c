@@ -22,31 +22,11 @@ Status PagingInit(PagingState *state) {
         state->PageTable[i] = nullptr; // Initialize pointers
     }
 
-    state->PageTable[0] = (uint32_t *)PhysicalMemoryManagerAllocatePage();
-    if (!state->PageTable[0]) {
-        PANIC("PagingInit: Failed to allocate first page table!\n");
-    }
-
-    // Zero out the first page table
+    // Identity map the first 4 MiB for kernel use
     for (size_t i = 0; i < 1024; i++) {
-        state->PageTable[0][i] = 0;
+        state->PageTable[0][i] = (i * 0x1000) | PAGE_PRESENT | PAGE_WRITABLE;
     }
-
-    // Identity map first 8 MB
-    for (size_t i = 0; i < 1024; i++) {
-        state->PageTable[0][i] = (i * PMM_PAGE_SIZE) | PAGE_PRESENT | PAGE_WRITABLE;
-    }
-
-    state->PageTable[1] = (uint32_t *)PhysicalMemoryManagerAllocatePage();
-    if (!state->PageTable[1]) {
-        PANIC("PagingInit: Failed to allocate second page table!\n");
-    }
-    for (size_t i = 0; i < 1024; i++) {
-        state->PageTable[1][i] = ((i + 1024) * PMM_PAGE_SIZE) | PAGE_PRESENT | PAGE_WRITABLE;
-    }
-
-    state->PageDirectory[0] = ((uint32_t)state->PageTable[0]) | PAGE_PRESENT | PAGE_WRITABLE;
-    state->PageDirectory[1] = ((uint32_t)state->PageTable[1]) | PAGE_PRESENT | PAGE_WRITABLE;
+    state->PageDirectory[0] = ((uint32_t)(uintptr_t)state->PageTable[0]) | PAGE_PRESENT | PAGE_WRITABLE;
 
     return STATUS_SUCCESS;
 }
@@ -90,7 +70,15 @@ Status PagingMapPage(PagingState *state, void *virtualAddr, void *physicalAddr, 
 Status PagingUnmapPage(PagingState *state, void *virtualAddr) {
     uint32_t vAddr = (uint32_t)virtualAddr;
     size_t dirIndex = (vAddr >> 22) & 0x3FF;
+    if (dirIndex == 0) {
+        return STATUS_SUCCESS; // Can't unmap the first 4 MiB (kernel space), so we just lie >:3
+    }
     size_t tableIndex = (vAddr >> 12) & 0x3FF;
+
+    // Don't unmap the kernel's 4MB, just lie >:3 (evil)
+    if (dirIndex == 0) {
+        return STATUS_SUCCESS;
+    }
 
     if (!(state->PageDirectory[dirIndex] & PAGE_PRESENT)) {
         return STATUS_FAILURE;
@@ -102,6 +90,22 @@ Status PagingUnmapPage(PagingState *state, void *virtualAddr) {
 
     // Clear entry
     state->PageTable[dirIndex][tableIndex] = 0;
+
+    // Check if the page table is now empty
+    bool empty = true;
+    for (size_t i = 0; i < 1024; i++) {
+        if (state->PageTable[dirIndex][i] & PAGE_PRESENT) {
+            empty = false;
+            break;
+        }
+    }
+
+    if (empty) {
+        // Free the page table
+        PhysicalMemoryManagerFreePage(state->PageTable[dirIndex]);
+        state->PageTable[dirIndex] = nullptr;
+        state->PageDirectory[dirIndex] = 0;
+    }
 
     // Flush TLB entry
     ASM("invlpg (%0)" ::"r"(vAddr) : "memory");

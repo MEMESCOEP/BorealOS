@@ -1,6 +1,7 @@
 #include <Definitions.h>
 #include <Core/Kernel.h>
 #include <Core/Interrupts/PIT.h>
+#include <Drivers/IO/PCI/PCI.h>
 #include <lai/host.h>
 #include <Utility/SerialOperations.h>
 
@@ -101,31 +102,28 @@ uint32_t laihost_ind(uint16_t port) {
     return inl(port);
 }
 
-uint8_t laihost_pci_readb(uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset){
-    LOGF(LOG_DEBUG, "LAI PCI READB from seg: %u, bus: %u, slot: %u, fun: %u, offset: %u\n", (uint64_t)seg, (uint64_t)bus, (uint64_t)slot, (uint64_t)fun, (uint64_t)offset);
-    return 0;
+uint8_t laihost_pci_readb(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset){
+    return PCIReadConfigByte(bus, slot, fun, offset);
 }
 
-uint16_t laihost_pci_readw(uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset){
-    LOGF(LOG_DEBUG, "LAI PCI READW from seg: %u, bus: %u, slot: %u, fun: %u, offset: %u\n", (uint64_t)seg, (uint64_t)bus, (uint64_t)slot, (uint64_t)fun, (uint64_t)offset);
-    return 0;
+uint16_t laihost_pci_readw(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset){
+    return PCIReadConfigWord(bus, slot, fun, offset);
 }
 
-uint32_t laihost_pci_readd(uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset){
-    LOGF(LOG_DEBUG, "LAI PCI READD from seg: %u, bus: %u, slot: %u, fun: %u, offset: %u\n", (uint64_t)seg, (uint64_t)bus, (uint64_t)slot, (uint64_t)fun, (uint64_t)offset);
-    return 0;
+uint32_t laihost_pci_readd(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset){
+    return PCIReadConfigDWord(bus, slot, fun, offset);
 }
 
-void laihost_pci_writeb(uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset, uint8_t val){
-    LOGF(LOG_DEBUG, "LAI PCI WRITEX from seg: %u, bus: %u, slot: %u, fun: %u, offset: %u, val: %u\n", (uint64_t)seg, (uint64_t)bus, (uint64_t)slot, (uint64_t)fun, (uint64_t)offset, (uint64_t)val);
+void laihost_pci_writeb(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset, uint8_t val){
+    PCIWriteConfigByte(bus, slot, fun, offset, val);
 }
 
-void laihost_pci_writew(uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset, uint16_t val){
-    LOGF(LOG_DEBUG, "LAI PCI WRITEX from seg: %u, bus: %u, slot: %u, fun: %u, offset: %u, val: %u\n", (uint64_t)seg, (uint64_t)bus, (uint64_t)slot, (uint64_t)fun, (uint64_t)offset, (uint64_t)val);
+void laihost_pci_writew(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset, uint16_t val){
+    PCIWriteConfigWord(bus, slot, fun, offset, val);
 }
 
-void laihost_pci_writed(uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset, uint32_t val){
-    LOGF(LOG_DEBUG, "LAI PCI WRITEX from seg: %u, bus: %u, slot: %u, fun: %u, offset: %u, val: %u\n", (uint64_t)seg, (uint64_t)bus, (uint64_t)slot, (uint64_t)fun, (uint64_t)offset, (uint64_t)val);
+void laihost_pci_writed(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset, uint32_t val){
+    PCIWriteConfigDWord(bus, slot, fun, offset, val);
 }
 
 
