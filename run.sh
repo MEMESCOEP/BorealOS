@@ -43,7 +43,8 @@ case $EMULATOR in
             -machine q35,pcspk-audiodev=snd0 \
             -display gtk \
             -device virtio-net-pci,netdev=net0 \
-            -netdev user,id=net0
+            -netdev user,id=net0 \
+            -boot order=d
         ;;
     *)
         echo "No emulator specified. Use --Bochs or --QEMU."

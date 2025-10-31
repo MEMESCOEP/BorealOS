@@ -6,6 +6,7 @@
 typedef struct PhysicalMemoryManagerState {
     uint8_t *AllocationMap; // Bitmap for tracking allocated pages
     uint8_t *ReservedMap; // Bitmap for tracking reserved pages (these can NEVER be freed)
+    uint8_t *EndOfBitmap; // Pointer to the end of the bitmap memory
     size_t TotalPages; // Total number of pages in the system
     size_t MapSize; // Size of the allocation and reserved maps in bytes
 } PhysicalMemoryManagerState;
