@@ -403,6 +403,11 @@ bool PCIIsUSBController(PCIDevice* dev) {
            (dev->SubClass == || );
 }*/
 
+static void PCIDevIRQHandler(uint8_t irqNumber, RegisterState* state) {
+    (void)state;
+    LOGF(LOG_DEBUG, "Got a PCI IRQ (IRQ #%u)!\n", (uint64_t)irqNumber);
+}
+
 Status PCIInit() {
     // Create an initial array to store PCI device info structs
     LOG(LOG_INFO, "Initializing PCI device buffer...\n");
@@ -636,8 +641,59 @@ Status PCIInit() {
         }
     }
 
+    // Enable IRQ handling
+    LOGF(LOG_INFO, "Enabling IRQ handling for up to %u devices...\n", (uint64_t)deviceCount);
+    for (uint32_t PCIDevIndex = 0; PCIDevIndex < deviceCount; PCIDevIndex++) {
+        PCIDevice* currentDevice = &PCIDevices[PCIDevIndex];
+
+        // Validate the header type
+        if ((currentDevice->HeaderType & 0x7F) > 0x02) {
+            PRINTF("\t* Device at %u:%u:%u has an invalid header type (%p)!\n",
+                (uint64_t)currentDevice->BusNumber,
+                (uint64_t)currentDevice->SlotNumber,
+                (uint64_t)currentDevice->FunctionNumber,
+                (uint64_t)(currentDevice->HeaderType & 0x7F)
+            );
+            
+            continue;
+        }
+
+        // Now that we're sure the device is valid, read the device's config space to get the interrupt pin and line
+        uint8_t irqLine = PCIReadConfigByte(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, PCI_HEADER_INTERRUPT_LINE_OFFSET);
+        uint8_t irqPin = PCIReadConfigByte(currentDevice->BusNumber, currentDevice->SlotNumber, currentDevice->FunctionNumber, PCI_HEADER_INTERRUPT_PIN_OFFSET);
+        PRINTF("\t* Handling device %u:%u:%u (LINE=%u, PIN=%u)...\n",
+            (uint64_t)currentDevice->BusNumber,
+            (uint64_t)currentDevice->SlotNumber,
+            (uint64_t)currentDevice->FunctionNumber,
+            (uint64_t)irqLine,
+            (uint64_t)irqPin
+        );
+
+        // Now that we have the IRQ line and pin, set up an IRQ handler for it if the device will send an IRQ
+        // NOTE: To determine if a device sends an IRQ, check if the IRQ pin and line are both 0
+        if (irqLine == 0 && irqPin == 0) {
+            PRINT("\t\t* This device will not send an IRQ\n\n");
+            continue;
+        }
+
+        if (irqLine >= 16 || irqLine == 255) {
+            PRINTF("\t\t* This device has an invalid IRQ line (%u), which is not routable in 8259 PIC mode; it will be skipped\n\n", (uint64_t)irqLine);
+            continue;
+        }
+
+        if (irqPin < 1 || irqPin > 4) {
+            PRINTF("\t\t* This device has an invalid IRQ pin (%u), it will be skipped\n\n", (uint64_t)irqPin);
+            continue;
+        }
+
+        PRINTF("\t\t* Setting up a handler for IRQ #%u...\n\n", (uint64_t)irqLine);
+        IDTSetIRQHandler(irqLine, PCIDevIRQHandler);
+        PICClearIRQMask(irqLine);
+    }
+
     // Enable Message Signaled Interrupts (MSI)
     // NOTE: This is NOT MSI-X! PCIe devices require MSI-X, but this is just regular PCI and thus only MSI is supported
+    // NOTE: MSI and MSI-X require APIC. We haven't done that yet, so this is basically useless for now
     LOGF(LOG_INFO, "Enabling Message Signaled Interrupts (MSI) for up to %u devices...\n", (uint64_t)deviceCount);
     for (uint32_t PCIDevIndex = 0; PCIDevIndex < deviceCount; PCIDevIndex++) {
         PCIDevice* currentDevice = &PCIDevices[PCIDevIndex];

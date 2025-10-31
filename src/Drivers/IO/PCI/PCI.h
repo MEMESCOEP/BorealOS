@@ -23,6 +23,8 @@
 #define PCI_CONFIGSPACE_ADDRESS                  0xCF8
 #define PCI_CONFIGSPACE_DATA                     0xCFC
 
+#define PCI_HEADER_INTERRUPT_LINE_OFFSET         0x3C
+#define PCI_HEADER_INTERRUPT_PIN_OFFSET          0x3D
 #define PCI_HEADER_LATENCY_TIMER_OFFSET          0x0D
 #define PCI_HEADER_SECONDARY_BUS_OFFSET          0x19
 #define PCI_HEADER_MULTIFUNCTION_MASK            0x80
@@ -69,7 +71,7 @@ typedef struct {
     uint16_t Command;            // Used to control a PCI device's ability to generate & respond to PCI cycles
     uint8_t CacheLineSize;       // Specifies the system cache line size in 32-bit units
     uint8_t LatencyTimer;        // Specifies the latency timer in units of PCI bus clocks
-    uint8_t HeaderType;          // Identifies the layout of the rest of the header beginning at byte 0x10 (bit 7 set means the device has multipel functions; see https://wiki.osdev.org/PCI#PCI_Device_Structure)
+    uint8_t HeaderType;          // Identifies the layout of the rest of the header beginning at byte 0x10 (bit 7 set means the device has multiple functions; see https://wiki.osdev.org/PCI#PCI_Device_Structure)
     uint8_t RevisionID;          // Specifies the revision of the PCI device
     uint8_t SubClass;            // Specifies the specific PCI device function (READ ONLY)
     uint8_t Class;               // Specifies the general PCI device function (READ ONLY)
