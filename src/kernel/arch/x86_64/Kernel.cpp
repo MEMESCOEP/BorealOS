@@ -1,6 +1,7 @@
 #include <Definitions.h>
 #include <Kernel.h>
 #include "KernelData.h"
+#include "Interrupts/GDT.h"
 #include "IO/Serial.h"
 #include "IO/SerialPort.h"
 
@@ -20,8 +21,11 @@ void Kernel<T>::Initialize() {
     ArchitectureData->SerialPort = IO::SerialPort(IO::Serial::COM1);
     ArchitectureData->SerialPort.Initialize();
     ArchitectureData->SerialPort.WriteString("\n\n");
+    LOG(LOG_LEVEL::INFO, "Loaded serial port.");
 
-    LOG(LOG_LEVEL::INFO, "Kernel initialized.");
+    // Gdt:
+    Interrupts::GDT::initialize();
+    LOG(LOG_LEVEL::INFO, "Initialized GDT.");
 }
 
 template<typename T>
