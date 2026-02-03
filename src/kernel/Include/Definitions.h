@@ -4,6 +4,11 @@
 #include <cstdint>
 #include <cstddef>
 
+// Some helper macros
+#define PACKED __attribute__((packed))
+#define ALIGNED(x) __attribute__((aligned(x)))
+#define UNUSED __attribute__((unused))
+
 enum class LOG_LEVEL {
     INFO,
     WARNING,
@@ -33,4 +38,14 @@ enum class STATUS {
     FAILURE
 };
 
+// Architecture specific kernel definitions
+namespace Architecture {
+    extern volatile uintptr_t *KernelStackTop;
+    extern volatile uintptr_t *KernelStackBottom;
+    extern volatile size_t KernelStackSize;
+    extern volatile uintptr_t *KernelBase;
+    extern volatile uintptr_t *KernelEnd;
+    extern volatile size_t KernelSize;
+    extern volatile uint32_t KernelPageSize;
+}
 #endif //BOREALOS_DEFINITIONS_H

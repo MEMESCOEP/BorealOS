@@ -48,6 +48,8 @@ SECTIONS
     /* Move to the next memory page for .data */
     . = ALIGN(CONSTANT(MAXPAGESIZE));
 
+    _kernel_base = .;
+
     .data : {
      *(.data .data.*)
     } :data
@@ -59,6 +61,17 @@ SECTIONS
     .bss : {
      *(.bss .bss.*)
      *(COMMON)
+    } :data
+
+    _kernel_end = .;
+
+    STACK_SIZE = 0x4000; /* 16 KiB stack */
+    . = ALIGN(CONSTANT(MAXPAGESIZE));
+    .stack : {
+        . = ALIGN(16);
+        _kernel_stack_bottom = .;
+        . += STACK_SIZE;
+        _kernel_stack_top = .;
     } :data
 
     /* Discard .note.* and .eh_frame* since they may cause issues on some hosts. */
