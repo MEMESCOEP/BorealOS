@@ -19,19 +19,19 @@ enum class LOG_LEVEL {
 namespace Core {
     [[noreturn]]
     void Panic(const char* message);
-    void Log(LOG_LEVEL level, const char* message);
+    void Log(LOG_LEVEL level, const char* fmt, ...);
     void Write(const char* message);
 }
 
 #define STRINGIFY_HELPER(x) #x
 #define STRINGIFY(x) STRINGIFY_HELPER(x)
-#define LOG(level, msg) Core::Log(level, "[" __FILE_NAME__ ":" STRINGIFY(__LINE__)"] " msg "\n")
+#define LOG(level, msg, ...) Core::Log(level, "[" __FILE_NAME__ ":" STRINGIFY(__LINE__)"] " msg "\n" __VA_OPT__(,) __VA_ARGS__)
 #define PANIC(msg) Core::Panic("[PANIC] " "[" __FILE_NAME__ ":" STRINGIFY(__LINE__)"] " msg)
 
-#define LOG_INFO(msg) LOG(LOG_LEVEL::INFO, msg)
-#define LOG_WARNING(msg) LOG(LOG_LEVEL::WARNING, msg)
-#define LOG_ERROR(msg) LOG(LOG_LEVEL::ERROR, msg)
-#define LOG_DEBUG(msg) LOG(LOG_LEVEL::DEBUG, msg)
+#define LOG_INFO(msg, ...) LOG(LOG_LEVEL::INFO, msg, __VA_ARGS__)
+#define LOG_WARNING(msg, ...) LOG(LOG_LEVEL::WARNING, msg, __VA_ARGS__)
+#define LOG_ERROR(msg, ...) LOG(LOG_LEVEL::ERROR, msg, __VA_ARGS__)
+#define LOG_DEBUG(msg, ...) LOG(LOG_LEVEL::DEBUG, msg, __VA_ARGS__)
 
 enum class STATUS {
     SUCCESS,

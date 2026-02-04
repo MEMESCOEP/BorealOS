@@ -17,6 +17,7 @@ SECTIONS
     /* Any address in this region will do, but often 0xffffffff80000000 is chosen as */
     /* that is the beginning of the region. */
     . = 0xffffffff80000000;
+    _kernel_base = .;
 
     /* Define a section to contain the Limine requests and assign it to its own PHDR */
     .limine_requests : {
@@ -48,7 +49,6 @@ SECTIONS
     /* Move to the next memory page for .data */
     . = ALIGN(CONSTANT(MAXPAGESIZE));
 
-    _kernel_base = .;
 
     .data : {
      *(.data .data.*)
@@ -72,6 +72,15 @@ SECTIONS
         _kernel_stack_bottom = .;
         . += STACK_SIZE;
         _kernel_stack_top = .;
+    } :data
+
+    FAULT_HANDLER_SIZE = 0x2000; /* 8 KiB stack for fault handlers */
+    . = ALIGN(CONSTANT(MAXPAGESIZE));
+    .fault_handler_stack : {
+        . = ALIGN(16);
+        _fault_handler_stack_bottom = .;
+        . += FAULT_HANDLER_SIZE;
+        _fault_handler_stack_top = .;
     } :data
 
     /* Discard .note.* and .eh_frame* since they may cause issues on some hosts. */

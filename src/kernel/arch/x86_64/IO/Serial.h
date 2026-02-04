@@ -22,6 +22,7 @@ namespace IO::Serial {
     uint32_t TransmitEmpty(uint16_t comPort);
     void WriteChar(uint16_t comPort, char c);
     void WriteString(uint16_t comPort, const char* str);
+    void IOWait();
 }
 
 #endif //BOREALOS_SERIAL_H

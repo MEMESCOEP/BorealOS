@@ -34,3 +34,7 @@ void IO::Serial::WriteString(uint16_t comPort, const char *str) {
         WriteChar(comPort, *str++);
     }
 }
+
+void IO::Serial::IOWait() {
+    asm volatile ("outb %%al, $0x80" : : "a"(0)); // I/O wait
+}
