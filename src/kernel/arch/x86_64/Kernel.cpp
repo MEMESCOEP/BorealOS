@@ -8,6 +8,7 @@
 #include "IO/Serial.h"
 #include "IO/SerialPort.h"
 #include "Utility/StringFormatter.h"
+#include "Memory/PMM.h"
 
 Kernel<KernelData> kernel;
 KernelData kernelData;
@@ -42,6 +43,10 @@ void Kernel<T>::Initialize() {
     ArchitectureData->Idt = Interrupts::IDT(&ArchitectureData->Pic);
     ArchitectureData->Idt.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized IDT.");
+
+    // Physical Memory Manager:
+    ArchitectureData->Pmm.Initialize();
+    LOG(LOG_LEVEL::INFO, "Initialized PMM.");
 }
 
 template<typename T>

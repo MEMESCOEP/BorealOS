@@ -1,0 +1,28 @@
+#ifndef BOREALOS_PMM_H
+#define BOREALOS_PMM_H
+
+#include <Definitions.h>
+#include "Boot/LimineDefinitions.h"
+
+namespace Memory {
+    class PMM {
+    public:
+        void Initialize();
+        void ReserveRegion(void *startAddr, uint64_t size);
+
+    private:
+        limine_memmap_response* limineMemmapResponse;
+
+        size_t frameCount;
+        size_t usableFrames;
+        size_t bitmapSize;
+
+        uint8_t* allocatableBitmap;
+        uint8_t* reservedBitmap;
+
+        uint64_t higherHalfOffset;
+        uint64_t bitmapBase;
+    };
+} // Memory
+
+#endif //BOREALOS_PMM_H

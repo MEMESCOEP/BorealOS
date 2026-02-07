@@ -8,6 +8,8 @@
 #define PACKED __attribute__((packed))
 #define ALIGNED(x) __attribute__((aligned(x)))
 #define UNUSED __attribute__((unused))
+#define SET_BIT(x, n) ((x) |= (1U << (n)))
+#define CLEAR_BIT(p, n) ((p) &= (~(1U) << (n)))
 
 enum class LOG_LEVEL {
     INFO,
@@ -23,6 +25,14 @@ namespace Core {
     void Write(const char* message);
 }
 
+namespace Constants{
+constexpr uint64_t KiB = 1024;
+constexpr uint64_t MiB = KiB * 1024;
+constexpr uint64_t GiB = MiB * 1024;
+constexpr uint64_t TiB = GiB * 1024;
+constexpr uint64_t PiB = TiB * 1024;
+}
+
 #define STRINGIFY_HELPER(x) #x
 #define STRINGIFY(x) STRINGIFY_HELPER(x)
 #define LOG(level, msg, ...) Core::Log(level, "[" __FILE_NAME__ ":" STRINGIFY(__LINE__)"] " msg "\n" __VA_OPT__(,) __VA_ARGS__)
@@ -32,6 +42,11 @@ namespace Core {
 #define LOG_WARNING(msg, ...) LOG(LOG_LEVEL::WARNING, msg, __VA_ARGS__)
 #define LOG_ERROR(msg, ...) LOG(LOG_LEVEL::ERROR, msg, __VA_ARGS__)
 #define LOG_DEBUG(msg, ...) LOG(LOG_LEVEL::DEBUG, msg, __VA_ARGS__)
+
+#define ALIGN_DOWN(x, align) ((x) & ~((align) - 1))
+#define ALIGN_UP(x, align) (((x) + (align) - 1) & ~((align) - 1))
+#define BYTES_TO_PAGES(x) (ALIGN_UP(x, Architecture::KernelPageSize) / Architecture::KernelPageSize)
+#define PAGES_TO_BYTES(x) ((x) * Architecture::KernelPageSize)
 
 enum class STATUS {
     SUCCESS,
