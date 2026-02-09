@@ -1,5 +1,6 @@
 #include "PMM.h"
 
+#include <Settings.h>
 #include "Kernel.h"
 #include "../KernelData.h"
 
@@ -133,9 +134,12 @@ namespace Memory {
         }
 
         LOG_INFO("Limine modules marked as reserved.");
+
+        // Test the PMM if testing mode is enabled
+        if (PMM::TestPMM() != STATUS::SUCCESS) PANIC("PMM test failed!");
     }
 
-    // Reserve a region of physical memory
+    // Mark a region of physical memory as reserved
     void PMM::ReserveRegion(void *startAddr, uint64_t size) {
         uint64_t startPage = (uint64_t)startAddr / Architecture::KernelPageSize;
         uint64_t endPage = startPage + size;
@@ -144,5 +148,83 @@ namespace Memory {
         for (uint64_t page = startPage; page < endPage; page++) {
             (PMM::reservedBitmap + higherHalfOffset)[page / 8] |= (1 << (page % 8));
         }
+    }
+
+    // Allocate X pages of physical memory
+    uintptr_t PMM::AllocatePages(uint32_t numPages) {
+        if (numPages == 0) return 0;
+
+        uint64_t totalPages = bitmapSize * 8;
+        uint64_t runStart = 0;
+        uint64_t runLength = 0;
+
+        // Scan for a contiguous memory block that's large enough to hold the requested pages
+        for (uint64_t page = 0; page < totalPages; page++) {
+            uint64_t byteIndex = page / 8;
+            uint8_t  bitIndex  = page % 8;
+
+            bool allocated = (allocatableBitmap + higherHalfOffset)[byteIndex] & (1 << bitIndex);
+            bool reserved = (reservedBitmap + higherHalfOffset)[byteIndex] & (1 << bitIndex);
+
+            if (!reserved && !allocated) {
+                if (runLength == 0) runStart = page;
+                runLength++;
+
+                // Stop searching early if we found a block that's big enough
+                if (runLength == numPages) break;
+            } else {
+                runLength = 0;
+            }
+        }
+
+        // Return NULL if no suitable block was found
+        if (runLength < numPages)
+            return 0;
+
+        // Once we know that we have a big enough block, we can allocate it
+        for (uint64_t page = runStart; page < runStart + numPages; page++) {
+            uint64_t byteIndex = page / 8;
+            uint8_t  bitIndex  = page % 8;
+            (allocatableBitmap + higherHalfOffset)[byteIndex] |= (1 << bitIndex);
+        }
+
+        // Return the address of the allocation
+        return runStart * Architecture::KernelPageSize;
+    }
+
+    // Test the PMM by allocating single and multi page blocks, writing to and reading from, and finally freeing them
+    STATUS PMM::TestPMM() {
+        if (SETTING_TEST_MODE != 1) return STATUS::SUCCESS;
+
+        // First, try allocate a single page
+        uintptr_t singleAlloc = PMM::AllocatePages(1);
+        if (!singleAlloc) return STATUS::FAILURE;
+        LOG_DEBUG("PMM single-page test allocation succeeded with address %p.", singleAlloc);
+
+        // Allocate another page and make sure it's not the same address as the previous one
+        uintptr_t singleAlloc2 = PMM::AllocatePages(1);
+        if (!singleAlloc2 || singleAlloc2 == singleAlloc) return STATUS::FAILURE;
+        LOG_DEBUG("PMM second single-page test allocation succeeded with address %p.", singleAlloc2);
+
+        // Now try to allocate a continuous chunk
+        uintptr_t multiAlloc = PMM::AllocatePages(4);
+        if (!multiAlloc) return STATUS::FAILURE;
+        LOG_DEBUG("PMM multi-page test allocation succeeded with address %p.", multiAlloc);
+
+        // Try to allocate a massive 10MiB continuous chunk
+        uintptr_t massiveMultiAlloc = PMM::AllocatePages(2560);
+        if (!massiveMultiAlloc) return STATUS::FAILURE;
+        LOG_DEBUG("PMM 10 MiB multi-page test allocation succeeded with address %p.", massiveMultiAlloc);
+
+        // All of the allocation tests passed, now we need to write to the allocated areas
+        uint8_t* memory = (uint8_t*)(multiAlloc + higherHalfOffset);
+        uint64_t writeCount = 2560 * Architecture::KernelPageSize;
+        for (uint64_t i = 0; i < writeCount; i++) {
+            *memory = 0xAE;
+            memory++;
+        }
+
+        // All tests passed!
+        return STATUS::SUCCESS;
     }
 } // Memory

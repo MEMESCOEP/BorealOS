@@ -8,9 +8,12 @@ namespace Memory {
     class PMM {
     public:
         void Initialize();
-        void ReserveRegion(void *startAddr, uint64_t size);
 
     private:
+        void ReserveRegion(void *startAddr, uint64_t size);
+        uintptr_t AllocatePages(uint32_t numPages);
+        STATUS TestPMM();
+
         limine_memmap_response* limineMemmapResponse;
 
         size_t frameCount;

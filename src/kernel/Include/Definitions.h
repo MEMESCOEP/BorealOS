@@ -10,6 +10,7 @@
 #define UNUSED __attribute__((unused))
 #define SET_BIT(x, n) ((x) |= (1U << (n)))
 #define CLEAR_BIT(p, n) ((p) &= (~(1U) << (n)))
+#define IS_BIT_SET(bitmap, index) ((bitmap)[(index) / 8] & (1 << ((index) % 8)))
 
 enum class LOG_LEVEL {
     INFO,
