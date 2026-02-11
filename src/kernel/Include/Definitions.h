@@ -10,7 +10,6 @@
 #define UNUSED __attribute__((unused))
 #define SET_BIT(x, n) ((x) |= (1U << (n)))
 #define CLEAR_BIT(p, n) ((p) &= (~(1U) << (n)))
-#define IS_BIT_SET(bitmap, index) ((bitmap)[(index) / 8] & (1 << ((index) % 8)))
 
 enum class LOG_LEVEL {
     INFO,
@@ -46,8 +45,6 @@ constexpr uint64_t PiB = TiB * 1024;
 
 #define ALIGN_DOWN(x, align) ((x) & ~((align) - 1))
 #define ALIGN_UP(x, align) (((x) + (align) - 1) & ~((align) - 1))
-#define BYTES_TO_PAGES(x) (ALIGN_UP(x, Architecture::KernelPageSize) / Architecture::KernelPageSize)
-#define PAGES_TO_BYTES(x) ((x) * Architecture::KernelPageSize)
 
 enum class STATUS {
     SUCCESS,

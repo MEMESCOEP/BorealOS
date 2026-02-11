@@ -61,12 +61,6 @@ namespace Memory {
                 bitmapMemory = (void*)(uintptr_t)regionStart;
                 validRegions[regionIndex].addr = regionStart + requiredMapStorageSize;
                 validRegions[regionIndex].length = regionSize - requiredMapStorageSize;
-
-                if (validRegions[regionIndex].length + validRegions[regionIndex].addr > UINT64_MAX) {
-                    LOG_WARNING("Bitmap region length is greater than %u64, it will be resized to %u64!", UINT64_MAX, UINT64_MAX - validRegions[regionIndex].addr);
-                    validRegions[regionIndex].length = UINT64_MAX - validRegions[regionIndex].addr;
-                }
-
                 LOG_DEBUG("Bitmap memory starts at address %p; valid region address changed to %p with size %u64.", bitmapMemory, validRegions[regionIndex].addr, validRegions[regionIndex].length);
                 break;
             }
@@ -108,7 +102,7 @@ namespace Memory {
 
         // Reserve the two bitmaps
         size_t bitmapStartPage = (size_t)(uintptr_t)bitmapMemory / Architecture::KernelPageSize;
-        size_t bitmapEndPage = bitmapStartPage + BYTES_TO_PAGES(requiredMapStorageSize);
+        size_t bitmapEndPage = bitmapStartPage + (ALIGN_UP(requiredMapStorageSize, Architecture::KernelPageSize) / Architecture::KernelPageSize);
         for (size_t page = bitmapStartPage; page < bitmapEndPage; page++) {
             (reservedBitmap + higherHalfOffset)[page / 8] |= (1 << (page % 8)); // Mark as reserved
         }
@@ -128,14 +122,16 @@ namespace Memory {
                 limine_file* mod = modules->modules[i];
                 uint64_t physStart = (uint64_t)mod->address;
                 uint64_t physLength = mod->size;
-                PMM::ReserveRegion((void*)physStart, BYTES_TO_PAGES(physLength));
+                PMM::ReserveRegion((void*)physStart, (ALIGN_UP(physLength, Architecture::KernelPageSize) / Architecture::KernelPageSize));
             }
         }
 
         LOG_INFO("Limine modules marked as reserved.");
 
         // Test the PMM if testing mode is enabled
+        #if SETTING_TEST_MODE
         if (PMM::TestPMM() != STATUS::SUCCESS) PANIC("PMM test failed!");
+        #endif
     }
 
     // Mark a region of physical memory as reserved
@@ -197,13 +193,9 @@ namespace Memory {
         // Make sure the starting address is aligned to the kernel page size
         if ((startAddr & (Architecture::KernelPageSize - 1)) != 0) PANIC("Cannot free unaligned pages!");
 
-        // Calculate the start and end pages
         uint64_t startPage = (uint64_t)startAddr / Architecture::KernelPageSize;
         uint64_t endPage = startPage + numPages;
-
-        // Make sure the page count does not cause an overflow
-        if (numPages > UINT64_MAX - startPage) PANIC("Number of pages to free would cause an overflow for UINT64!");
-
+        
         // Make sure the end page is within the managed memory range
         if (endPage > bitmapSize * 8) PANIC("End page is outside of managed memory range!");
 
@@ -212,8 +204,8 @@ namespace Memory {
             uint8_t bitIndex = page % 8;
 
             // Panic if the current page is reserved or not allocated
-            if (!PMM::IsPageAllocated(page)) PANIC("Invalid attempt to free unallocated pages!");
             if (PMM::IsPageReserved(page)) PANIC("Invalid attempt to free reserved pages!");
+            if (!PMM::IsPageAllocated(page)) PANIC("Invalid attempt to free unallocated pages!");
 
             // Mark the page as unallocated
             (allocatableBitmap + higherHalfOffset)[byteIndex] &= ~(1 << bitIndex);
@@ -236,8 +228,6 @@ namespace Memory {
 
     // Test the PMM to make sure allocation and freeing is propely working
     STATUS PMM::TestPMM() {
-        if (SETTING_TEST_MODE != 1) return STATUS::SUCCESS;
-
         // First, try allocate a single page
         LOG_DEBUG("Testing PMM single-page allocation...");
         uintptr_t singleAlloc = PMM::AllocatePages(1);
