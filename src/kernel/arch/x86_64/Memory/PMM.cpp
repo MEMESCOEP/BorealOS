@@ -128,7 +128,6 @@ namespace Memory {
                 limine_file* mod = modules->modules[i];
                 uint64_t physStart = (uint64_t)mod->address;
                 uint64_t physLength = mod->size;
-
                 PMM::ReserveRegion((void*)physStart, BYTES_TO_PAGES(physLength));
             }
         }
@@ -146,7 +145,7 @@ namespace Memory {
         
         // Mark the memory as reserved
         for (uint64_t page = startPage; page < endPage; page++) {
-            (PMM::reservedBitmap + higherHalfOffset)[page / 8] |= (1 << (page % 8));
+            (reservedBitmap + higherHalfOffset)[page / 8] |= (1 << (page % 8));
         }
     }
 
@@ -158,15 +157,12 @@ namespace Memory {
         uint64_t runStart = 0;
         uint64_t runLength = 0;
 
-        // Scan for a contiguous memory block that's large enough to hold the requested pages
+        // Scan for a contiguous memory block that's large enough to hold the requested number of pages
         for (uint64_t page = 0; page < totalPages; page++) {
             uint64_t byteIndex = page / 8;
             uint8_t  bitIndex  = page % 8;
 
-            bool allocated = (allocatableBitmap + higherHalfOffset)[byteIndex] & (1 << bitIndex);
-            bool reserved = (reservedBitmap + higherHalfOffset)[byteIndex] & (1 << bitIndex);
-
-            if (!reserved && !allocated) {
+            if (!PMM::IsPageReserved(page) && !PMM::IsPageAllocated(page)) {
                 if (runLength == 0) runStart = page;
                 runLength++;
 
@@ -192,11 +188,58 @@ namespace Memory {
         return runStart * Architecture::KernelPageSize;
     }
 
-    // Test the PMM by allocating single and multi page blocks, writing to and reading from, and finally freeing them
+    // Free X pages, starting at an aligned address
+    // NOTE: startAddr must be a physical address, it cannot have the higher half offset added to it
+    void PMM::FreePages(uint64_t startAddr, uint32_t numPages) {
+        // At least 1 page needs to be freed
+        if (numPages <= 0) PANIC("At least one page needs to be freed!");
+
+        // Make sure the starting address is aligned to the kernel page size
+        if ((startAddr & (Architecture::KernelPageSize - 1)) != 0) PANIC("Cannot free unaligned pages!");
+
+        // Calculate the start and end pages
+        uint64_t startPage = (uint64_t)startAddr / Architecture::KernelPageSize;
+        uint64_t endPage = startPage + numPages;
+
+        // Make sure the page count does not cause an overflow
+        if (numPages > UINT64_MAX - startPage) PANIC("Number of pages to free would cause an overflow for UINT64!");
+
+        // Make sure the end page is within the managed memory range
+        if (endPage > bitmapSize * 8) PANIC("End page is outside of managed memory range!");
+
+        for (uint64_t page = startPage; page < endPage; page++) {
+            uint64_t byteIndex = page / 8;
+            uint8_t bitIndex = page % 8;
+
+            // Panic if the current page is reserved or not allocated
+            if (!PMM::IsPageAllocated(page)) PANIC("Invalid attempt to free unallocated pages!");
+            if (PMM::IsPageReserved(page)) PANIC("Invalid attempt to free reserved pages!");
+
+            // Mark the page as unallocated
+            (allocatableBitmap + higherHalfOffset)[byteIndex] &= ~(1 << bitIndex);
+        }
+    }
+
+    // Returns the allocation status of a page
+    bool PMM::IsPageAllocated(uint64_t pageIndex) {
+        uint64_t byteIndex = pageIndex / 8;
+        uint8_t bitIndex = pageIndex % 8;
+        return (allocatableBitmap + higherHalfOffset)[byteIndex] & (1 << bitIndex);
+    }
+
+    // Returns the reserved status of a page
+    bool PMM::IsPageReserved(uint64_t pageIndex) {
+        uint64_t byteIndex = pageIndex / 8;
+        uint8_t bitIndex = pageIndex % 8;
+        return (reservedBitmap + higherHalfOffset)[byteIndex] & (1 << bitIndex);
+    }
+
+    // Test the PMM to make sure allocation and freeing is propely working
     STATUS PMM::TestPMM() {
         if (SETTING_TEST_MODE != 1) return STATUS::SUCCESS;
 
         // First, try allocate a single page
+        LOG_DEBUG("Testing PMM single-page allocation...");
         uintptr_t singleAlloc = PMM::AllocatePages(1);
         if (!singleAlloc) return STATUS::FAILURE;
         LOG_DEBUG("PMM single-page test allocation succeeded with address %p.", singleAlloc);
@@ -207,24 +250,109 @@ namespace Memory {
         LOG_DEBUG("PMM second single-page test allocation succeeded with address %p.", singleAlloc2);
 
         // Now try to allocate a continuous chunk
+        LOG_DEBUG("Testing PMM multi-page allocation...");
         uintptr_t multiAlloc = PMM::AllocatePages(4);
         if (!multiAlloc) return STATUS::FAILURE;
         LOG_DEBUG("PMM multi-page test allocation succeeded with address %p.", multiAlloc);
 
         // Try to allocate a massive 10MiB continuous chunk
+        LOG_DEBUG("Testing PMM large allocation...");
         uintptr_t massiveMultiAlloc = PMM::AllocatePages(2560);
         if (!massiveMultiAlloc) return STATUS::FAILURE;
         LOG_DEBUG("PMM 10 MiB multi-page test allocation succeeded with address %p.", massiveMultiAlloc);
 
-        // All of the allocation tests passed, now we need to write to the allocated areas
-        uint8_t* memory = (uint8_t*)(multiAlloc + higherHalfOffset);
+        // All of the allocation tests passed, now we need to try writing to the allocated areas
+        uint8_t* memory = (uint8_t*)(massiveMultiAlloc + higherHalfOffset);
         uint64_t writeCount = 2560 * Architecture::KernelPageSize;
         for (uint64_t i = 0; i < writeCount; i++) {
             *memory = 0xAE;
             memory++;
         }
 
-        // All tests passed!
+        // Test single-page freeing for 1 page by:
+        //  Allocating a page and storing its address
+        //  Freeing the page we just allocated
+        //  Allocating a new page and checking if its address is the same as the first allocation
+        LOG_DEBUG("Testing PMM single-page freeing...");
+        uintptr_t singleFree = PMM::AllocatePages(1);
+        uintptr_t allocAddr = singleFree;
+        PMM::FreePages(singleFree, 1);
+        
+        singleFree = PMM::AllocatePages(1);
+        if (singleFree != allocAddr) return STATUS::FAILURE;
+        LOG_DEBUG("PMM single-page freeing works as expected.");
+
+        // Do the same test for multiple pages
+        LOG_DEBUG("Testing PMM multi-page freeing...");
+        uintptr_t multiFree = PMM::AllocatePages(4);
+        allocAddr = multiFree;
+        PMM::FreePages(multiFree, 4);
+
+        multiFree = PMM::AllocatePages(4);
+        if(multiFree != allocAddr) return STATUS::FAILURE;
+        LOG_DEBUG("PMM multi-page freeing works as expected.");
+
+        // Now test for proper run length resetting by:
+        //  Allocating 2 pages each for "A" and "B"
+        //  Freeing "A"
+        //  Allocating 4 pages for "C", it should allocate after "B"
+        LOG_DEBUG("Testing PMM run length resetting..");
+        uintptr_t rlrAllocA = PMM::AllocatePages(2);
+        uintptr_t rlrAllocB = PMM::AllocatePages(2);
+        PMM::FreePages(rlrAllocA, 2);
+
+        uintptr_t rlrAllocC = PMM::AllocatePages(4);
+        if (rlrAllocC <= rlrAllocB) return STATUS::FAILURE;
+        LOG_DEBUG("PMM run length resetting works as expected.");
+
+        // Make sure the allocator reuses the lowest suitable free range by:
+        //  Allocating 2 pages each for "A" and "B"
+        //  Freeing "A"
+        //  Allocating 2 pages for "C", the PMM should allocate where "A" was
+        LOG_DEBUG("Testing PMM lowest-address reuse...");
+        uintptr_t lsfrAllocA = PMM::AllocatePages(2);
+        uintptr_t lsfrAllocB = PMM::AllocatePages(2);
+        PMM::FreePages(lsfrAllocA, 2);
+
+        uintptr_t lsfrAllocC = PMM::AllocatePages(2);
+        if (lsfrAllocC >= lsfrAllocB) return STATUS::FAILURE;
+        LOG_DEBUG("The PMM can reuse the lowest suitable address range.");
+
+        // Perform the same test but with 20MiB of data
+        LOG_DEBUG("Testing PMM lowest-address reuse for large data...");
+        uintptr_t blsfrAllocA = PMM::AllocatePages(5120);
+        uintptr_t blsfrAllocB = PMM::AllocatePages(5120);
+        PMM::FreePages(blsfrAllocA, 5120);
+
+        uintptr_t blsfrAllocC = PMM::AllocatePages(5120);
+        if (blsfrAllocC >= blsfrAllocB) return STATUS::FAILURE;
+        LOG_DEBUG("The PMM can reuse the lowest suitable address range for large data.");
+
+        // All tests passed, ts somehow works!!!
+        // Now we'll have to free all the allocations we did
+        LOG_DEBUG("Cleaning up test allocations...");
+        
+        // Alloc tests
+        PMM::FreePages(singleAlloc, 1);
+        PMM::FreePages(singleAlloc2, 1);
+        PMM::FreePages(multiAlloc, 4);
+        PMM::FreePages(massiveMultiAlloc, 2560);
+        
+        // Free tests
+        PMM::FreePages(singleFree, 1);
+        PMM::FreePages(multiFree, 4);
+
+        // Run length reset test, A is already freed
+        PMM::FreePages(rlrAllocB, 2);
+        PMM::FreePages(rlrAllocC, 4);
+
+        // Lowest suitable free range reusal test, A is already freed
+        PMM::FreePages(lsfrAllocB, 2);
+        PMM::FreePages(lsfrAllocC, 2);
+
+        // Large lowest suitable free range reusal test, A is already freed
+        PMM::FreePages(blsfrAllocB, 5120);
+        PMM::FreePages(blsfrAllocC, 5120);
         return STATUS::SUCCESS;
     }
 } // Memory

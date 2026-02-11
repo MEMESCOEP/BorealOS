@@ -11,6 +11,9 @@ namespace Memory {
 
     private:
         void ReserveRegion(void *startAddr, uint64_t size);
+        void FreePages(uint64_t startAddr, uint32_t numPages);
+        bool IsPageAllocated(uint64_t pageIndex);
+        bool IsPageReserved(uint64_t pageIndex);
         uintptr_t AllocatePages(uint32_t numPages);
         STATUS TestPMM();
 
