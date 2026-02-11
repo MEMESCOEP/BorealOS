@@ -261,11 +261,12 @@ namespace Memory {
         if (!massiveMultiAlloc) return STATUS::FAILURE;
         LOG_DEBUG("PMM 10 MiB multi-page test allocation succeeded with address %p.", massiveMultiAlloc);
 
-        // All of the allocation tests passed, now we need to try writing to the allocated areas
+        // All of the allocation tests passed, now we need to try writing to and reading from the allocated areas
         uint8_t* memory = (uint8_t*)(massiveMultiAlloc + higherHalfOffset);
         uint64_t writeCount = 2560 * Architecture::KernelPageSize;
         for (uint64_t i = 0; i < writeCount; i++) {
             *memory = 0xAE;
+            if (*memory != 0xAE) return STATUS::FAILURE;
             memory++;
         }
 
