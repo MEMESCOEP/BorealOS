@@ -2,11 +2,11 @@
 #define BOREALOS_FBCONSOLE_H
 
 #include <Definitions.h>
+#include "Utility/StringFormatter.h"
+#include "Utility/ANSI.h"
 #include "Boot/LimineDefinitions.h"
 #include "flanterm.h"
 #include "flanterm_backends/fb.h"
-
-#define ANSI_CLEAR_SCREEN "\033[2J\033[H"
 
 namespace FBConsole {
     class Console {
@@ -18,9 +18,6 @@ namespace FBConsole {
         limine_framebuffer* framebuffer;
         struct flanterm_context* ftContext;
         bool initialized = false;
-
-        uint32_t defaultFG = 0x0000FF00;  // green
-        uint32_t defaultBG = 0x00000000;  // black
     };
 } // FBConsole
 

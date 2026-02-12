@@ -41,20 +41,14 @@ namespace FBConsole {
         );
 
         if (!ftContext) PANIC("Flanterm initialization failed!");
-        PrintString(ANSI_CLEAR_SCREEN);
-
         initialized = true;
+
+        PrintString(ANSI::EscapeCodes::ClearScreen);
         LOG_INFO("Framebuffer is %u64x%u64 @ %u16bpp (pitch is %u64, address is %p).", framebuffer->width, framebuffer->height, framebuffer->bpp, framebuffer->pitch, framebuffer->address);
     }
 
     void Console::PrintString(const char* str) {
         if (!initialized) return;
-        
-        size_t len = 0;
-        while (str[len] != '\0') {
-            ++len;
-        }
-
-        flanterm_write(ftContext, str, len);
+        flanterm_write(ftContext, str, Utility::StringFormatter::strlen(str));
     }
 }

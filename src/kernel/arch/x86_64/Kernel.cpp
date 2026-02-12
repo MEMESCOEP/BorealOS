@@ -9,6 +9,7 @@
 #include "IO/SerialPort.h"
 #include "IO/FBConsole.h"
 #include "Utility/StringFormatter.h"
+#include "Utility/ANSI.h"
 #include "Memory/PMM.h"
 
 Kernel<KernelData> kernel;
@@ -75,7 +76,10 @@ template<typename T>
 [[noreturn]] void Kernel<T>::Panic(const char *message) {
     Log("[PANIC] ");
     Log(message);
-    (&kernelData)->Console.PrintString("[\033[38;2;128;0;0mPANIC\033[0m] ");
+    (&kernelData)->Console.PrintString("[");
+    (&kernelData)->Console.PrintString(ANSI::Colors::Foreground::Red);
+    (&kernelData)->Console.PrintString(ANSI::EscapeCodes::TextDim);
+    (&kernelData)->Console.PrintString("PANIC\033[0m] ");
     (&kernelData)->Console.PrintString(message);
     (&kernelData)->Console.PrintString("\n\r");
 
@@ -89,24 +93,32 @@ void Core::Write(const char *message) {
 }
 
 void Core::Log(LOG_LEVEL level, const char *fmt, ...) {
+    (&kernelData)->Console.PrintString("[");
+
     switch (level) {
         case LOG_LEVEL::INFO:
             Kernel<KernelData>::GetInstance()->Log("[INFO] ");
-            (&kernelData)->Console.PrintString("[\033[32mINFO\033[0m] ");
+            (&kernelData)->Console.PrintString(ANSI::Colors::Foreground::Green);
+            (&kernelData)->Console.PrintString("INFO");
             break;
         case LOG_LEVEL::WARNING:
             Kernel<KernelData>::GetInstance()->Log("[WARNING] ");
-            (&kernelData)->Console.PrintString("[\033[33mWARNING\033[0m] ");
+            (&kernelData)->Console.PrintString(ANSI::Colors::Foreground::Yellow);
+            (&kernelData)->Console.PrintString("WARNING");
             break;
         case LOG_LEVEL::ERROR:
             Kernel<KernelData>::GetInstance()->Log("[ERROR] ");
-            (&kernelData)->Console.PrintString("[\033[31mERROR\033[0m] ");
+            (&kernelData)->Console.PrintString(ANSI::Colors::Foreground::Red);
+            (&kernelData)->Console.PrintString("ERROR");
             break;
         case LOG_LEVEL::DEBUG:
             Kernel<KernelData>::GetInstance()->Log("[DEBUG] ");
-            (&kernelData)->Console.PrintString("[\033[36mDEBUG\033[0m] ");
+            (&kernelData)->Console.PrintString(ANSI::Colors::Foreground::Cyan);
+            (&kernelData)->Console.PrintString("DEBUG");
             break;
     }
+
+    (&kernelData)->Console.PrintString("\033[0m] ");
 
     // Format the message
     char buffer[1024];
