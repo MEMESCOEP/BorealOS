@@ -7,7 +7,9 @@
 #include "Interrupts/TSS.h"
 #include "IO/Serial.h"
 #include "IO/SerialPort.h"
+#include "IO/FramebufferConsole.h"
 #include "Utility/StringFormatter.h"
+#include "Utility/ANSI.h"
 #include "Memory/PMM.h"
 
 Kernel<KernelData> kernel;
@@ -44,6 +46,10 @@ void Kernel<T>::Initialize() {
     ArchitectureData->Idt.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized IDT.");
 
+    // Console:
+    ArchitectureData->Console.Initialize();
+    LOG(LOG_LEVEL::INFO, "Initialized framebuffer console.");
+
     // Physical Memory Manager:
     ArchitectureData->Pmm.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized PMM.");
@@ -68,7 +74,14 @@ void Kernel<T>::Log(const char *message) {
 
 template<typename T>
 [[noreturn]] void Kernel<T>::Panic(const char *message) {
+    Log("[PANIC] ");
     Log(message);
+    (&kernelData)->Console.PrintString("[");
+    (&kernelData)->Console.PrintString(ANSI::Colors::Foreground::Red);
+    (&kernelData)->Console.PrintString(ANSI::EscapeCodes::TextDim);
+    (&kernelData)->Console.PrintString("PANIC\033[0m] ");
+    (&kernelData)->Console.PrintString(message);
+    (&kernelData)->Console.PrintString("\n\r");
 
     while (true) {
         asm ("hlt");
@@ -80,20 +93,32 @@ void Core::Write(const char *message) {
 }
 
 void Core::Log(LOG_LEVEL level, const char *fmt, ...) {
+    (&kernelData)->Console.PrintString("[");
+
     switch (level) {
         case LOG_LEVEL::INFO:
             Kernel<KernelData>::GetInstance()->Log("[INFO] ");
+            (&kernelData)->Console.PrintString(ANSI::Colors::Foreground::Green);
+            (&kernelData)->Console.PrintString("INFO");
             break;
         case LOG_LEVEL::WARNING:
             Kernel<KernelData>::GetInstance()->Log("[WARNING] ");
+            (&kernelData)->Console.PrintString(ANSI::Colors::Foreground::Yellow);
+            (&kernelData)->Console.PrintString("WARNING");
             break;
         case LOG_LEVEL::ERROR:
             Kernel<KernelData>::GetInstance()->Log("[ERROR] ");
+            (&kernelData)->Console.PrintString(ANSI::Colors::Foreground::Red);
+            (&kernelData)->Console.PrintString("ERROR");
             break;
         case LOG_LEVEL::DEBUG:
             Kernel<KernelData>::GetInstance()->Log("[DEBUG] ");
+            (&kernelData)->Console.PrintString(ANSI::Colors::Foreground::Cyan);
+            (&kernelData)->Console.PrintString("DEBUG");
             break;
     }
+
+    (&kernelData)->Console.PrintString("\033[0m] ");
 
     // Format the message
     char buffer[1024];
@@ -110,8 +135,11 @@ void Core::Log(LOG_LEVEL level, const char *fmt, ...) {
     buffer[len] = '\0';
 
     Kernel<KernelData>::GetInstance()->Log(buffer);
+    (&kernelData)->Console.PrintString(buffer);
+    (&kernelData)->Console.PrintString("\r");
     if (truncated) {
         Kernel<KernelData>::GetInstance()->Log("...[TRUNCATED]");
+        (&kernelData)->Console.PrintString("...[TRUNCATED]\r");
     }
 }
 

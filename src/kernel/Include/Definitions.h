@@ -36,7 +36,7 @@ constexpr uint64_t PiB = TiB * 1024;
 #define STRINGIFY_HELPER(x) #x
 #define STRINGIFY(x) STRINGIFY_HELPER(x)
 #define LOG(level, msg, ...) Core::Log(level, "[" __FILE_NAME__ ":" STRINGIFY(__LINE__)"] " msg "\n" __VA_OPT__(,) __VA_ARGS__)
-#define PANIC(msg) Core::Panic("[PANIC] " "[" __FILE_NAME__ ":" STRINGIFY(__LINE__)"] " msg)
+#define PANIC(msg) Core::Panic("[" __FILE_NAME__ ":" STRINGIFY(__LINE__)"] " msg)
 
 #define LOG_INFO(msg, ...) LOG(LOG_LEVEL::INFO, msg, __VA_ARGS__)
 #define LOG_WARNING(msg, ...) LOG(LOG_LEVEL::WARNING, msg, __VA_ARGS__)

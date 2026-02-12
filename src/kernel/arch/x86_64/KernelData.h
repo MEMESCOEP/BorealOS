@@ -6,12 +6,14 @@
 #include "Interrupts/PIC.h"
 #include "IO/Serial.h"
 #include "IO/SerialPort.h"
+#include "IO/FramebufferConsole.h"
 #include "Memory/PMM.h"
 
 struct KernelData {
     IO::SerialPort SerialPort {IO::Serial::COM1};
     Interrupts::PIC Pic {0x20, 0x28};
     Interrupts::IDT Idt {&Pic};
+    IO::FramebufferConsole Console;
     Memory::PMM Pmm;
 };
 
