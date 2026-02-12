@@ -1,7 +1,7 @@
-#include "FBConsole.h"
+#include "FramebufferConsole.h"
 
-namespace FBConsole {
-    void Console::Initialize() {
+namespace IO {
+    void FramebufferConsole::Initialize() {
         // Make sure limine provided a framebuffer for us to use
         if (!framebuffer_request.response || framebuffer_request.response->framebuffer_count <= 0) PANIC("Limine did not provide a framebuffer!");
         LOG_INFO("Limine provided %u64 framebuffer(s).", framebuffer_request.response->framebuffer_count);
@@ -47,7 +47,7 @@ namespace FBConsole {
         LOG_INFO("Framebuffer is %u64x%u64 @ %u16bpp (pitch is %u64, address is %p).", framebuffer->width, framebuffer->height, framebuffer->bpp, framebuffer->pitch, framebuffer->address);
     }
 
-    void Console::PrintString(const char* str) {
+    void FramebufferConsole::PrintString(const char* str) {
         if (!initialized) return;
         flanterm_write(ftContext, str, Utility::StringFormatter::strlen(str));
     }

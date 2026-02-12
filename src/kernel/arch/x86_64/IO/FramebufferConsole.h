@@ -1,5 +1,5 @@
-#ifndef BOREALOS_FBCONSOLE_H
-#define BOREALOS_FBCONSOLE_H
+#ifndef BOREALOS_FRAMEBUFFERCONSOLE_H
+#define BOREALOS_FRAMEBUFFERCONSOLE_H
 
 #include <Definitions.h>
 #include "Utility/StringFormatter.h"
@@ -8,8 +8,8 @@
 #include "flanterm.h"
 #include "flanterm_backends/fb.h"
 
-namespace FBConsole {
-    class Console {
+namespace IO {
+    class FramebufferConsole {
     public:
         void Initialize();
         void PrintString(const char* str);
@@ -19,6 +19,6 @@ namespace FBConsole {
         struct flanterm_context* ftContext;
         bool initialized = false;
     };
-} // FBConsole
+} // IO
 
-#endif //BOREALOS_FBCONSOLE_H
+#endif //BOREALOS_FRAMEBUFFERCONSOLE_H

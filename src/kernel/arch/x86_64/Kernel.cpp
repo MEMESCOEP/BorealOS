@@ -7,7 +7,7 @@
 #include "Interrupts/TSS.h"
 #include "IO/Serial.h"
 #include "IO/SerialPort.h"
-#include "IO/FBConsole.h"
+#include "IO/FramebufferConsole.h"
 #include "Utility/StringFormatter.h"
 #include "Utility/ANSI.h"
 #include "Memory/PMM.h"
