@@ -7,6 +7,7 @@
 #include "Interrupts/TSS.h"
 #include "IO/Serial.h"
 #include "IO/SerialPort.h"
+#include "IO/FBConsole.h"
 #include "Utility/StringFormatter.h"
 #include "Memory/PMM.h"
 
@@ -43,6 +44,10 @@ void Kernel<T>::Initialize() {
     ArchitectureData->Idt = Interrupts::IDT(&ArchitectureData->Pic);
     ArchitectureData->Idt.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized IDT.");
+
+    // Console:
+    ArchitectureData->Console.Initialize();
+    LOG(LOG_LEVEL::INFO, "Initialized framebuffer console.");
 
     // Physical Memory Manager:
     ArchitectureData->Pmm.Initialize();
@@ -110,12 +115,17 @@ void Core::Log(LOG_LEVEL level, const char *fmt, ...) {
     buffer[len] = '\0';
 
     Kernel<KernelData>::GetInstance()->Log(buffer);
+    (&kernelData)->Console.PrintString(buffer);
+    (&kernelData)->Console.PrintString("\r");
     if (truncated) {
         Kernel<KernelData>::GetInstance()->Log("...[TRUNCATED]");
+        (&kernelData)->Console.PrintString("...[TRUNCATED]\r");
     }
 }
 
 [[noreturn]] void Core::Panic(const char *message) {
+    (&kernelData)->Console.PrintString(message);
+    (&kernelData)->Console.PrintString("\n\r");
     Kernel<KernelData>::GetInstance()->Panic(message);
 }
 
