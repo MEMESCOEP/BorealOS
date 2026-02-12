@@ -73,7 +73,11 @@ void Kernel<T>::Log(const char *message) {
 
 template<typename T>
 [[noreturn]] void Kernel<T>::Panic(const char *message) {
+    Log("[PANIC] ");
     Log(message);
+    (&kernelData)->Console.PrintString("[\033[38;2;128;0;0mPANIC\033[0m] ");
+    (&kernelData)->Console.PrintString(message);
+    (&kernelData)->Console.PrintString("\n\r");
 
     while (true) {
         asm ("hlt");
@@ -88,19 +92,19 @@ void Core::Log(LOG_LEVEL level, const char *fmt, ...) {
     switch (level) {
         case LOG_LEVEL::INFO:
             Kernel<KernelData>::GetInstance()->Log("[INFO] ");
-            (&kernelData)->Console.PrintString("[INFO] ");
+            (&kernelData)->Console.PrintString("[\033[32mINFO\033[0m] ");
             break;
         case LOG_LEVEL::WARNING:
             Kernel<KernelData>::GetInstance()->Log("[WARNING] ");
-            (&kernelData)->Console.PrintString("[WARNING] ");
+            (&kernelData)->Console.PrintString("[\033[33mWARNING\033[0m] ");
             break;
         case LOG_LEVEL::ERROR:
             Kernel<KernelData>::GetInstance()->Log("[ERROR] ");
-            (&kernelData)->Console.PrintString("[ERROR] ");
+            (&kernelData)->Console.PrintString("[\033[31mERROR\033[0m] ");
             break;
         case LOG_LEVEL::DEBUG:
             Kernel<KernelData>::GetInstance()->Log("[DEBUG] ");
-            (&kernelData)->Console.PrintString("[DEBUG] ");
+            (&kernelData)->Console.PrintString("[\033[36mDEBUG\033[0m] ");
             break;
     }
 
@@ -128,8 +132,6 @@ void Core::Log(LOG_LEVEL level, const char *fmt, ...) {
 }
 
 [[noreturn]] void Core::Panic(const char *message) {
-    (&kernelData)->Console.PrintString(message);
-    (&kernelData)->Console.PrintString("\n\r");
     Kernel<KernelData>::GetInstance()->Panic(message);
 }
 

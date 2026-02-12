@@ -6,6 +6,8 @@
 #include "flanterm.h"
 #include "flanterm_backends/fb.h"
 
+#define ANSI_CLEAR_SCREEN "\033[2J\033[H"
+
 namespace FBConsole {
     class Console {
     public:

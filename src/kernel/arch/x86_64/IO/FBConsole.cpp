@@ -41,6 +41,7 @@ namespace FBConsole {
         );
 
         if (!ftContext) PANIC("Flanterm initialization failed!");
+        PrintString(ANSI_CLEAR_SCREEN);
 
         initialized = true;
         LOG_INFO("Framebuffer is %u64x%u64 @ %u16bpp (pitch is %u64, address is %p).", framebuffer->width, framebuffer->height, framebuffer->bpp, framebuffer->pitch, framebuffer->address);
