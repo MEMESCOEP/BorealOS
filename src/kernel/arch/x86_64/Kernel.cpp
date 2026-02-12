@@ -88,15 +88,19 @@ void Core::Log(LOG_LEVEL level, const char *fmt, ...) {
     switch (level) {
         case LOG_LEVEL::INFO:
             Kernel<KernelData>::GetInstance()->Log("[INFO] ");
+            (&kernelData)->Console.PrintString("[INFO] ");
             break;
         case LOG_LEVEL::WARNING:
             Kernel<KernelData>::GetInstance()->Log("[WARNING] ");
+            (&kernelData)->Console.PrintString("[WARNING] ");
             break;
         case LOG_LEVEL::ERROR:
             Kernel<KernelData>::GetInstance()->Log("[ERROR] ");
+            (&kernelData)->Console.PrintString("[ERROR] ");
             break;
         case LOG_LEVEL::DEBUG:
             Kernel<KernelData>::GetInstance()->Log("[DEBUG] ");
+            (&kernelData)->Console.PrintString("[DEBUG] ");
             break;
     }
 
