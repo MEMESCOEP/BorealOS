@@ -64,7 +64,7 @@ namespace Core {
         for (int i = 0; i < 4; i++) {
             if (r[i] != expected[i]) {
                 LOG_DEBUG("Mismatch at %d: got %f, expected %f", i, r[i], expected[i]);
-                fail = 1;
+                fail += 1;
             }
         }
 
