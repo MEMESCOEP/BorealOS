@@ -8,6 +8,7 @@
 #include "IO/SerialPort.h"
 #include "IO/FramebufferConsole.h"
 #include "Memory/PMM.h"
+#include "Core/CPU.h"
 
 struct KernelData {
     IO::SerialPort SerialPort {IO::Serial::COM1};
@@ -15,6 +16,7 @@ struct KernelData {
     Interrupts::IDT Idt {&Pic};
     IO::FramebufferConsole Console;
     Memory::PMM Pmm;
+    Core::CPU Cpu;
 };
 
 #endif //BOREALOS_KERNELDATA_H

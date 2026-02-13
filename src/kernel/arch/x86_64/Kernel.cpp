@@ -53,6 +53,10 @@ void Kernel<T>::Initialize() {
     // Physical Memory Manager:
     ArchitectureData->Pmm.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized PMM.");
+
+    // CPU:
+    ArchitectureData->Cpu.Initialize();
+    LOG(LOG_LEVEL::INFO, "Initialized CPU.");
 }
 
 template<typename T>
