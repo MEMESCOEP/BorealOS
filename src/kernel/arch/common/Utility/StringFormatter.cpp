@@ -24,10 +24,14 @@ namespace Utility {
         const char bad_fmt_unknown[] = "[UNKNOWN FORMAT SPECIFIER]";
 
         auto add_char = [&](char c) {
-            if (c < 32 || c > 126)
-                buf[pos++] = '?';
-            if (pos < max_pos)
-                buf[pos++] = c;
+
+            if (pos < max_pos) {
+                // Check if the ASCII value of the character is within range or if it is '\n' or '\r'
+                if ((unsigned char)c - 32 <= 94 || c == '\n' || c == '\r') {
+                    buf[pos++] = c;
+                }
+                else buf[pos++] = '?';
+            }
         };
 
         auto add_str = [&](const char* s) {
