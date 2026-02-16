@@ -9,6 +9,7 @@
 #include "IO/FramebufferConsole.h"
 #include "Memory/Paging.h"
 #include "Memory/PMM.h"
+#include "Core/CPU.h"
 #include "Memory/HeapAllocator.h"
 
 struct KernelData {
@@ -17,6 +18,7 @@ struct KernelData {
     Interrupts::IDT Idt {&Pic};
     IO::FramebufferConsole Console;
     Memory::PMM Pmm;
+    Core::CPU Cpu;
     Memory::Paging Paging {&Pmm};
     Memory::HeapAllocator HeapAllocator {&Pmm, &Paging, Paging.GetKernelPagingState()};
 };

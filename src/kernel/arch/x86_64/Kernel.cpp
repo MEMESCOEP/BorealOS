@@ -54,10 +54,16 @@ void Kernel<T>::Initialize() {
     ArchitectureData->Pmm.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized PMM.");
 
+    // CPU:
+    ArchitectureData->Cpu.Initialize();
+    LOG(LOG_LEVEL::INFO, "Initialized CPU.");
+
+    // Paging:
     ArchitectureData->Paging = Memory::Paging(&ArchitectureData->Pmm);
     ArchitectureData->Paging.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized paging.");
 
+    // Heap:
     ArchitectureData->HeapAllocator = Memory::HeapAllocator(&ArchitectureData->Pmm, &ArchitectureData->Paging, ArchitectureData->Paging.GetKernelPagingState());
     ArchitectureData->HeapAllocator.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized heap allocator.");
