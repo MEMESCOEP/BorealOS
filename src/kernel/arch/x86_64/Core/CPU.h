@@ -5,12 +5,12 @@
 #include <cpuid.h>
 
 namespace Core {
-    // No extended CPUID features are supported yet
     namespace CPUIDLeaves {
         constexpr unsigned int HFP_ManufacturerID = 0;
         constexpr unsigned int Features = 1;
         constexpr unsigned int Cache_TLB = 2;
         constexpr unsigned int SerialNumber = 3; // This feature is not implemented in any AMD CPUs or any Intel CPUs released after the Pentium III, use is not recommended
+        constexpr unsigned int ExtendedFeature = 0x80000000;
     }
 
     namespace CPUFeatures {
@@ -91,15 +91,22 @@ namespace Core {
         public:
         void Initialize();
         bool CPUHasFeature(CPUFeatures::Feature feature);
-        bool FXSRSupported = false;
-        char VendorID[13];
+        char processorName[49];
+        char vendorID[13];
 
         private:
+        static constexpr unsigned int CPUID_BRAND_STRING_START = 0x80000002;
+        static constexpr unsigned int CPUID_BRAND_STRING_END = 0x80000004;
+
         void WriteCR0(unsigned long value);
         unsigned long ReadCR0(void);
         void WriteCR4(unsigned long value);
         unsigned long ReadCR4(void);
-        uint32_t eax, ebx, ecx, edx;
+        void InitializeSSE();
+        void InitializeFPU();
+        uint32_t featureEAX, featureEBX, featureECX, featureEDX; // These should only be used for the CPUID supported features leaf
+        uint32_t tempEAX, tempEBX, tempECX, tempEDX; // Temporary registers
+        uint32_t maxExtendedLeaf;
     };
 }
 
