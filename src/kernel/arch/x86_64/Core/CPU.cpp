@@ -127,6 +127,8 @@ namespace Core {
     }
 
     void CPU::Initialize() {
+        uint32_t tempEAX, tempEBX, tempECX, tempEDX;
+        
         // Get the  CPU's vendor ID
         LOG_INFO("Getting CPU properties...");
 

@@ -105,7 +105,6 @@ namespace Core {
         void InitializeSSE();
         void InitializeFPU();
         uint32_t featureEAX, featureEBX, featureECX, featureEDX; // These should only be used for the CPUID supported features leaf
-        uint32_t tempEAX, tempEBX, tempECX, tempEDX; // Temporary registers
         uint32_t maxExtendedLeaf;
     };
 }
