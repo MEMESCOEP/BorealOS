@@ -24,6 +24,8 @@ namespace Utility {
         const char bad_fmt_unknown[] = "[UNKNOWN FORMAT SPECIFIER]";
 
         auto add_char = [&](char c) {
+            if (c < 32 || c > 126)
+                buf[pos++] = '?';
             if (pos < max_pos)
                 buf[pos++] = c;
         };
