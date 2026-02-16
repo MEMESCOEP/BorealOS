@@ -42,7 +42,7 @@ extern "C" {
     extern void* ISRStubTable;
 
     void IRQHandler(uint8_t irq) {
-        Kernel<KernelData>::GetInstance()->ArchitectureData->Idt.IRQHandler(irq);
+        Kernel<KernelData>::GetInstance()->ArchitectureData->Idt.IRQHandler(irq - 32);
     }
 
     // Error code is the vector number, so for example, divide by zero is 0, page fault is 14, etc.
@@ -61,7 +61,7 @@ namespace Interrupts {
     void IDT::Initialize() {
         asm volatile("cli"); // Disable interrupts while loading IDT
 
-        _idtPointer.Base = reinterpret_cast<uint64_t>(&_idtEntries);
+        _idtPointer.Base = reinterpret_cast<uint64_t>(&_idtEntries[0]);
         _idtPointer.Limit = sizeof(_idtEntries) - 1;
 
         for (uint8_t vec = 0; vec < 48; vec++) {
@@ -70,6 +70,10 @@ namespace Interrupts {
 
         for (auto & _exceptionHandler : _exceptionHandlers) {
             _exceptionHandler = nullptr; // Initialize exception handlers to nullptr
+        }
+
+        for (auto & _irqHandler : _irqHandlers) {
+            _irqHandler = nullptr; // Initialize IRQ handlers to nullptr
         }
 
         asm volatile("lidt %0" : : "m" (_idtPointer)); // Load the IDT
@@ -81,14 +85,33 @@ namespace Interrupts {
         _isTesting = false;
     }
 
-    void IDT::IRQHandler(uint8_t irq) {
-        if (irq >= 8) {
-            _pic->SendEOI(irq);
+    void IDT::RegisterExceptionHandler(uint8_t exceptionVector, void(*handler)()) {
+        if (exceptionVector >= 32) {
+            LOG_ERROR("Attempted to register an exception handler for vector %u8, which is not a CPU exception vector!", exceptionVector);
+            return;
         }
+
+        _exceptionHandlers[exceptionVector] = handler;
+    }
+
+    void IDT::RegisterIRQHandler(uint8_t irq, void(*handler)()) {
+        if (irq >= 16) {
+            LOG_ERROR("Attempted to register an IRQ handler for IRQ %u8, which is out of bounds!", irq);
+            return;
+        }
+
+        _irqHandlers[irq] = handler;
+    }
+
+    void IDT::IRQHandler(uint8_t irq) {
+        if (irq < 16 && _irqHandlers[irq] != nullptr) {
+            _irqHandlers[irq]();
+        }
+
         _pic->SendEOI(irq);
     }
 
-    void IDT::HandleException(uint32_t exceptionVector, uint32_t errorCode) {
+    void IDT::HandleException(uint32_t exceptionVector, uint32_t errorCode) const {
         if (_isTesting) {
             LOG_INFO("IDT testing mode: Exception %s occurred with error code %u32",
                      (exceptionVector < 32) ? ExceptionNames[exceptionVector] : "Unknown", errorCode);
@@ -99,6 +122,15 @@ namespace Interrupts {
                   (exceptionVector < 32) ? ExceptionNames[exceptionVector] : "Unknown", errorCode);
 
         PANIC("Exception occurred");
+    }
+
+    void IDT::ClearIRQMask(uint8_t uint8) const {
+        if (uint8 >= 16) {
+            LOG_ERROR("Attempted to clear mask for IRQ %u8, which is out of bounds!", uint8);
+            return;
+        }
+
+        _pic->ClearIRQMask(uint8);
     }
 
     void IDT::SetIDTEntry(uint8_t vector, uint64_t isr, uint8_t flags) {

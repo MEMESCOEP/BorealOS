@@ -41,6 +41,8 @@ namespace Interrupts {
         IO::Serial::IOWait();
         IO::Serial::outb(PIC2_DATA, 0xFF);
         IO::Serial::IOWait();
+
+        PIC::ClearIRQMask(2); // Unmask the cascade IRQ line on the master PIC to allow communication with the slave PIC
     }
 
     void PIC::Disable() {

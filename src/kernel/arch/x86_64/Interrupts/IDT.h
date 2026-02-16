@@ -26,13 +26,18 @@ namespace Interrupts {
         explicit IDT(PIC* pic);
 
         void Initialize();
+        void RegisterExceptionHandler(uint8_t exceptionVector, void (*handler)(void));
+        void RegisterIRQHandler(uint8_t irq, void (*handler)(void));
         void IRQHandler(uint8_t irq);
-        void HandleException(uint32_t exceptionVector, uint32_t errorCode);
+        void HandleException(uint32_t exceptionVector, uint32_t errorCode) const;
+        void ClearIRQMask(uint8_t uint8) const;
+
     private:
         PIC* _pic;
         IDTPointer _idtPointer = {0, 0};
         IDTEntry _idtEntries[256] = {};
         void (*_exceptionHandlers[32])(void) = { nullptr };
+        void (*_irqHandlers[16])(void) = { nullptr };
         void SetIDTEntry(uint8_t vector, uint64_t isr, uint8_t flags);
         bool _isTesting = false;
     };
