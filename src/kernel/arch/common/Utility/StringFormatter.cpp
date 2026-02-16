@@ -16,7 +16,7 @@ namespace Utility {
         size_t pos = 0;
         size_t max_pos = size - 1; // Reserve space for null terminator
 
-        const char digits[] = "0123456789abcdef";
+        const char digits[] = "0123456789ABCDEF";
         const char prefix_0x[] = "0x";
         const char bad_fmt_i[] = "[BAD FORMAT SPECIFIER FOR SIGNED INTEGER]";
         const char bad_fmt_u[] = "[BAD FORMAT SPECIFIER FOR UNSIGNED INTEGER]";
