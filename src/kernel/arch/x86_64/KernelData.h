@@ -7,8 +7,10 @@
 #include "IO/Serial.h"
 #include "IO/SerialPort.h"
 #include "IO/FramebufferConsole.h"
+#include "Memory/Paging.h"
 #include "Memory/PMM.h"
 #include "Core/CPU.h"
+#include "Memory/HeapAllocator.h"
 
 struct KernelData {
     IO::SerialPort SerialPort {IO::Serial::COM1};
@@ -17,6 +19,8 @@ struct KernelData {
     IO::FramebufferConsole Console;
     Memory::PMM Pmm;
     Core::CPU Cpu;
+    Memory::Paging Paging {&Pmm};
+    Memory::HeapAllocator HeapAllocator {&Pmm, &Paging, Paging.GetKernelPagingState()};
 };
 
 #endif //BOREALOS_KERNELDATA_H

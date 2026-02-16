@@ -57,17 +57,20 @@ void Kernel<T>::Initialize() {
     // CPU:
     ArchitectureData->Cpu.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized CPU.");
+
+    // Paging:
+    ArchitectureData->Paging = Memory::Paging(&ArchitectureData->Pmm);
+    ArchitectureData->Paging.Initialize();
+    LOG(LOG_LEVEL::INFO, "Initialized paging.");
+
+    // Heap:
+    ArchitectureData->HeapAllocator = Memory::HeapAllocator(&ArchitectureData->Pmm, &ArchitectureData->Paging, ArchitectureData->Paging.GetKernelPagingState());
+    ArchitectureData->HeapAllocator.Initialize();
+    LOG(LOG_LEVEL::INFO, "Initialized heap allocator.");
 }
 
 template<typename T>
 void Kernel<T>::Start() {
-    uint8_t t = 'A';
-    uint16_t u16 = 24;
-    int32_t i32 = -123456;
-    uint64_t u64 = 1234567890123456;
-    LOG(LOG_LEVEL::INFO, "Kernel started! Testing logging:");
-    LOG(LOG_LEVEL::DEBUG, "Char: %c, UInt16: %u16, Int32: %i32, UInt64: %u64", t, u16, i32, u64);
-
     PANIC("Kernel::Start not implemented");
 }
 
