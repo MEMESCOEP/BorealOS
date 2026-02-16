@@ -93,20 +93,22 @@ namespace Memory {
 
         if (alignment == 0) alignment = 16;
         if (alignment & (alignment - 1)) PANIC("Alignment must be a power of 2!");
+        uintptr_t allocationAddress = 0;
 
         if (bytes > Architecture::KernelPageSize) {
             // For large allocations, we will just allocate whole pages and map them directly, this is simpler and more efficient than trying to fit them into bins.
-            return AllocateHuge(bytes, flags);
+            allocationAddress = AllocateHuge(bytes, flags);
         }
+        else {
+            auto* bin = GetBinForSize(bytes, flags);
+            if (!bin) {
+                bin = CreateBinForSize(bytes, flags);
+                if (!bin) PANIC("Failed to create a heap bin for allocation!");
+            }
 
-        auto* bin = GetBinForSize(bytes, flags);
-        if (!bin) {
-            bin = CreateBinForSize(bytes, flags);
-            if (!bin) PANIC("Failed to create a heap bin for allocation!");
+            allocationAddress = AllocateFromBin(bin);
+            if (!allocationAddress) PANIC("Failed to allocate memory from heap bin!");
         }
-
-        uintptr_t allocationAddress = AllocateFromBin(bin);
-        if (!allocationAddress) PANIC("Failed to allocate memory from heap bin!");
 
         if (mode == AllocateMode::Zeroed) {
             memset(reinterpret_cast<void*>(allocationAddress), 0, bytes);
