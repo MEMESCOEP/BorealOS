@@ -67,6 +67,10 @@ void Kernel<T>::Initialize() {
     ArchitectureData->HeapAllocator = Memory::HeapAllocator(&ArchitectureData->Pmm, &ArchitectureData->Paging, ArchitectureData->Paging.GetKernelPagingState());
     ArchitectureData->HeapAllocator.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized heap allocator.");
+
+    // ACPI:
+    ArchitectureData->Acpi.Initialize();
+    LOG(LOG_LEVEL::INFO, "Initialized ACPI.");
 }
 
 template<typename T>
