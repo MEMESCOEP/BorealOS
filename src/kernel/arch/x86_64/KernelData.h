@@ -10,6 +10,7 @@
 #include "Memory/Paging.h"
 #include "Memory/PMM.h"
 #include "Core/CPU.h"
+#include "Core/Time/RTC.h"
 #include "Memory/HeapAllocator.h"
 #include "Core/ACPI.h"
 
@@ -18,6 +19,7 @@ struct KernelData {
     Interrupts::PIC Pic {0x20, 0x28};
     Interrupts::IDT Idt {&Pic};
     IO::FramebufferConsole Console;
+    Core::Time::RTC Rtc {&Idt};
     Memory::PMM Pmm;
     Core::CPU Cpu;
     Memory::Paging Paging {&Pmm};

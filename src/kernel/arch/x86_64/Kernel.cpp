@@ -50,6 +50,11 @@ void Kernel<T>::Initialize() {
     ArchitectureData->Console.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized framebuffer console.");
 
+    // RTC:
+    ArchitectureData->Rtc = Core::Time::RTC(&ArchitectureData->Idt);
+    ArchitectureData->Rtc.Initialize();
+    LOG(LOG_LEVEL::INFO, "Initialized RTC.");
+
     // Physical Memory Manager:
     ArchitectureData->Pmm.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized PMM.");
