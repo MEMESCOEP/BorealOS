@@ -96,6 +96,8 @@ namespace Core {
         return sum == 0;
     }
 
+    bool ACPI::ACPISupported() { return systemHasACPI; }
+
     void ACPI::Initialize() {
         char OEMID[7];
         char Signature[9];
@@ -159,5 +161,6 @@ namespace Core {
         }
 
         LOG_DEBUG("FACP address: %p", facp);
+        systemHasACPI = true;
     }
 }

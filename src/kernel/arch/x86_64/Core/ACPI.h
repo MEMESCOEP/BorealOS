@@ -4,6 +4,7 @@
 #include <Definitions.h>
 #include "Boot/LimineDefinitions.h"
 
+// ACPI structs are from the OSDev wiki
 namespace Core
 {
     class ACPI {
@@ -14,6 +15,10 @@ namespace Core
             "ACPI 2.0+"
         };
 
+        void Initialize();
+        bool ACPISupported();
+
+        private:
         struct RSDP {
             char     signature[8];
             uint8_t  checksum;
@@ -61,13 +66,12 @@ namespace Core
             uint64_t Address;
         };
 
-
         struct FADT {
             SDTHeader sdt;
             uint32_t FirmwareCtrl;
             uint32_t Dsdt;
 
-            // field used in ACPI 1.0; no longer in use, for compatibility only
+            // Field used in ACPI 1.0; no longer in use, for compatibility only
             uint8_t  Reserved;
 
             uint8_t  PreferredPowerManagementProfile;
@@ -103,7 +107,7 @@ namespace Core
             uint8_t  MonthAlarm;
             uint8_t  Century;
 
-            // reserved in ACPI 1.0; used since ACPI 2.0+
+            // Reserved in ACPI 1.0; used since ACPI 2.0+
             uint16_t BootArchitectureFlags;
 
             uint8_t  Reserved2;
@@ -127,11 +131,7 @@ namespace Core
             GenericAddr X_GPE0Block;
             GenericAddr X_GPE1Block;
         };
-
-        void Initialize();
-        bool ACPISupported();
-
-        private:
+        
         static uint32_t* getRsdtPointers(RSDT* rsdt, std::size_t& count) {
             count = (rsdt->sdt.length - sizeof(SDTHeader)) / sizeof(uint32_t);
             return reinterpret_cast<uint32_t*>(
