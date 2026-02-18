@@ -92,12 +92,12 @@ template<typename T>
 [[noreturn]] void Kernel<T>::Panic(const char *message) {
     Log("[PANIC] ");
     Log(message);
-    (&kernelData)->Console.PrintString("[");
-    (&kernelData)->Console.PrintString(ANSI::Colors::Foreground::Red);
-    (&kernelData)->Console.PrintString(ANSI::EscapeCodes::TextDim);
-    (&kernelData)->Console.PrintString("PANIC\033[0m] ");
-    (&kernelData)->Console.PrintString(message);
-    (&kernelData)->Console.PrintString("\n\r");
+    kernelData.Console.PrintString("[");
+    kernelData.Console.PrintString(ANSI::Colors::Foreground::Red);
+    kernelData.Console.PrintString(ANSI::EscapeCodes::TextDim);
+    kernelData.Console.PrintString("PANIC\033[0m] ");
+    kernelData.Console.PrintString(message);
+    kernelData.Console.PrintString("\n\r");
 
     while (true) {
         asm ("hlt");
@@ -109,35 +109,35 @@ void Core::Write(const char *message) {
 }
 
 void Core::Log(LOG_LEVEL level, const char *fmt, ...) {
-    (&kernelData)->Console.PrintString("[");
+    kernelData.Console.PrintString("[");
 
     switch (level) {
         case LOG_LEVEL::INFO:
-            Kernel<KernelData>::GetInstance()->Log("[INFO] ");
-            (&kernelData)->Console.PrintString(ANSI::Colors::Foreground::Green);
-            (&kernelData)->Console.PrintString("INFO");
+            kernel.Log("[INFO] ");
+            kernelData.Console.PrintString(ANSI::Colors::Foreground::Green);
+            kernelData.Console.PrintString("INFO");
             break;
         case LOG_LEVEL::WARNING:
-            Kernel<KernelData>::GetInstance()->Log("[WARNING] ");
-            (&kernelData)->Console.PrintString(ANSI::Colors::Foreground::Yellow);
-            (&kernelData)->Console.PrintString("WARNING");
+            kernel.Log("[WARNING] ");
+            kernelData.Console.PrintString(ANSI::Colors::Foreground::Yellow);
+            kernelData.Console.PrintString("WARNING");
             break;
         case LOG_LEVEL::ERROR:
-            Kernel<KernelData>::GetInstance()->Log("[ERROR] ");
-            (&kernelData)->Console.PrintString(ANSI::Colors::Foreground::Red);
-            (&kernelData)->Console.PrintString("ERROR");
+            kernel.Log("[ERROR] ");
+            kernelData.Console.PrintString(ANSI::Colors::Foreground::Red);
+            kernelData.Console.PrintString("ERROR");
             break;
         case LOG_LEVEL::DEBUG:
-            Kernel<KernelData>::GetInstance()->Log("[DEBUG] ");
-            (&kernelData)->Console.PrintString(ANSI::Colors::Foreground::Cyan);
-            (&kernelData)->Console.PrintString("DEBUG");
+            kernel.Log("[DEBUG] ");
+            kernelData.Console.PrintString(ANSI::Colors::Foreground::Cyan);
+            kernelData.Console.PrintString("DEBUG");
             break;
     }
 
-    (&kernelData)->Console.PrintString("\033[0m] ");
+    kernelData.Console.PrintString("\033[0m] ");
 
     // Format the message
-    char buffer[1024];
+    char buffer[1025]; // +1 for null terminator
     va_list args;
     va_start(args, fmt);
     auto len = Utility::StringFormatter::vsnprintf(buffer, sizeof(buffer), fmt, args);
@@ -150,17 +150,18 @@ void Core::Log(LOG_LEVEL level, const char *fmt, ...) {
     }
     buffer[len] = '\0';
 
-    Kernel<KernelData>::GetInstance()->Log(buffer);
-    (&kernelData)->Console.PrintString(buffer);
-    (&kernelData)->Console.PrintString("\r");
+    kernel.Log(buffer);
+    kernelData.Console.PrintString(buffer);
+    kernelData.Console.PrintString("\r");
     if (truncated) {
-        Kernel<KernelData>::GetInstance()->Log("...[TRUNCATED]");
-        (&kernelData)->Console.PrintString("...[TRUNCATED]\r");
+        kernel.Log("...[TRUNCATED]");
+        kernelData.Console.PrintString("...[TRUNCATED]\r");
     }
 }
 
 [[noreturn]] void Core::Panic(const char *message) {
-    Kernel<KernelData>::GetInstance()->Panic(message);
+    asm volatile ("cli"); // Disable interrupts to prevent any further damage or interference with the panic process.
+    kernel.Panic(message);
 }
 
 template class Kernel<KernelData>; // Initialize the template class
