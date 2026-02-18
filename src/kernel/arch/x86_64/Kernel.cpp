@@ -156,6 +156,7 @@ void Core::Log(LOG_LEVEL level, const char *fmt, ...) {
 }
 
 [[noreturn]] void Core::Panic(const char *message) {
+    asm volatile ("cli"); // Disable interrupts to prevent any further damage or interference with the panic process.
     Kernel<KernelData>::GetInstance()->Panic(message);
 }
 
