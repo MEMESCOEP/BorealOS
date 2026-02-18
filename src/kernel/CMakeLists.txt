@@ -12,6 +12,7 @@ if(ARCH STREQUAL "x86_64")
     set(COMPILE_FLAGS
         -m64
         -mcmodel=large
+        -mno-red-zone
     )
 
     set(LINKER_OPTIONS
@@ -40,31 +41,32 @@ file(GLOB_RECURSE SOURCES "arch/${ARCH_DIR}/*.cpp" "arch/${ARCH_DIR}/*.S")
 file(GLOB_RECURSE HEADERS "Include/*.h" "arch/${ARCH_DIR}/*.h")
 file(GLOB_RECURSE COMMON_SOURCES "arch/common/*.cpp" "arch/common/*.S") # the common headers are located in Include/Common
 
+set(KERNEL_COMPILE_FLAGS_COMMON
+        -ffreestanding
+        -fno-asynchronous-unwind-tables
+        -Wall -Wextra -Werror -Wpedantic
+        -Wno-unused-parameter
+        -Wno-unused-variable
+        -Wno-unused-function
+        ${COMPILE_FLAGS}
+)
+
 set(KERNEL_COMPILE_FLAGS_CXX
-    -ffreestanding
-    -fno-exceptions
-    -fno-rtti
-    -fno-asynchronous-unwind-tables
-    -fno-common
-    -Wall -Wextra -Werror -Wpedantic
-    -Wno-unused-parameter
-    -Wno-unused-variable
-    -Wno-unused-function
-    -Wno-vla
-    -Wno-zero-length-array
-    -Wno-gnu-flexible-array-member
-    ${COMPILE_FLAGS}
+        ${KERNEL_COMPILE_FLAGS_COMMON}
+        -fno-exceptions
+        -fno-rtti
+        -fno-common
+        -Wpedantic
+        -Wno-vla
+        -Wno-zero-length-array
+        -Wno-gnu-flexible-array-member
 )
 
 set(KERNEL_COMPILE_FLAGS_C
-    -ffreestanding
-    -fno-exceptions
-    -Wall -Wextra -Werror -Wpedantic
-    -Wno-unused-parameter
-    -Wno-unused-variable
-    -Wno-unused-function
-    -Wno-vla
-    -Wno-zero-length-array
+        ${KERNEL_COMPILE_FLAGS_COMMON}
+        -fno-exceptions
+        -Wno-vla
+        -Wno-zero-length-array
 )
 
 include(FetchContent)
