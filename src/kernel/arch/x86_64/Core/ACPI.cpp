@@ -160,7 +160,7 @@ namespace Core {
             return;
         }
 
-        LOG_DEBUG("FACP address: %p", facp);
+        LOG_DEBUG("FACP address: %p (offset from physical address %p)", facp, (uintptr_t)facp - hhdm_request.response->offset);
         systemHasACPI = true;
     }
 }
