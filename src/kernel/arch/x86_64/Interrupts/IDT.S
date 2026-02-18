@@ -4,85 +4,96 @@
 .global IRQHandler
 .global ExceptionHandler
 
-/* Save and restore all general-purpose registers */
+/* Save all general-purpose registers in reverse order (r15 … rax) */
 .macro SAVE_REGS
-    push    rax
-    push    rbx
-    push    rcx
-    push    rdx
-    push    rsi
-    push    rdi
-    push    rbp
-    push    r8
-    push    r9
-    push    r10
-    push    r11
-    push    r12
-    push    r13
-    push    r14
     push    r15
+    push    r14
+    push    r13
+    push    r12
+    push    r11
+    push    r10
+    push    r9
+    push    r8
+    push    rbp
+    push    rdi
+    push    rsi
+    push    rdx
+    push    rcx
+    push    rbx
+    push    rax
 .endm
 
+/* Restore registers in the opposite order (rax … r15) */
 .macro RESTORE_REGS
-    pop     r15
-    pop     r14
-    pop     r13
-    pop     r12
-    pop     r11
-    pop     r10
-    pop     r9
-    pop     r8
-    pop     rbp
-    pop     rdi
-    pop     rsi
-    pop     rdx
-    pop     rcx
-    pop     rbx
     pop     rax
+    pop     rbx
+    pop     rcx
+    pop     rdx
+    pop     rsi
+    pop     rdi
+    pop     rbp
+    pop     r8
+    pop     r9
+    pop     r10
+    pop     r11
+    pop     r12
+    pop     r13
+    pop     r14
+    pop     r15
 .endm
 
+/* IRQ stub (no error code) */
 .macro mac_IRQStub vector
 .global stub_ISRStub_\vector
 .type stub_ISRStub_\vector, @function
 stub_ISRStub_\vector:
     SAVE_REGS
-    mov rdi, \vector
-    sub     rsp, 8                  /* Align stack to 16 bytes */
-    call    IRQHandler              /* Call the IRQ handler */
-    add     rsp, 8                 /* Restore stack */
+    mov     rdi, \vector          /* first argument: vector number */
+    xor     rsi, rsi              /* second argument: error code = 0 */
+    mov     rdx, rsp              /* third argument: pointer to saved registers */
+    /* Align stack to 16 bytes and reserve space for call's return address */
+    mov     rbp, rsp              /* save original rsp after SAVE_REGS */
+    and     rsp, -16              /* align to 16 bytes */
+    sub     rsp, 8                /* now rsp ≡ 8 (mod 16) for the upcoming call */
+    call    IRQHandler
+    mov     rsp, rbp              /* restore original rsp */
     RESTORE_REGS
     iretq
 .endm
 
+/* Exception stub with CPU‑pushed error code */
 .macro mac_ISRErrStub vector
 .global stub_ISRStub_\vector
 .type stub_ISRStub_\vector, @function
 stub_ISRStub_\vector:
     SAVE_REGS
-    /* get the error code from the stack */
-    mov rdi, \vector
-    mov    rsi, QWORD PTR [rsp + 8]   /* Second argument: error code */
-
-    sub     rsp, 8                  /* Align stack to 16 bytes */
-    call    ExceptionHandler        /* Call the exception handler */
-    add     rsp, 8                 /* Restore stack */
-
+    mov     rdi, \vector
+    mov     rsi, QWORD PTR [rsp + 15*8]   /* error code is 15 registers above */
+    mov     rdx, rsp
+    mov     rbp, rsp
+    and     rsp, -16
+    sub     rsp, 8
+    call    ExceptionHandler
+    mov     rsp, rbp
     RESTORE_REGS
+    add     rsp, 8                /* discard the error code */
     iretq
 .endm
 
+/* Exception stub without error code */
 .macro mac_ISRNoErrStub vector
 .global stub_ISRStub_\vector
 .type stub_ISRStub_\vector, @function
 stub_ISRStub_\vector:
     SAVE_REGS
-    /* No error code, push a dummy 0 onto the stack */
-    mov rdi, \vector
-    mov     rsi, 0                   /* Second argument: error code = 0 */
-
-    sub     rsp, 8                  /* Align stack to 16 bytes */
-    call    ExceptionHandler        /* Call the exception handler */
-    add     rsp, 8                 /* Restore stack */
+    mov     rdi, \vector
+    xor     rsi, rsi              /* error code = 0 */
+    mov     rdx, rsp
+    mov     rbp, rsp
+    and     rsp, -16
+    sub     rsp, 8
+    call    ExceptionHandler
+    mov     rsp, rbp
     RESTORE_REGS
     iretq
 .endm
