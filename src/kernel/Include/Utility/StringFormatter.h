@@ -11,6 +11,7 @@ namespace Utility {
         static uint32_t vsnprintf(char* buf, size_t size, const char* fmt, va_list args);
         static uint32_t strlen(const char* str);
         static size_t HexToSize(const char* hexStr, size_t length);
+        static void TrimTrailingSpaces(char* str, uint64_t strLength);
     };
 }
 

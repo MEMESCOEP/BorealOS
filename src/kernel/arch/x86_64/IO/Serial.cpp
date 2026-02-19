@@ -17,7 +17,7 @@ uint16_t IO::Serial::inw(uint16_t port) {
 }
 
 uint32_t IO::Serial::Available(uint16_t comPort) {
-    return inb(comPort + 5) & 0x20;
+    return inb(comPort + 5) & 0x01;
 }
 
 uint32_t IO::Serial::TransmitEmpty(uint16_t comPort) {
@@ -37,4 +37,13 @@ void IO::Serial::WriteString(uint16_t comPort, const char *str) {
 
 void IO::Serial::IOWait() {
     asm volatile ("outb %%al, $0x80" : : "a"(0)); // I/O wait
+}
+
+bool IO::Serial::SerialPortExists(uint16_t COMPort) {
+    const int maxRetries = 1000;
+    for (int i = 0; i < maxRetries; i++) {
+        if (IO::Serial::TransmitEmpty(COMPort)) return true;
+        IO::Serial::IOWait();
+    }
+    return false;
 }

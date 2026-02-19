@@ -28,7 +28,7 @@ void Kernel<T>::Initialize() {
     ArchitectureData->SerialPort = IO::SerialPort(IO::Serial::COM1);
     ArchitectureData->SerialPort.Initialize();
     ArchitectureData->SerialPort.WriteString("\n\n");
-    LOG(LOG_LEVEL::INFO, "Loaded serial port. %p", IO::Serial::COM1);
+    LOG(LOG_LEVEL::INFO, "Loaded serial port COM1 (%p).", IO::Serial::COM1);
 
     // Tss & Gdt:
     Interrupts::GDT::Initialize(); // This loads the GDT and the TSS into the GDT
@@ -73,6 +73,10 @@ void Kernel<T>::Initialize() {
     ArchitectureData->HeapAllocator.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized heap allocator.");
 
+    // ACPI:
+    ArchitectureData->Acpi.Initialize();
+    LOG(LOG_LEVEL::INFO, "Initialized ACPI.");
+  
     // Init ram fs:
     auto files = module_request.response->modules;
     if (!files || module_request.response->module_count == 0) {
@@ -81,6 +85,7 @@ void Kernel<T>::Initialize() {
 
     auto cpioArchive = files[0];
     ArchitectureData->InitRamFS = FileSystems::InitRamFileSystem(cpioArchive, &ArchitectureData->HeapAllocator);
+    LOG_INFO("Initialized initramfs.");
 }
 
 template<typename T>

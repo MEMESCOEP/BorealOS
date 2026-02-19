@@ -20,6 +20,7 @@ namespace IO::Serial {
 
     uint32_t Available(uint16_t comPort);
     uint32_t TransmitEmpty(uint16_t comPort);
+    bool SerialPortExists(uint16_t COMPort);
     void WriteChar(uint16_t comPort, char c);
     void WriteString(uint16_t comPort, const char* str);
     void IOWait();

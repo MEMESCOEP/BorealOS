@@ -219,6 +219,20 @@ namespace Utility {
             else if (c >= 'A' && c <= 'F') val |= (c - 'A' + 10);
             else if (c >= 'a' && c <= 'f') val |= (c - 'a' + 10);
         }
+      
         return val;
+    }
+    
+    void StringFormatter::TrimTrailingSpaces(char* str, uint64_t strLength) {
+        // Null terminate the string
+        str[strLength] = '\0';
+
+        // Check for non-space characters, starting from the end of the string
+        for (int charIndex = strLength - 1; charIndex >= 0; charIndex--) {
+            if (str[charIndex] != ' ') {
+                str[charIndex + 1] = '\0';
+                return;
+            }
+        }
     }
 } // Utility
