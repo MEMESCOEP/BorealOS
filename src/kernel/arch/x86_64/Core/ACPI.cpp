@@ -2,19 +2,6 @@
 #include "../IO/Serial.h"
 
 namespace Core {
-    void TrimTrailingSpaces(char* str, uint64_t strLength) {
-        // Null terminate the string
-        str[strLength] = '\0';
-
-        // Check for non-space characters, starting from the end of the string
-        for (int charIndex = strLength - 1; charIndex >= 0; charIndex--) {
-            if (str[charIndex] != ' ') {
-                str[charIndex + 1] = '\0';
-                return;
-            }
-        }
-    }
-
     void ACPI::WriteByteCommand(uint8_t command) {
         if (!(IO::Serial::inw(fadt->PM1aControlBlock) & 1)) {
             IO::Serial::outb(fadt->SMI_CommandPort, command);
@@ -139,8 +126,8 @@ namespace Core {
         // Get the OEMID and signature and trim trailing spaces
         memcpy(OEMID, rsdp->OEMID, 6);
         memcpy(Signature, rsdp->signature, 8);
-        TrimTrailingSpaces(OEMID, 6);
-        TrimTrailingSpaces(Signature, 8);
+        Utility::StringFormatter::TrimTrailingSpaces(OEMID, 6);
+        Utility::StringFormatter::TrimTrailingSpaces(Signature, 8);
 
         LOG_DEBUG("_SDP Signature: \"%s\"", Signature);
         LOG_DEBUG("_SDP OEMID: \"%s\"", OEMID);

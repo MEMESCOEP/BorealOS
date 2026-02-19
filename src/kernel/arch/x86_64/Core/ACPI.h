@@ -3,6 +3,7 @@
 
 #include <Definitions.h>
 #include "Boot/LimineDefinitions.h"
+#include "Utility/StringFormatter.h"
 
 // ACPI structs are from the OSDev wiki
 namespace Core
@@ -26,11 +27,6 @@ namespace Core
             "Performance Server"
         };
 
-        void Initialize();
-        bool ACPISupported();
-        uint8_t powerProfile = 0;
-
-        private:
         struct RSDP {
             char     signature[8];
             uint8_t  checksum;
@@ -144,6 +140,11 @@ namespace Core
             GenericAddr X_GPE1Block;
         };
 
+        void Initialize();
+        bool ACPISupported();
+        uint8_t powerProfile = 0;
+
+        private:
         bool ValidateRSDP(RSDP* rsdp);
         bool ValidateXSDP(XSDP* xsdp);
         bool ValidateSDT(SDTHeader* sdt);
