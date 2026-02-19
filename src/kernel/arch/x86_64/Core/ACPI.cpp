@@ -1,4 +1,5 @@
 #include "ACPI.h"
+#include "../IO/Serial.h"
 
 namespace Core {
     void TrimTrailingSpaces(char* str, uint64_t strLength) {
@@ -11,6 +12,14 @@ namespace Core {
                 str[charIndex + 1] = '\0';
                 return;
             }
+        }
+    }
+
+    void ACPI::WriteByteCommand(uint8_t command) {
+        if (!(IO::Serial::inw(fadt->PM1aControlBlock) & 1)) {
+            IO::Serial::outb(fadt->SMI_CommandPort, command);
+
+            while (!(IO::Serial::inw(fadt->PM1aControlBlock) & 1));
         }
     }
 
@@ -101,8 +110,6 @@ namespace Core {
     void ACPI::Initialize() {
         char OEMID[7];
         char Signature[9];
-        RSDP* rsdp;
-        XSDP* xsdp;
 
         // Check if limine provided a response for the RSDP table; we'll determine the exact ACPI revision later
         if (!rsdp_request.response) {
@@ -154,13 +161,35 @@ namespace Core {
         }
 
         // Find the FACP
-        void* facp = FindFACP(sdt);
+        facp = FindFACP(sdt);
         if (!facp) {
             LOG_WARNING("Failed to find a FACP entry!");
             return;
         }
 
         LOG_DEBUG("FACP address: %p (offset from physical address %p)", facp, (uintptr_t)facp - hhdm_request.response->offset);
+
+        // Get the FADT
+        fadt = (FADT*)facp;
+        LOG_DEBUG("FADT address: %p (offset from physical address %p)", fadt, (uintptr_t)fadt - hhdm_request.response->offset);
+
+        // Retrieve the DSDT
+        uint64_t DSDTAddrPhysical = 0;
+
+        if (fadt->sdt.length >= offsetof(FADT, X_Dsdt) + sizeof(uint64_t) && fadt->X_Dsdt != 0) DSDTAddrPhysical = fadt->X_Dsdt;
+        else DSDTAddrPhysical = fadt->Dsdt;
+
+        if (!DSDTAddrPhysical) {
+            LOG_WARNING("Failed to find the DSDT!");
+            return;
+        }
+
+        dsdt = (void*)(DSDTAddrPhysical + hhdm_request.response->offset);
+        LOG_DEBUG("DSDT address: %p (offset from physical address %p)", dsdt, DSDTAddrPhysical);
+
+        // Enable ACPI mode
+        LOG_DEBUG("Writing 0x%x8 to PM1a control block (address is %p) to enable ACPI...", fadt->AcpiEnable, fadt->PM1aControlBlock);
+        WriteByteCommand(fadt->AcpiEnable);
         systemHasACPI = true;
     }
 }

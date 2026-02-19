@@ -131,28 +131,20 @@ namespace Core
             GenericAddr X_GPE0Block;
             GenericAddr X_GPE1Block;
         };
-        
-        static uint32_t* getRsdtPointers(RSDT* rsdt, std::size_t& count) {
-            count = (rsdt->sdt.length - sizeof(SDTHeader)) / sizeof(uint32_t);
-            return reinterpret_cast<uint32_t*>(
-                reinterpret_cast<char*>(rsdt) + sizeof(SDTHeader)
-            );
-        }
-
-        static uint64_t* getXsdtPointers(XSDT* xsdt, std::size_t& count) {
-            count = (xsdt->sdt.length - sizeof(SDTHeader)) / sizeof(uint64_t);
-            return reinterpret_cast<uint64_t*>(
-                reinterpret_cast<char*>(xsdt) + sizeof(SDTHeader)
-            );
-        }
 
         bool ValidateRSDP(RSDP* rsdp);
         bool ValidateXSDP(XSDP* xsdp);
         bool ValidateSDT(SDTHeader* sdt);
         void* FindFACP(void* rootSDT);
+        void WriteByteCommand(uint8_t command);
 
         limine_rsdp_response* RSDPResponse;
         bool systemHasACPI = false;
+        RSDP* rsdp;
+        XSDP* xsdp;
+        FADT* fadt;
+        void* dsdt;
+        void* facp;
     };
 } // Core
 
