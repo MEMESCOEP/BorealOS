@@ -72,7 +72,7 @@ namespace Core
             uint8_t BitOffset;
             uint8_t AccessSize;
             uint64_t Address;
-        };
+        } PACKED;
 
         struct FADT {
             SDTHeader sdt;
