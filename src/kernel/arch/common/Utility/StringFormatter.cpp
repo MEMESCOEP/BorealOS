@@ -209,6 +209,20 @@ namespace Utility {
         return len;
     }
 
+    size_t StringFormatter::HexToSize(const char *hexStr, size_t length) {
+        size_t val = 0;
+        for (size_t i = 0; i < length; i++) {
+            char c = hexStr[i];
+            val <<= 4; // Shift left by 4 bits to make room for the next hex digit
+
+            if (c >= '0' && c <= '9') val |= (c - '0');
+            else if (c >= 'A' && c <= 'F') val |= (c - 'A' + 10);
+            else if (c >= 'a' && c <= 'f') val |= (c - 'a' + 10);
+        }
+      
+        return val;
+    }
+    
     void StringFormatter::TrimTrailingSpaces(char* str, uint64_t strLength) {
         // Null terminate the string
         str[strLength] = '\0';

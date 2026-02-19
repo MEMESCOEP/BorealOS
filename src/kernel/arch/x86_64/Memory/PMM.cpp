@@ -120,7 +120,7 @@ namespace Memory {
 
             for (uint64_t i = 0; i < modules->module_count; i++) {
                 limine_file* mod = modules->modules[i];
-                uint64_t physStart = (uint64_t)mod->address;
+                uint64_t physStart = (uint64_t)mod->address - higherHalfOffset;
                 uint64_t physLength = mod->size;
                 PMM::ReserveRegion((void*)physStart, (ALIGN_UP(physLength, Architecture::KernelPageSize) / Architecture::KernelPageSize));
             }

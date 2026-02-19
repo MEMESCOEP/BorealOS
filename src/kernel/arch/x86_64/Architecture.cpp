@@ -69,4 +69,34 @@ extern "C" {
 
         return 0;
     }
+
+    int strcmp(const char *s1, const char *s2) {
+        while (*s1 && (*s1 == *s2)) {
+            s1++;
+            s2++;
+        }
+        return *reinterpret_cast<const unsigned char *>(s1) - *reinterpret_cast<const unsigned char *>(s2);
+    }
+
+    int strncmp(const char *s1, const char *s2, size_t n) {
+        for (size_t i = 0; i < n; i++) {
+            if (s1[i] != s2[i]) {
+                return static_cast<unsigned char>(s1[i]) - static_cast<unsigned char>(s2[i]);
+            }
+            if (s1[i] == '\0') {
+                return 0;
+            }
+        }
+        return 0;
+    }
+
+    char* strchr(const char *s, int c) {
+        while (*s) {
+            if (*s == c) {
+                return const_cast<char *>(s);
+            }
+            s++;
+        }
+        return nullptr;
+    }
 }

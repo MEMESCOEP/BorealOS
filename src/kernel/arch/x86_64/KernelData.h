@@ -11,6 +11,7 @@
 #include "Memory/PMM.h"
 #include "Core/CPU.h"
 #include "Core/Time/RTC.h"
+#include "FileSystems/InitRamFileSystem.h"
 #include "Memory/HeapAllocator.h"
 #include "Core/ACPI.h"
 
@@ -25,6 +26,7 @@ struct KernelData {
     Memory::Paging Paging {&Pmm};
     Memory::HeapAllocator HeapAllocator {&Pmm, &Paging, Paging.GetKernelPagingState()};
     Core::ACPI Acpi;
+    FileSystems::InitRamFileSystem InitRamFS {nullptr, &HeapAllocator};
 };
 
 #endif //BOREALOS_KERNELDATA_H

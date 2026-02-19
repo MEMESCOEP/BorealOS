@@ -76,6 +76,16 @@ void Kernel<T>::Initialize() {
     // ACPI:
     ArchitectureData->Acpi.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized ACPI.");
+  
+    // Init ram fs:
+    auto files = module_request.response->modules;
+    if (!files || module_request.response->module_count == 0) {
+        PANIC("Limine did not provide any modules, but we need at least one for the init ram filesystem!");
+    }
+
+    auto cpioArchive = files[0];
+    ArchitectureData->InitRamFS = FileSystems::InitRamFileSystem(cpioArchive, &ArchitectureData->HeapAllocator);
+    LOG_INFO("Initialized initramfs.");
 }
 
 template<typename T>
