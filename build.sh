@@ -33,6 +33,9 @@ cp deps/Limine/limine-uefi-cd.bin iso/boot/limine/
 cp deps/Limine/limine-bios.sys iso/boot/limine/
 cp deps/Limine/limine-bios-cd.bin iso/boot/limine/
 
+mkdir -p iso/boot/rootfs
+. ./src/scripts/make_cpio.sh ramfs iso/boot/rootfs/initramfs.cpio
+
 mkdir -p iso/EFI/BOOT
 cp deps/Limine/BOOTX64.EFI iso/EFI/BOOT/
 

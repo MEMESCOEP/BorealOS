@@ -155,6 +155,14 @@ namespace Memory {
         PANIC("Invalid free in heap allocator!");
     }
 
+    void * HeapAllocator::Allocate(size_t size) {
+        return reinterpret_cast<void*>(Allocate({.bytes = size}));
+    }
+
+    void HeapAllocator::Free(void *ptr, size_t size) {
+        Free(reinterpret_cast<uintptr_t>(ptr), size);
+    }
+
     // Remove the pedantic warning about range cases being a gnu extension.
     void HeapAllocator::FreeBin(HeapAllocator::SizeClass &sizeClass, HeapAllocator::Bin *currentBin) {
         // Free the page backing this bin, and the metadata for the bin.

@@ -72,6 +72,15 @@ void Kernel<T>::Initialize() {
     ArchitectureData->HeapAllocator = Memory::HeapAllocator(&ArchitectureData->Pmm, &ArchitectureData->Paging, ArchitectureData->Paging.GetKernelPagingState());
     ArchitectureData->HeapAllocator.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized heap allocator.");
+
+    // Init ram fs:
+    auto files = module_request.response->modules;
+    if (!files || module_request.response->module_count == 0) {
+        PANIC("Limine did not provide any modules, but we need at least one for the init ram filesystem!");
+    }
+
+    auto cpioArchive = files[0];
+    ArchitectureData->InitRamFS = FileSystems::InitRamFileSystem(cpioArchive, &ArchitectureData->HeapAllocator);
 }
 
 template<typename T>

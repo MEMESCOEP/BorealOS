@@ -60,6 +60,7 @@ set(KERNEL_COMPILE_FLAGS_CXX
         -Wno-vla
         -Wno-zero-length-array
         -Wno-gnu-flexible-array-member
+        -fno-use-cxa-atexit
 )
 
 set(KERNEL_COMPILE_FLAGS_C

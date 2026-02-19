@@ -3,6 +3,7 @@
 
 #include <Definitions.h>
 
+#include "Allocator.h"
 #include "Kernel.h"
 #include "Paging.h"
 #include "PMM.h"
@@ -10,7 +11,7 @@
 // TODO: Implement spin locks for the heap allocator when moving to multi core.
 
 namespace Memory {
-    class HeapAllocator {
+    class HeapAllocator : public Allocator {
     public:
         enum class AllocateMode {
             Normal, // Just allocate the memory, no special requirements
@@ -25,10 +26,14 @@ namespace Memory {
         };
 
         explicit HeapAllocator(PMM* pmm, Paging* paging, Paging::PagingState* pagingState, size_t heapOffset = 2 * Constants::MiB);
+        ~HeapAllocator() override = default;
         void Initialize();
 
         [[nodiscard]] uintptr_t Allocate(AllocateArgs args);
         void Free(uintptr_t address, size_t bytes);
+
+        void *Allocate(size_t size) override;
+        void Free(void *ptr, size_t size) override;
 
     private:
         [[nodiscard]] static int32_t GetBinIndex(size_t size);
