@@ -28,7 +28,7 @@ void Kernel<T>::Initialize() {
     ArchitectureData->SerialPort = IO::SerialPort(IO::Serial::COM1);
     ArchitectureData->SerialPort.Initialize();
     ArchitectureData->SerialPort.WriteString("\n\n");
-    LOG(LOG_LEVEL::INFO, "Loaded serial port. %p", IO::Serial::COM1);
+    LOG(LOG_LEVEL::INFO, "Loaded serial port COM1 (%p).", IO::Serial::COM1);
 
     // Tss & Gdt:
     Interrupts::GDT::Initialize(); // This loads the GDT and the TSS into the GDT
