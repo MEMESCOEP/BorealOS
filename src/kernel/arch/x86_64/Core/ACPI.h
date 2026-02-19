@@ -15,8 +15,20 @@ namespace Core
             "ACPI 2.0+"
         };
 
+        static constexpr const char* powerProfileStrings[] = {
+            "Unspecified",
+            "Desktop",
+            "Mobile",
+            "Workstation",
+            "Enterprise Server",
+            "SOHO Server",
+            "Appliance PC",
+            "Performance Server"
+        };
+
         void Initialize();
         bool ACPISupported();
+        uint8_t powerProfile = 0;
 
         private:
         struct RSDP {

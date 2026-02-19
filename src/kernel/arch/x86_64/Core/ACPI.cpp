@@ -190,6 +190,11 @@ namespace Core {
         // Enable ACPI mode
         LOG_DEBUG("Writing 0x%x8 to PM1a control block (address is %p) to enable ACPI...", fadt->AcpiEnable, fadt->PM1aControlBlock);
         WriteByteCommand(fadt->AcpiEnable);
+
+        // Get the system's preferred power management profile
+        powerProfile = fadt->PreferredPowerManagementProfile;
+        if (powerProfile <= 7) LOG_DEBUG("The device has a preferred power management profile of \"%s\" (profile ID %u8).", powerProfileStrings[powerProfile], powerProfile);
+        else LOG_WARNING("ACPI power profile ID %u8 is invalid.", powerProfile);
         systemHasACPI = true;
     }
 }
