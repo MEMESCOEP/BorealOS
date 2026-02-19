@@ -7,8 +7,10 @@ IO::SerialPort::SerialPort(uint16_t port) {
     _initialized = false;
 }
 
+
 void IO::SerialPort::Initialize() {
     // https://wiki.osdev.org/Serial_Ports#Initialization
+    // This code skips the loopback test because we have "modern" ICs and rarely have to worry about miswired or faulty UART systems. We still need to check if a port exists after initialization though.
     IO::Serial::outb(_port + 1, 0x00);
     IO::Serial::outb(_port + 3, 0x80);
     IO::Serial::outb(_port + 0, 0x03);
@@ -16,15 +18,10 @@ void IO::SerialPort::Initialize() {
     IO::Serial::outb(_port + 3, 0x03);
     IO::Serial::outb(_port + 2, 0xC7);
     IO::Serial::outb(_port + 4, 0x0B);
-    IO::Serial::outb(_port + 4, 0x1E);
-    IO::Serial::outb(_port + 0, 0xAE);
-    if (IO::Serial::inb(_port) != 0xAE) {
-        _initialized = false;
-        return;
-    }
+    IO::Serial::outb(_port + 4, 0x0F);
 
-    IO::Serial::outb(_port + 4, 0x0F); // Set to normal operation mode
-    _initialized = true;
+    // We still check if the port actually exists, which prevents TX/RX loop stalls and slowdowns
+    _initialized = IO::Serial::SerialPortExists(_port);
 }
 
 void IO::SerialPort::WriteChar(char c) const {
