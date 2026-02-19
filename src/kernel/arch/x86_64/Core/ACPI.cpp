@@ -117,10 +117,16 @@ namespace Core {
                 LOG_WARNING("XSDP checksum is invalid!");
                 return;
             }
+
+            xsdt = reinterpret_cast<XSDT*>(xsdp->XSDTAddress + hhdm_request.response->offset);
         }
-        else if (!ValidateRSDP(rsdp)) {
-            LOG_WARNING("RSDP checksum is invalid!");
-            return;
+        else {
+            if (!ValidateSDT(&rsdt->sdt)) {
+                LOG_WARNING("RSDT checksum is invalid!");
+                return;
+            }
+
+            rsdt = reinterpret_cast<RSDT*>(rsdp->RSDTAddress + hhdm_request.response->offset);
         }
 
         // Get the OEMID and signature and trim trailing spaces
@@ -183,5 +189,50 @@ namespace Core {
         if (powerProfile <= 7) LOG_DEBUG("The device has a preferred power management profile of \"%s\" (profile ID %u8).", powerProfileStrings[powerProfile], powerProfile);
         else LOG_WARNING("ACPI power profile ID %u8 is invalid.", powerProfile);
         systemHasACPI = true;
+    }
+
+    void * ACPI::GetTable(const char *signature, uint64_t index) {
+        // If signature is DSDT, return the DSDT
+        if (strcmp(signature, "DSDT") == 0) {
+            return dsdt;
+        }
+
+        // If the signature is FADT (or FACP, for compatibility), return the FADT
+        if (strcmp(signature, "FACP") == 0 || strcmp(signature, "FADT") == 0) {
+            return facp;
+        }
+
+        if (!systemHasACPI) {
+            LOG_WARNING("Attempted to get ACPI table \"%s\", but ACPI is not supported on this system!", signature);
+            return nullptr;
+        }
+
+        bool useNewSDT = rsdp->revision > 0;
+        if (useNewSDT) {
+            uint64_t entries = (xsdt->sdt.length - sizeof(SDTHeader)) / 8;
+            for (uint64_t i = 0; i < entries; i++) {
+                auto table = reinterpret_cast<SDTHeader *>(xsdt->pointers[i] + hhdm_request.response->offset);
+                if (memcmp(table->signature, signature, 4) == 0) {
+                    if (index == 0) {
+                        return table;
+                    }
+                    index--;
+                }
+            }
+        }
+        else {
+            uint64_t entries = (rsdt->sdt.length - sizeof(SDTHeader)) / 4;
+            for (uint64_t i = 0; i < entries; i++) {
+                auto table = reinterpret_cast<SDTHeader*>(rsdt->pointers[i] + hhdm_request.response->offset);
+                if (memcmp(table->signature, signature, 4) == 0) {
+                    if (index == 0) {
+                        return table;
+                    }
+                    index--;
+                }
+            }
+        }
+
+        return nullptr;
     }
 }
