@@ -89,7 +89,7 @@ void Kernel<T>::Initialize() {
     }
 
     auto cpioArchive = files[0];
-    ArchitectureData->InitRamFS = File::Systems::InitRam(cpioArchive, &ArchitectureData->HeapAllocator);
+    ArchitectureData->InitRamFS = FileSystem::InitRam(cpioArchive, &ArchitectureData->HeapAllocator);
     LOG_INFO("Initialized initramfs.");
 }
 

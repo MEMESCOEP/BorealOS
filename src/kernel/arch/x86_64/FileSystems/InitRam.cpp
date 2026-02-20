@@ -3,16 +3,16 @@
 #include "Definitions.h"
 #include "Utility/StringFormatter.h"
 
-struct FileSystem::File {
-    const char* path;
-    const size_t* children; // For directories, this is an array of indices into the _files array representing the children of this directory. For regular files, this is nullptr.
-    bool isDirectory;
-    size_t offset;
-    size_t size;
-};
+namespace FileSystem {
+    struct File {
+        const char* path;
+        const size_t* children; // For directories, this is an array of indices into the _files array representing the children of this directory. For regular files, this is nullptr.
+        bool isDirectory;
+        size_t offset;
+        size_t size;
+    };
 
-namespace File::Systems {
-    InitRam::InitRam(limine_file *cpioArchive, Allocator *allocator) : FileSystem(allocator), _cpioArchive(cpioArchive) {
+    InitRam::InitRam(limine_file *cpioArchive, Allocator *allocator) : FileSystemInterface(allocator), _cpioArchive(cpioArchive) {
         LOG_INFO("Loading %s", cpioArchive->path);
 
         // Load the CPIO archive.

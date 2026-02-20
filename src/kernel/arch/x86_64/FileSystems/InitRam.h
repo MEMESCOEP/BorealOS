@@ -1,11 +1,11 @@
 #ifndef BOREALOS_INITRAMFILESYSTEM_H
 #define BOREALOS_INITRAMFILESYSTEM_H
 
-#include "FileSystem.h"
+#include "FileSystemInterface.h"
 #include "Boot/c_limine.h"
 
-namespace File::Systems {
-    class InitRam : public FileSystem {
+namespace FileSystem {
+    class InitRam : public FileSystemInterface {
     public:
         explicit InitRam(limine_file* cpioArchive, Allocator *allocator);
 
