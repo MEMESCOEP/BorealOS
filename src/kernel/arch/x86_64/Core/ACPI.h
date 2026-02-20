@@ -138,7 +138,7 @@ namespace Core
             GenericAddr X_PMTimerBlock;
             GenericAddr X_GPE0Block;
             GenericAddr X_GPE1Block;
-        };
+        } PACKED;
 
         void Initialize();
         void* GetTable(const char* signature, uint64_t index = 0);

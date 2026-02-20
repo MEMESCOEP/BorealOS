@@ -121,12 +121,12 @@ namespace Core {
             xsdt = reinterpret_cast<XSDT*>(xsdp->XSDTAddress + hhdm_request.response->offset);
         }
         else {
+            rsdt = reinterpret_cast<RSDT*>(rsdp->RSDTAddress + hhdm_request.response->offset);
+
             if (!ValidateSDT(&rsdt->sdt)) {
                 LOG_WARNING("RSDT checksum is invalid!");
                 return;
             }
-
-            rsdt = reinterpret_cast<RSDT*>(rsdp->RSDTAddress + hhdm_request.response->offset);
         }
 
         // Get the OEMID and signature and trim trailing spaces
@@ -191,45 +191,30 @@ namespace Core {
         systemHasACPI = true;
     }
 
-    void * ACPI::GetTable(const char *signature, uint64_t index) {
-        // If signature is DSDT, return the DSDT
-        if (strcmp(signature, "DSDT") == 0) {
-            return dsdt;
-        }
+    void* ACPI::GetTable(const char* signature, uint64_t index) {
+        if (strcmp(signature, "DSDT") == 0) return dsdt;
+        if (strcmp(signature, "FACP") == 0 || strcmp(signature, "FADT") == 0) return facp;
+        if (!systemHasACPI) return nullptr;
 
-        // If the signature is FADT (or FACP, for compatibility), return the FADT
-        if (strcmp(signature, "FACP") == 0 || strcmp(signature, "FADT") == 0) {
-            return facp;
-        }
+        bool isXSDT = rsdp->revision > 0;
+        SDTHeader* header = isXSDT ? &xsdt->sdt : &rsdt->sdt;
+        uintptr_t ptrStart = reinterpret_cast<uintptr_t>(header) + sizeof(SDTHeader);
 
-        if (!systemHasACPI) {
-            LOG_WARNING("Attempted to get ACPI table \"%s\", but ACPI is not supported on this system!", signature);
-            return nullptr;
-        }
+        size_t entrySize = isXSDT ? 8 : 4;
+        size_t entries = (header->length - sizeof(SDTHeader)) / entrySize;
 
-        bool useNewSDT = rsdp->revision > 0;
-        if (useNewSDT) {
-            uint64_t entries = (xsdt->sdt.length - sizeof(SDTHeader)) / 8;
-            for (uint64_t i = 0; i < entries; i++) {
-                auto table = reinterpret_cast<SDTHeader *>(xsdt->pointers[i] + hhdm_request.response->offset);
-                if (memcmp(table->signature, signature, 4) == 0) {
-                    if (index == 0) {
-                        return table;
-                    }
-                    index--;
-                }
+        for (size_t i = 0; i < entries; i++) {
+            uint64_t targetAddr = 0;
+            if (isXSDT) {
+                targetAddr = reinterpret_cast<uint64_t*>(ptrStart)[i];
+            } else {
+                targetAddr = reinterpret_cast<uint32_t*>(ptrStart)[i];
             }
-        }
-        else {
-            uint64_t entries = (rsdt->sdt.length - sizeof(SDTHeader)) / 4;
-            for (uint64_t i = 0; i < entries; i++) {
-                auto table = reinterpret_cast<SDTHeader*>(rsdt->pointers[i] + hhdm_request.response->offset);
-                if (memcmp(table->signature, signature, 4) == 0) {
-                    if (index == 0) {
-                        return table;
-                    }
-                    index--;
-                }
+
+            auto table = reinterpret_cast<SDTHeader*>(targetAddr + hhdm_request.response->offset);
+            if (memcmp(table->signature, signature, 4) == 0) {
+                if (index == 0) return table;
+                index--;
             }
         }
 
