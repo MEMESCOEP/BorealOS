@@ -25,7 +25,7 @@ namespace Memory {
             AllocateMode mode = AllocateMode::Normal;
         };
 
-        explicit HeapAllocator(PMM* pmm, Paging* paging, Paging::PagingState* pagingState, size_t heapOffset = 2 * Constants::MiB);
+        explicit HeapAllocator(PMM* pmm, Paging* paging, Paging::PagingState* pagingState, size_t heapOffset);
         ~HeapAllocator() override = default;
         void Initialize();
 
@@ -35,12 +35,12 @@ namespace Memory {
         void *Allocate(size_t size) override;
         void Free(void *ptr, size_t size) override;
 
+        static constexpr uintptr_t HeapHigherHalf = 0xF8F8F000000;
     private:
         [[nodiscard]] static int32_t GetBinIndex(size_t size);
 
         PMM *physicalMemoryManager; // We need this to allocate and free physical pages when we need to grow or shrink the heap
         Paging *paging; // We need this to map and unmap pages
-        static constexpr uintptr_t heapHigherHalfStart = 0xF8F8F000000;
 
         // This is our target paging state, this is which page tables we will be modifying when we map and unmap pages for the heap.
         // This will be the kernel Paging state when we're in kernel mode, or a process's if we're in user mode. This is set in KernelData and we can access it from there.
