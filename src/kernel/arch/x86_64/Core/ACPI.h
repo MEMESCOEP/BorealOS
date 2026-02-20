@@ -72,7 +72,7 @@ namespace Core
             uint8_t BitOffset;
             uint8_t AccessSize;
             uint64_t Address;
-        };
+        } PACKED;
 
         struct FADT {
             SDTHeader sdt;
@@ -138,9 +138,10 @@ namespace Core
             GenericAddr X_PMTimerBlock;
             GenericAddr X_GPE0Block;
             GenericAddr X_GPE1Block;
-        };
+        } PACKED;
 
         void Initialize();
+        void* GetTable(const char* signature, uint64_t index = 0);
         bool ACPISupported();
         uint8_t powerProfile = 0;
 
@@ -154,7 +155,9 @@ namespace Core
         limine_rsdp_response* RSDPResponse;
         bool systemHasACPI = false;
         RSDP* rsdp;
+        RSDT* rsdt;
         XSDP* xsdp;
+        XSDT* xsdt;
         FADT* fadt;
         void* dsdt;
         void* facp;

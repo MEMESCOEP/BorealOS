@@ -117,10 +117,16 @@ namespace Core {
                 LOG_WARNING("XSDP checksum is invalid!");
                 return;
             }
+
+            xsdt = reinterpret_cast<XSDT*>(xsdp->XSDTAddress + hhdm_request.response->offset);
         }
-        else if (!ValidateRSDP(rsdp)) {
-            LOG_WARNING("RSDP checksum is invalid!");
-            return;
+        else {
+            rsdt = reinterpret_cast<RSDT*>(rsdp->RSDTAddress + hhdm_request.response->offset);
+
+            if (!ValidateSDT(&rsdt->sdt)) {
+                LOG_WARNING("RSDT checksum is invalid!");
+                return;
+            }
         }
 
         // Get the OEMID and signature and trim trailing spaces
@@ -183,5 +189,35 @@ namespace Core {
         if (powerProfile <= 7) LOG_DEBUG("The device has a preferred power management profile of \"%s\" (profile ID %u8).", powerProfileStrings[powerProfile], powerProfile);
         else LOG_WARNING("ACPI power profile ID %u8 is invalid.", powerProfile);
         systemHasACPI = true;
+    }
+
+    void* ACPI::GetTable(const char* signature, uint64_t index) {
+        if (strcmp(signature, "DSDT") == 0) return dsdt;
+        if (strcmp(signature, "FACP") == 0 || strcmp(signature, "FADT") == 0) return facp;
+        if (!systemHasACPI) return nullptr;
+
+        bool isXSDT = rsdp->revision > 0;
+        SDTHeader* header = isXSDT ? &xsdt->sdt : &rsdt->sdt;
+        uintptr_t ptrStart = reinterpret_cast<uintptr_t>(header) + sizeof(SDTHeader);
+
+        size_t entrySize = isXSDT ? 8 : 4;
+        size_t entries = (header->length - sizeof(SDTHeader)) / entrySize;
+
+        for (size_t i = 0; i < entries; i++) {
+            uint64_t targetAddr = 0;
+            if (isXSDT) {
+                targetAddr = reinterpret_cast<uint64_t*>(ptrStart)[i];
+            } else {
+                targetAddr = reinterpret_cast<uint32_t*>(ptrStart)[i];
+            }
+
+            auto table = reinterpret_cast<SDTHeader*>(targetAddr + hhdm_request.response->offset);
+            if (memcmp(table->signature, signature, 4) == 0) {
+                if (index == 0) return table;
+                index--;
+            }
+        }
+
+        return nullptr;
     }
 }

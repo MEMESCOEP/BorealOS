@@ -14,6 +14,7 @@
 #include "FileSystems/InitRamFileSystem.h"
 #include "Memory/HeapAllocator.h"
 #include "Core/ACPI.h"
+#include "Core/Time/HPET.h"
 
 struct KernelData {
     IO::SerialPort SerialPort {IO::Serial::COM1};
@@ -26,6 +27,7 @@ struct KernelData {
     Memory::Paging Paging {&Pmm};
     Memory::HeapAllocator HeapAllocator {&Pmm, &Paging, Paging.GetKernelPagingState()};
     Core::ACPI Acpi;
+    Core::Time::HPET Hpet {&Acpi, &Paging, &Idt};
     FileSystems::InitRamFileSystem InitRamFS {nullptr, &HeapAllocator};
 };
 
