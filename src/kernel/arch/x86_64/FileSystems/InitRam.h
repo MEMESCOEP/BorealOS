@@ -1,13 +1,13 @@
 #ifndef BOREALOS_INITRAMFILESYSTEM_H
 #define BOREALOS_INITRAMFILESYSTEM_H
 
-#include "FileSystem.h"
+#include "FileSystemInterface.h"
 #include "Boot/c_limine.h"
 
-namespace FileSystems {
-    class InitRamFileSystem : public FileSystem {
+namespace FileSystem {
+    class InitRam : public FileSystemInterface {
     public:
-        explicit InitRamFileSystem(limine_file* cpioArchive, Allocator *allocator);
+        explicit InitRam(limine_file* cpioArchive, Allocator *allocator);
 
         [[nodiscard]] Capabilities GetCapabilities() const override;
         [[nodiscard]] File* Open(const char *path) override;

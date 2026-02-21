@@ -12,6 +12,8 @@ extern "C" [[noreturn]] void kmain() {
     kernel->Initialize();
     kernel->Start();
 
+    LOG_ERROR("Clearly, something is not working correctly but whatever");
+    asm volatile ("cli");
     while (true) {
         asm ("hlt");
     }

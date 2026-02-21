@@ -22,6 +22,11 @@ namespace Memory {
         return static_cast<PageFlags>(static_cast<uint64_t>(a) | static_cast<uint64_t>(b));
     }
 
+    constexpr enum PageFlags operator|=(PageFlags& a, PageFlags b) {
+        a = a | b;
+        return a;
+    }
+
     class Paging {
     public:
         struct PagingState;
@@ -30,9 +35,13 @@ namespace Memory {
 
         /// Kernel virtual memory management initialization. To use the Paging for a process we must use a different function
         void Initialize();
+
         void MapPage(uint64_t virtualAddress, uint64_t physicalAddress, PageFlags flags);
         void UnmapPage(uint64_t virtualAddress);
+
         uint64_t GetPhysicalAddress(uint64_t virtualAddress);
+        [[nodiscard]] bool IsMapped(uint64_t virtualAddress) { return GetPhysicalAddress(virtualAddress) != 0; }
+
         void SwitchToKernelPageTable();
         [[nodiscard]] PagingState* GetKernelPagingState() const { return kernelPagingState; }
         [[nodiscard]] PagingState* GetCurrentPagingState() const { return currentPagingState; }

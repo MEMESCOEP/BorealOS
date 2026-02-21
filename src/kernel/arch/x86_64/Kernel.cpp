@@ -69,7 +69,7 @@ void Kernel<T>::Initialize() {
     LOG(LOG_LEVEL::INFO, "Initialized paging.");
 
     // Heap:
-    ArchitectureData->HeapAllocator = Memory::HeapAllocator(&ArchitectureData->Pmm, &ArchitectureData->Paging, ArchitectureData->Paging.GetKernelPagingState());
+    ArchitectureData->HeapAllocator = Memory::HeapAllocator(&ArchitectureData->Pmm, &ArchitectureData->Paging, ArchitectureData->Paging.GetKernelPagingState(), Memory::HeapAllocator::HeapHigherHalf);
     ArchitectureData->HeapAllocator.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized heap allocator.");
 
@@ -89,7 +89,7 @@ void Kernel<T>::Initialize() {
     }
 
     auto cpioArchive = files[0];
-    ArchitectureData->InitRamFS = FileSystems::InitRamFileSystem(cpioArchive, &ArchitectureData->HeapAllocator);
+    ArchitectureData->InitRamFS = FileSystem::InitRam(cpioArchive, &ArchitectureData->HeapAllocator);
     LOG_INFO("Initialized initramfs.");
 }
 

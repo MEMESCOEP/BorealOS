@@ -361,7 +361,7 @@ namespace Memory {
         size_t newBlockSize = 64;
         uintptr_t pageAddress = physicalMemoryManager->AllocatePages(1);
         if (!pageAddress) PANIC("Failed to allocate memory for heap metadata!");
-        uintptr_t virtualAddress = heapHigherHalfStart + pageAddress; // Map the page into the heap's virtual address space
+        uintptr_t virtualAddress = HeapHigherHalf + pageAddress; // Map the page into the heap's virtual address space
         paging->MapPage(virtualAddress, pageAddress, PageFlags::Present | PageFlags::ReadWrite);
 
         auto newBin = reinterpret_cast<Bin *>(virtualAddress);

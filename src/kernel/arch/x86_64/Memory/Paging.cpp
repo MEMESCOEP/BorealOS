@@ -198,6 +198,7 @@ namespace Memory {
         uintptr_t ptPhysicalAddress = pd->entries[pdIndex] & PointerMask;
         PT* pt = reinterpret_cast<PT *>(reinterpret_cast<uint64_t>(ptPhysicalAddress) + offset);
         if (pt->entries[ptIndex] & static_cast<uint64_t>(PageFlags::Present)) {
+            LOG_ERROR("Virtual address %p is already mapped to physical address %p with flags %p!", virtualAddress, pt->entries[ptIndex] & PointerMask, pt->entries[ptIndex] & FlagsMask);
             PANIC("Virtual address is already mapped!");
         }
 

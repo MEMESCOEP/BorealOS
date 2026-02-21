@@ -1,18 +1,18 @@
-#include "InitRamFileSystem.h"
+#include "InitRam.h"
 
 #include "Definitions.h"
 #include "Utility/StringFormatter.h"
 
-struct FileSystem::File {
-    const char* path;
-    const size_t* children; // For directories, this is an array of indices into the _files array representing the children of this directory. For regular files, this is nullptr.
-    bool isDirectory;
-    size_t offset;
-    size_t size;
-};
+namespace FileSystem {
+    struct File {
+        const char* path;
+        const size_t* children; // For directories, this is an array of indices into the _files array representing the children of this directory. For regular files, this is nullptr.
+        bool isDirectory;
+        size_t offset;
+        size_t size;
+    };
 
-namespace FileSystems {
-    InitRamFileSystem::InitRamFileSystem(limine_file *cpioArchive, Allocator *allocator) : FileSystem(allocator), _cpioArchive(cpioArchive) {
+    InitRam::InitRam(limine_file *cpioArchive, Allocator *allocator) : FileSystemInterface(allocator), _cpioArchive(cpioArchive) {
         LOG_INFO("Loading %s", cpioArchive->path);
 
         // Load the CPIO archive.
@@ -115,13 +115,17 @@ namespace FileSystems {
         }
     }
 
-    FileSystem::Capabilities InitRamFileSystem::GetCapabilities() const {
+    FileSystem::Capabilities InitRam::GetCapabilities() const {
         return {true, false}; // Can read, can't write
     }
 
-    FileSystem::File* InitRamFileSystem::Open(const char *path) {
+    FileSystem::File* InitRam::Open(const char *path) {
         if (strcmp(path, "/") == 0) {
             return _files[_fileCount - 1]; // The last file is the root directory
+        }
+
+        if (path[0] == '/') {
+            path++; // Skip the leading '/' since our file paths don't have it
         }
 
         for (size_t i = 0; _files[i] != nullptr; i++) {
@@ -133,7 +137,7 @@ namespace FileSystems {
         return nullptr; // File not found
     }
 
-    size_t InitRamFileSystem::Read(File *file, void *buffer, size_t size) {
+    size_t InitRam::Read(File *file, void *buffer, size_t size) {
         auto* p = reinterpret_cast<const char*>(reinterpret_cast<uintptr_t>(_cpioArchive->address) + file->offset);
 
         if (size > file->size) {
@@ -144,17 +148,17 @@ namespace FileSystems {
         return size;
     }
 
-    size_t InitRamFileSystem::Write(File *file, const void *buffer, size_t size) {
+    size_t InitRam::Write(File *file, const void *buffer, size_t size) {
         return -1; // Writing is not supported
     }
 
-    bool InitRamFileSystem::GetFileInfo(File *file, FileInfo *info) {
+    bool InitRam::GetFileInfo(File *file, FileInfo *info) {
         info->size = file->size;
         info->isDirectory = false;
         return true;
     }
 
-    bool InitRamFileSystem::GetDirectoryInfo(File *file, DirectoryInfo *info) {
+    bool InitRam::GetDirectoryInfo(File *file, DirectoryInfo *info) {
         if (!file->isDirectory) {
             return false; // Not a directory
         }
@@ -172,11 +176,11 @@ namespace FileSystems {
         return true;
     }
 
-    void InitRamFileSystem::FreeDirectoryInfo(DirectoryInfo *info) {
+    void InitRam::FreeDirectoryInfo(DirectoryInfo *info) {
         delete[] info->entries;
     }
 
-    void InitRamFileSystem::Close(File *file) {
+    void InitRam::Close(File *file) {
         // Does nothing, we preloaded the entire archive into memory.
     }
 } // FileSystems
