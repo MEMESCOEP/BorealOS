@@ -2,6 +2,23 @@
 #include "Settings.h"
 
 namespace Core {
+    uint64_t CPU::ReadMSR(uint32_t msr) {
+        uint32_t lo, hi;
+        asm volatile ("rdmsr"
+                    : "=a"(lo), "=d"(hi)
+                    : "c"(msr));
+        return ((uint64_t)hi << 32) | lo;
+    }
+
+    void CPU::WriteMSR(uint32_t msr, uint64_t value) {
+        uint32_t lo = (uint32_t)(value & 0xFFFFFFFF);
+        uint32_t hi = (uint32_t)(value >> 32);
+
+        asm volatile ("wrmsr"
+                    :
+                    : "c"(msr), "a"(lo), "d"(hi));
+    }
+
     void CPU::WriteCR0(unsigned long value) {
         __asm__ volatile (
             "mov %0, %%cr0"

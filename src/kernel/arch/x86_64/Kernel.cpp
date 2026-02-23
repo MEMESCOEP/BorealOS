@@ -5,6 +5,7 @@
 #include "KernelData.h"
 #include "Interrupts/GDT.h"
 #include "Interrupts/TSS.h"
+#include "Interrupts/APIC.h"
 #include "IO/Serial.h"
 #include "IO/SerialPort.h"
 #include "IO/FramebufferConsole.h"
@@ -81,7 +82,12 @@ void Kernel<T>::Initialize() {
     ArchitectureData->Hpet = Core::Time::HPET(&ArchitectureData->Acpi, &ArchitectureData->Paging, &ArchitectureData->Idt);
     ArchitectureData->Hpet.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized HPET.");
-  
+
+    // APIC:
+    ArchitectureData->Apic = Interrupts::APIC(&ArchitectureData->Acpi, &ArchitectureData->Cpu, &ArchitectureData->Pic, &ArchitectureData->Paging);
+    ArchitectureData->Apic.Initialize();
+    LOG(LOG_LEVEL::INFO, "Initialized APIC.");
+
     // Init ram fs:
     auto files = module_request.response->modules;
     if (!files || module_request.response->module_count == 0) {

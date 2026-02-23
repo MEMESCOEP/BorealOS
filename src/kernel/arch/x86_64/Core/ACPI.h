@@ -66,6 +66,17 @@ namespace Core
             uint64_t pointers[1]; // Placeholder for flexible array
         } PACKED;
 
+        struct MADT {
+            SDTHeader sdt;
+            uint32_t localAPICAddr;
+            uint32_t flags;
+        } PACKED;
+
+        struct MADTEntryHeader {
+            uint8_t type;
+            uint8_t length;
+        } PACKED;
+
         struct GenericAddr {
             uint8_t AddressSpace;
             uint8_t BitWidth;

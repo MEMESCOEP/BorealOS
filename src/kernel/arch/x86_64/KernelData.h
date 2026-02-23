@@ -1,6 +1,7 @@
 #ifndef BOREALOS_KERNELDATA_H
 #define BOREALOS_KERNELDATA_H
 
+#include "Interrupts/APIC.h"
 #include "Interrupts/GDT.h"
 #include "Interrupts/IDT.h"
 #include "Interrupts/PIC.h"
@@ -29,6 +30,7 @@ struct KernelData {
     Core::ACPI Acpi;
     Core::Time::HPET Hpet {&Acpi, &Paging, &Idt};
     FileSystem::InitRam InitRamFS {nullptr, &HeapAllocator};
+    Interrupts::APIC Apic {&Acpi, &Cpu, &Pic, &Paging};
 };
 
 #endif //BOREALOS_KERNELDATA_H
