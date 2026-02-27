@@ -89,13 +89,39 @@ void Kernel<T>::Initialize() {
     }
 
     auto cpioArchive = files[0];
-    ArchitectureData->InitRamFS = File::Systems::InitRam(cpioArchive, &ArchitectureData->HeapAllocator);
+    ArchitectureData->InitRamFS = new FileSystem::InitRam(cpioArchive, &ArchitectureData->HeapAllocator);
     LOG_INFO("Initialized initramfs.");
+
+    // Kernel symbols:
+    auto symbolTable = ArchitectureData->InitRamFS->Open("/ramfs/kernel.sym");
+    if (!symbolTable) {
+        PANIC("Failed to open kernel symbol table from init ram filesystem! Expected it to be located at /ramfs/kernel.sym");
+    }
+    FileSystem::FileInfo symbolTableInfo;
+    if (!ArchitectureData->InitRamFS->GetFileInfo(symbolTable, &symbolTableInfo)) {
+        PANIC("Failed to get kernel symbol table info from init ram filesystem!");
+    }
+
+    auto symbolTableData = new uint8_t[symbolTableInfo.size];
+    if (!ArchitectureData->InitRamFS->Read(symbolTable, symbolTableData, symbolTableInfo.size)) {
+        PANIC("Failed to read kernel symbol table data from init ram filesystem!");
+    }
+    ArchitectureData->KernelSymbols = new Formats::SymbolLoader(symbolTableData, symbolTableInfo.size);
+    LOG_INFO("Initialized kernel symbol loader with %u64 symbols.", ArchitectureData->KernelSymbols->GetSymbolCount());
+
+    // Service manager:
+    ArchitectureData->ServiceManager = new Core::ServiceManager();
+
+    // Driver manager:
+    ArchitectureData->DriverManager = new Core::Drivers::DriverManager("/ramfs/modules", ArchitectureData->KernelSymbols, ArchitectureData->InitRamFS, &ArchitectureData->Paging, &ArchitectureData->Pmm);
+    LOG_INFO("Initialized driver manager.");
 }
 
 template<typename T>
 void Kernel<T>::Start() {
-    PANIC("Kernel::Start not implemented");
+    // Load all drivers, we do this in the start function because this ensures we have finished initialization of all main kernel subsystems before we start loading drivers, which may depend on those subsystems.
+    ArchitectureData->DriverManager->LoadDriversFromFileSystem();
+    LOG_INFO("Finished loading drivers.");
 }
 
 template<typename T>

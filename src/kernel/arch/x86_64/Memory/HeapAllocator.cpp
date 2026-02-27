@@ -100,13 +100,24 @@ namespace Memory {
             allocationAddress = AllocateHuge(bytes, flags);
         }
         else {
-            auto* bin = GetBinForSize(bytes, flags);
-            if (!bin) {
-                bin = CreateBinForSize(bytes, flags);
-                if (!bin) PANIC("Failed to create a heap bin for allocation!");
+            int32_t binIndex = GetBinIndex(bytes);
+            auto& sizeClass = sizeClasses[binIndex];
+            Bin* targetBin = sizeClass.bins;
+
+            // Search for an existing bin with space
+            while (targetBin) {
+                if (targetBin->flags == flags && targetBin->freeBlockCount > 0) {
+                    break;
+                }
+                targetBin = targetBin->next;
             }
 
-            allocationAddress = AllocateFromBin(bin);
+            // If we didn't find a suitable bin, we need to create a new one.
+            if (!targetBin) {
+                targetBin = CreateBinForSize(bytes, flags);
+            }
+
+            allocationAddress = AllocateFromBin(targetBin);
             if (!allocationAddress) PANIC("Failed to allocate memory from heap bin!");
         }
 
@@ -283,11 +294,9 @@ namespace Memory {
     uintptr_t HeapAllocator::AllocateFromBin(Bin *bin) {
         // If the bin has no free blocks, we need to create a new bin for this size class and flags
         if (bin->freeBlockCount == 0) {
-            auto newBin = CreateBinForSize(bin->blockSize, bin->flags);
-            if (!newBin) PANIC("Failed to create a new heap bin for allocation!");
-            newBin->next = bin->next;
-            bin->next = newBin;
-            bin = newBin;
+            Bin* newBin = CreateBinForSize(bin->blockSize, bin->flags);
+            if (!newBin) PANIC("Heap exhaustion: Cannot create new bin.");
+            return AllocateFromBin(newBin);
         }
 
         // Pop a block from the free list

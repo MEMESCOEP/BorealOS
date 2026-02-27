@@ -3,16 +3,16 @@
 #include "Definitions.h"
 #include "Utility/StringFormatter.h"
 
-struct FileSystem::File {
-    const char* path;
-    const size_t* children; // For directories, this is an array of indices into the _files array representing the children of this directory. For regular files, this is nullptr.
-    bool isDirectory;
-    size_t offset;
-    size_t size;
-};
+namespace FileSystem {
+    struct File {
+        const char* path;
+        const size_t* children; // For directories, this is an array of indices into the _files array representing the children of this directory. For regular files, this is nullptr.
+        bool isDirectory;
+        size_t offset;
+        size_t size;
+    };
 
-namespace File::Systems {
-    InitRam::InitRam(limine_file *cpioArchive, Allocator *allocator) : FileSystem(allocator), _cpioArchive(cpioArchive) {
+    InitRam::InitRam(limine_file *cpioArchive, Allocator *allocator) : FileSystemInterface(allocator), _cpioArchive(cpioArchive) {
         LOG_INFO("Loading %s", cpioArchive->path);
 
         // Load the CPIO archive.
@@ -108,11 +108,6 @@ namespace File::Systems {
 
         _files[fileCount]->children = rootChildren;
         _fileCount = fileCount + 1; // +1 for the root directory
-        // List out the root directory for debugging purposes
-        LOG_INFO("Root directory:");
-        for (size_t i = 0; i < rootChildCount; i++) {
-            LOG_INFO(" - %s", _files[rootChildren[i]]->path);
-        }
     }
 
     FileSystem::Capabilities InitRam::GetCapabilities() const {
@@ -154,7 +149,7 @@ namespace File::Systems {
 
     bool InitRam::GetFileInfo(File *file, FileInfo *info) {
         info->size = file->size;
-        info->isDirectory = false;
+        info->isDirectory = file->isDirectory;
         return true;
     }
 
@@ -170,7 +165,12 @@ namespace File::Systems {
 
         info->entries = new const char*[info->entryCount];
         for (size_t i = 0; i < info->entryCount; i++) {
-            info->entries[i] = _files[file->children[i]]->path;
+            if (_files[file->children[i]] == nullptr || _files[file->children[i]]->path == nullptr) {
+                info->entries[i] = nullptr;
+            }
+            else {
+                info->entries[i] = _files[file->children[i]]->path;
+            }
         }
 
         return true;
