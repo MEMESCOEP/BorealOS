@@ -26,7 +26,7 @@ namespace Core::Drivers {
             return;
         }
 
-        LOG_INFO("Found %u64 drivers in directory %s!", count, _directory);
+        LOG_INFO("Found %u64 driver(s) in directory %s!", count, _directory);
 
         Formats::DriverModule *validModules[count];
         size_t validModuleCount = 0;
@@ -67,6 +67,7 @@ namespace Core::Drivers {
         LoadedModule* loadedModules[validModuleCount];
         size_t loadedModuleCount = 0;
         for (size_t i = 0; i < validModuleCount; i++) {
+            LOG_DEBUG("Processing driver module %s with %u64 reliance(s)", validModules[i]->GetModuleInfo()->name, validModules[i]->GetRelianceCount());
             auto module = LoadModule(validModules[i]);
             if (module) {
                 loadedModules[loadedModuleCount++] = module;

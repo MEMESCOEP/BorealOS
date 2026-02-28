@@ -28,13 +28,11 @@ namespace Formats {
     }
 
     void SymbolLoader::ParseSymbolTable(const uint8_t *symbolTable, size_t symbolTableSize) {
-        const char newLine = '\n';
-        const char seperator = ' ';
         size_t offset = 0;
         _entryCount = 0;
 
         for (size_t i = 0; i < symbolTableSize; i++) {
-            if (symbolTable[i] == newLine) {
+            if (symbolTable[i] == '\n') {
                 _entryCount++;
             }
         }
@@ -49,11 +47,11 @@ namespace Formats {
         _entryCount = 0;
 
         for (size_t i = 0; i < symbolTableSize; i++) {
-            if (symbolTable[i] == seperator) {
+            if (symbolTable[i] == ' ') {
                 currentSymbolName = reinterpret_cast<const char *>(symbolTable + offset);
                 currentSymbolNameLength = i - offset;
                 offset = i + 1;
-            } else if (symbolTable[i] == newLine) {
+            } else if (symbolTable[i] == '\n') {
                 currentSymbolAddress = reinterpret_cast<const char *>(symbolTable + offset);
                 currentSymbolAddressLength = i - offset;
                 offset = i + 1;
