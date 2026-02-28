@@ -69,7 +69,16 @@ extern "C" {
     int memcmp(const void *s1, const void *s2, size_t n);
     int strcmp(const char *s1, const char *s2);
     int strncmp(const char *s1, const char *s2, size_t n);
+    void strncpy(char *dest, const char *src, size_t n);
     char *strchr(const char *s, int c);
+    char *strstr(const char *haystack, const char *needle);
 }
+
+// Module definitions
+#define MODULE_SECTION_NAME ".module"
+#define MODULE_SECTION __attribute__((used, section(MODULE_SECTION_NAME)))
+#define MODULE_RELIANCE_SECTION_NAME ".module_reliances"
+#define MODULE_RELIANCE_SECTION __attribute__((used, section(MODULE_RELIANCE_SECTION_NAME)))
+#define MODULE_COMPATIBLE_FUNC_NAME ModuleCompatible
 
 #endif //BOREALOS_DEFINITIONS_H
