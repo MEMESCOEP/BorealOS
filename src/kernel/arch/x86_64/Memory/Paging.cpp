@@ -47,6 +47,19 @@ namespace Memory {
         UnmapPage(currentPagingState, physicalMemoryManager, virtualAddress, kernelHigherHalfOffset);
     }
 
+    void Paging::MapPages(uint64_t virtualAddressStart, uint64_t physicalAddressStart, size_t pageCount,
+        PageFlags flags) {
+        for (size_t i = 0; i < pageCount; i++) {
+            MapPage(virtualAddressStart + i * Architecture::KernelPageSize, physicalAddressStart + i * Architecture::KernelPageSize, flags);
+        }
+    }
+
+    void Paging::UnmapPages(uint64_t virtualAddressStart, size_t pageCount) {
+        for (size_t i = 0; i < pageCount; i++) {
+            UnmapPage(virtualAddressStart + i * Architecture::KernelPageSize);
+        }
+    }
+
     uint64_t Paging::GetPhysicalAddress(uint64_t virtualAddress) {
         uint32_t pml4Index, pdpIndex, pdIndex, ptIndex, pageOffset;
         ExtractPageTableIndices(virtualAddress, pml4Index, pdpIndex, pdIndex, ptIndex, pageOffset);

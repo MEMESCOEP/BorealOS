@@ -39,6 +39,9 @@ namespace Memory {
         void MapPage(uint64_t virtualAddress, uint64_t physicalAddress, PageFlags flags);
         void UnmapPage(uint64_t virtualAddress);
 
+        void MapPages(uint64_t virtualAddressStart, uint64_t physicalAddressStart, size_t pageCount, PageFlags flags);
+        void UnmapPages(uint64_t virtualAddressStart, size_t pageCount);
+
         uint64_t GetPhysicalAddress(uint64_t virtualAddress);
         [[nodiscard]] bool IsMapped(uint64_t virtualAddress) { return GetPhysicalAddress(virtualAddress) != 0; }
 

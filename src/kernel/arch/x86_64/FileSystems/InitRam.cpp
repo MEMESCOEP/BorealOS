@@ -108,11 +108,6 @@ namespace FileSystem {
 
         _files[fileCount]->children = rootChildren;
         _fileCount = fileCount + 1; // +1 for the root directory
-        // List out the root directory for debugging purposes
-        LOG_INFO("Root directory:");
-        for (size_t i = 0; i < rootChildCount; i++) {
-            LOG_INFO(" - %s", _files[rootChildren[i]]->path);
-        }
     }
 
     FileSystem::Capabilities InitRam::GetCapabilities() const {
@@ -154,7 +149,7 @@ namespace FileSystem {
 
     bool InitRam::GetFileInfo(File *file, FileInfo *info) {
         info->size = file->size;
-        info->isDirectory = false;
+        info->isDirectory = file->isDirectory;
         return true;
     }
 
@@ -170,7 +165,12 @@ namespace FileSystem {
 
         info->entries = new const char*[info->entryCount];
         for (size_t i = 0; i < info->entryCount; i++) {
-            info->entries[i] = _files[file->children[i]]->path;
+            if (_files[file->children[i]] == nullptr || _files[file->children[i]]->path == nullptr) {
+                info->entries[i] = nullptr;
+            }
+            else {
+                info->entries[i] = _files[file->children[i]]->path;
+            }
         }
 
         return true;

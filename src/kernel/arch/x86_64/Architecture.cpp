@@ -99,4 +99,34 @@ extern "C" {
         }
         return nullptr;
     }
+
+    char* strstr(const char *haystack, const char *needle) {
+        if (!*needle) {
+            return const_cast<char *>(haystack);
+        }
+
+        for (; *haystack; haystack++) {
+            if (*haystack == *needle) {
+                const char *h = haystack, *n = needle;
+                while (*h && *n && *h == *n) {
+                    h++;
+                    n++;
+                }
+                if (!*n) {
+                    return const_cast<char *>(haystack);
+                }
+            }
+        }
+        return nullptr;
+    }
+
+    void strncpy(char *dest, const char *src, size_t n) {
+        size_t i;
+        for (i = 0; i < n && src[i] != '\0'; i++) {
+            dest[i] = src[i];
+        }
+        for (; i < n; i++) {
+            dest[i] = '\0';
+        }
+    }
 }

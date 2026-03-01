@@ -15,7 +15,10 @@
 #include "FileSystems/InitRam.h"
 #include "Memory/HeapAllocator.h"
 #include "Core/ACPI.h"
+#include "Core/Drivers/DriverManager.h"
+#include <Core/ServiceManager.h>
 #include "Core/Time/HPET.h"
+#include "Formats/SymbolLoader.h"
 
 struct KernelData {
     IO::SerialPort SerialPort {IO::Serial::COM1};
@@ -31,6 +34,10 @@ struct KernelData {
     Core::Time::HPET Hpet {&Acpi, &Paging, &Idt};
     FileSystem::InitRam InitRamFS {nullptr, &HeapAllocator};
     Interrupts::APIC Apic {&Acpi, &Cpu, &Pic, &Paging};
+    FileSystem::InitRam* InitRamFS;
+    Formats::SymbolLoader *KernelSymbols;
+    Core::ServiceManager *ServiceManager;
+    Core::Drivers::DriverManager *DriverManager;
 };
 
 #endif //BOREALOS_KERNELDATA_H
