@@ -15,17 +15,27 @@ namespace Interrupts {
         public:
             explicit APIC(Core::ACPI* acpi, Core::CPU* cpu, PIC* pic, Memory::Paging* paging);
             void Initialize();
+
+            // MSRs
+            static constexpr uint32_t MSR_IA32_APIC_BASE = 0x1B;
+
+            // Register offsets
             static constexpr uint32_t LAPIC_ID_REG_OFFSET = 0x20;
             static constexpr uint32_t MADT_VLRECORDS_OFFSET = 0x2C;
             static constexpr uint32_t ERROR_STATUS_REG_OFFSET = 0x280;
             static constexpr uint32_t SPIRV_REG_OFFSET = 0xF0;
             static constexpr uint32_t EOI_REG_OFFSET = 0xB0;
-            static constexpr uint32_t MSR_IA32_APIC_BASE = 0x1B;
+
+            // LVT offsets
             static constexpr uint32_t LVT_TIMER_OFFSET = 0x320;
             static constexpr uint32_t LVT_LINT0_OFFSET = 0x350;
             static constexpr uint32_t LVT_LINT1_OFFSET = 0x360;
             static constexpr uint32_t LVT_ERROR_OFFSET = 0x370;
+
+            // Vectors
             static constexpr uint32_t SPIRV_VECTOR = 0xFE;
+
+            // Entry types
             static constexpr uint8_t IRQ_SRCOVR_ENTRY_TYPE = 0x02;
             static constexpr uint8_t IOAPIC_ENTRY_TYPE = 0x01;
 
