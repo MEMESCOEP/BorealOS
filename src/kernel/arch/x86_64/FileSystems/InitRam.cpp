@@ -9,7 +9,7 @@ namespace FileSystem {
         const size_t* children; // For directories, this is an array of indices into the _files array representing the children of this directory. For regular files, this is nullptr.
         bool isDirectory;
         size_t offset;
-        size_t size;
+        size_t size; // Size in bytes, or number of children if this is a directory
     };
 
     InitRam::InitRam(limine_file *cpioArchive, Allocator *allocator) : FileSystemInterface(allocator), _cpioArchive(cpioArchive) {
@@ -85,6 +85,7 @@ namespace FileSystem {
                 }
 
                 _files[i]->children = children;
+                _files[i]->size = childCount;
             }
         }
 
@@ -158,10 +159,7 @@ namespace FileSystem {
             return false; // Not a directory
         }
 
-        info->entryCount = 0;
-        while (file->children[info->entryCount] != 0) {
-            info->entryCount++;
-        }
+        info->entryCount = file->size;
 
         info->entries = new const char*[info->entryCount];
         for (size_t i = 0; i < info->entryCount; i++) {
