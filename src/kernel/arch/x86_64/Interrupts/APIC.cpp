@@ -36,6 +36,7 @@ namespace Interrupts {
         uint64_t APICBaseIA32 = _cpu->ReadMSR(MSR_IA32_APIC_BASE);
         uint64_t MMIOLAPICPhysAddr = APICBaseIA32 & 0xFFFFFFFFFFFFF000ULL;
         MMIOLAPICAddr = reinterpret_cast<volatile uint32_t*>(MMIOLAPICPhysAddr);
+        LOG_DEBUG("MMIO LAPIC address is %p.", MMIOLAPICAddr);
 
         // Check if the system supports x2APIC (bit 10) and that APIC is globally enabled (bit 11)
         if (APICBaseIA32 & (1ULL << 10)) PANIC("x2APIC mode is enabled, MMIO is not possible!");
@@ -47,9 +48,7 @@ namespace Interrupts {
             MMIOLAPICPhysAddr,
             MMIOLAPICPhysAddr,
             Memory::PageFlags::ReadWrite | Memory::PageFlags::NoExecute | Memory::PageFlags::CacheDisable
-        );
-
-        LOG_DEBUG("MMIO LAPIC address is %p (physical is %p).", MMIOLAPICAddr, MMIOLAPICPhysAddr);
+        );        
 
         // Find the MADT
         _madt = (Core::ACPI::MADT*)_acpi->GetTable("APIC");
