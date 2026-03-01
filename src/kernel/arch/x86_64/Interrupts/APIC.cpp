@@ -35,17 +35,16 @@ namespace Interrupts {
         // Extract the physical APIC base address (bits 12 to 35)
         uint64_t APICBaseIA32 = _cpu->ReadMSR(MSR_IA32_APIC_BASE);
         uint64_t MMIOLAPICPhysAddr = APICBaseIA32 & 0xFFFFFFFFFFFFF000ULL;
-        uint64_t MMIOLAPICVirtAddr = HIGHER_HALF(MMIOLAPICPhysAddr);
-        MMIOLAPICAddr = reinterpret_cast<volatile uint32_t*>(MMIOLAPICVirtAddr);
+        MMIOLAPICAddr = reinterpret_cast<volatile uint32_t*>(MMIOLAPICPhysAddr);
 
         // Check if the system supports x2APIC (bit 10) and that APIC is globally enabled (bit 11)
         if (APICBaseIA32 & (1ULL << 10)) PANIC("x2APIC mode is enabled, MMIO is not possible!");
         if ((APICBaseIA32 & (1ULL << 11)) == 0) PANIC("APIC is globally disabled!");
 
         // Map the APIC MMIO region
-        if (MMIOLAPICVirtAddr % Architecture::KernelPageSize != 0) PANIC("LAPIC base address is not page aligned!");
+        if (MMIOLAPICPhysAddr % Architecture::KernelPageSize != 0) PANIC("LAPIC base address is not page aligned!");
         _paging->MapPage(
-            MMIOLAPICVirtAddr,
+            MMIOLAPICPhysAddr,
             MMIOLAPICPhysAddr,
             Memory::PageFlags::ReadWrite | Memory::PageFlags::NoExecute | Memory::PageFlags::CacheDisable
         );
@@ -57,10 +56,9 @@ namespace Interrupts {
         if (!_madt) PANIC("Failed to find the MADT!");
 
         // The 8259 PIC chip MUST be disabled before APIC can be used
-        if (_madt->flags & 1) LOG_WARNING("One or more legacy PIC chips were detected, they must be disabled for APIC to work properly.");
         _pic->Disable();
 
-        uint32_t LAPICID = (ReadRegister(0x20) >> 24) & 0xFF;
+        uint32_t LAPICID = (ReadRegister(LAPIC_ID_REG_OFFSET) >> 24) & 0xFF;
         LOG_DEBUG("LAPIC ID: %u32", LAPICID);
 
         // Now we need to configure the Spurious Interrupt Vector Register
@@ -92,7 +90,7 @@ namespace Interrupts {
                 // IOAPIC descriptor
                 case IOAPIC_ENTRY_TYPE: {
                     Core::ACPI::MADTIOAPIC* IOAPICEntry = (Core::ACPI::MADTIOAPIC*)VLRecordsPtr;
-                    LOG_DEBUG("Found IOAPIC entry at %p:\n\r  * IOAPIC address: %p\n\r  * IOAPIC ID: %u8\n\r  * GSI base: %p\n\r",
+                    LOG_DEBUG("Found IOAPIC entry at %p:\n\r  * Physical address: %p\n\r  * ID: %u8\n\r  * GSI base: %p\n\r",
                         VLRecordsPtr,
                         IOAPICEntry->ioApicAddress,
                         IOAPICEntry->ioApicId,

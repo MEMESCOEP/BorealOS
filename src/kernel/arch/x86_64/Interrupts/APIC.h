@@ -15,6 +15,7 @@ namespace Interrupts {
         public:
             explicit APIC(Core::ACPI* acpi, Core::CPU* cpu, PIC* pic, Memory::Paging* paging);
             void Initialize();
+            static constexpr uint32_t LAPIC_ID_REG_OFFSET = 0x20;
             static constexpr uint32_t MADT_VLRECORDS_OFFSET = 0x2C;
             static constexpr uint32_t ERROR_STATUS_REG_OFFSET = 0x280;
             static constexpr uint32_t SPIRV_REG_OFFSET = 0xF0;
