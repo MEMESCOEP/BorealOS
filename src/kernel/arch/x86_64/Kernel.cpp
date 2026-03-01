@@ -78,15 +78,15 @@ void Kernel<T>::Initialize() {
     ArchitectureData->Acpi.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized ACPI.");
 
-    // HPET:
-    ArchitectureData->Hpet = Core::Time::HPET(&ArchitectureData->Acpi, &ArchitectureData->Paging, &ArchitectureData->Idt);
-    ArchitectureData->Hpet.Initialize();
-    LOG(LOG_LEVEL::INFO, "Initialized HPET.");
-
     // APIC:
     ArchitectureData->Apic = Interrupts::APIC(&ArchitectureData->Acpi, &ArchitectureData->Cpu, &ArchitectureData->Pic, &ArchitectureData->Paging);
     ArchitectureData->Apic.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized APIC.");
+
+    // HPET:
+    ArchitectureData->Hpet = Core::Time::HPET(&ArchitectureData->Acpi, &ArchitectureData->Paging, &ArchitectureData->Idt);
+    ArchitectureData->Hpet.Initialize();
+    LOG(LOG_LEVEL::INFO, "Initialized HPET.");
 
     // Init ram fs:
     auto files = module_request.response->modules;

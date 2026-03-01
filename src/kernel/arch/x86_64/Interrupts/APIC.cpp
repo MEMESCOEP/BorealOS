@@ -8,13 +8,30 @@ namespace Interrupts {
         _pic = pic;
     }
 
-    // This initialization must not fail, as we rely on APIC. If it does go wrong, we have to stop the kernel!
+    void APIC::WriteRegister(uint32_t regOffset, uint32_t value) {
+        MMIOLAPICAddr[regOffset / 4] = value;
+    }
+
+    uint32_t APIC::ReadRegister(uint32_t regOffset) {
+        return MMIOLAPICAddr[regOffset / 4];
+    }
+
+    void APIC::MaskLVTEntry(uint32_t regOffset) {
+        WriteRegister(regOffset, ReadRegister(regOffset) | (1 << 16));
+    }
+
+    void APIC::UnmaskLVTEntry(uint32_t regOffset) {
+        WriteRegister(regOffset, ReadRegister(regOffset) & ~(1 << 16));
+    }
+
+    // NOTE: This APIC init is uniprocessor only, it doesn't yet initialize other per-core APIC chips
     void APIC::Initialize() {
         // Check if this system has APIC
         if (!_cpu->CPUHasFeature(Core::CPUFeatures::APIC)) {
             PANIC("This system does not support APIC!");
         }
 
+        // --- LAPIC ---
         // Extract the physical APIC base address (bits 12 to 35)
         uint64_t APICBaseIA32 = _cpu->ReadMSR(MSR_IA32_APIC_BASE);
         uint64_t MMIOLAPICPhysAddr = APICBaseIA32 & 0xFFFFFFFFFFFFF000ULL;
@@ -33,7 +50,7 @@ namespace Interrupts {
             Memory::PageFlags::ReadWrite | Memory::PageFlags::NoExecute | Memory::PageFlags::CacheDisable
         );
 
-        LOG_DEBUG("MMIO LAPIC address is %p.", MMIOLAPICAddr);
+        LOG_DEBUG("MMIO LAPIC address is %p (physical is %p).", MMIOLAPICAddr, MMIOLAPICPhysAddr);
 
         // Find the MADT
         _madt = (Core::ACPI::MADT*)_acpi->GetTable("APIC");
@@ -43,7 +60,65 @@ namespace Interrupts {
         if (_madt->flags & 1) LOG_WARNING("One or more legacy PIC chips were detected, they must be disabled for APIC to work properly.");
         _pic->Disable();
 
-        uint32_t LAPICID = MMIOLAPICAddr[0x20 / 4];
+        uint32_t LAPICID = (ReadRegister(0x20) >> 24) & 0xFF;
         LOG_DEBUG("LAPIC ID: %u32", LAPICID);
+
+        // Now we need to configure the Spurious Interrupt Vector Register
+        WriteRegister(SPIRV_REG_OFFSET, SPIRV_VECTOR | (1 << 8));
+        if ((ReadRegister(SPIRV_REG_OFFSET) & (1 << 8)) == 0) PANIC("Failed to configure LAPIC spurious vector register, bit 8 (software enable) of LAPIC SPIRV is not set!");
+
+        // We should mask all of the Local Vector Table entries to put the LAPIC into a controlled state, this disables interrupts during initialization
+        MaskLVTEntry(LVT_TIMER_OFFSET);
+        MaskLVTEntry(LVT_LINT0_OFFSET);
+        MaskLVTEntry(LVT_LINT1_OFFSET);
+        MaskLVTEntry(LVT_ERROR_OFFSET);
+
+        // We need to clear the Error Status Register by writing to it *TWICE*. After this we can issue an initial End Of Interrupt by writing 0x0 to offset 0xB0
+        WriteRegister(ERROR_STATUS_REG_OFFSET, 0x00);
+        WriteRegister(ERROR_STATUS_REG_OFFSET, 0x00);
+        WriteRegister(EOI_REG_OFFSET, 0x00);
+
+
+
+        // --- IOAPIC ---
+        // Search the MADT's entries to find any IOAPIC (0x01) and ISO (0x02) entries
+        uint8_t* VLRecordsPtr = (uint8_t*)_madt + MADT_VLRECORDS_OFFSET;
+        uint8_t* MADTEnd = (uint8_t*)_madt + _madt->sdt.length;
+
+        while (VLRecordsPtr < MADTEnd) {
+            Core::ACPI::MADTEntryHeader* entryHeader = (Core::ACPI::MADTEntryHeader*)VLRecordsPtr;
+            
+            switch(entryHeader->type) {
+                // IOAPIC descriptor
+                case IOAPIC_ENTRY_TYPE: {
+                    Core::ACPI::MADTIOAPIC* IOAPICEntry = (Core::ACPI::MADTIOAPIC*)VLRecordsPtr;
+                    LOG_DEBUG("Found IOAPIC entry at %p:\n\r  * IOAPIC address: %p\n\r  * IOAPIC ID: %u8\n\r  * GSI base: %p\n\r",
+                        VLRecordsPtr,
+                        IOAPICEntry->ioApicAddress,
+                        IOAPICEntry->ioApicId,
+                        IOAPICEntry->globalSystemInterruptBase
+                    );
+                    break;
+                }
+
+                // IRQ Source Override (ISO)
+                case IRQ_SRCOVR_ENTRY_TYPE: {
+                    Core::ACPI::MADTIOSrcOverride* overrideEntry = (Core::ACPI::MADTIOSrcOverride*)VLRecordsPtr;
+                    LOG_DEBUG("Found IRQ src override entry at %p:\n\r  * Bus source: %u8\n\r  * Global system interrupt: %u32\n\r  * IRQ source: %u8\n\r",
+                        VLRecordsPtr,
+                        overrideEntry->busSource,
+                        overrideEntry->globalSysInterrupt,
+                        overrideEntry->IRQSource
+                    );
+                    break;
+                }
+
+                // We don't care about other entry types yet
+                default:
+                    break;
+            }
+
+            VLRecordsPtr += entryHeader->length;
+        }
     }
 }

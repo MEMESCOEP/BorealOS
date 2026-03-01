@@ -32,7 +32,6 @@ struct KernelData {
     Memory::HeapAllocator HeapAllocator {&Pmm, &Paging, Paging.GetKernelPagingState(), Memory::HeapAllocator::HeapHigherHalf};
     Core::ACPI Acpi;
     Core::Time::HPET Hpet {&Acpi, &Paging, &Idt};
-    FileSystem::InitRam InitRamFS {nullptr, &HeapAllocator};
     Interrupts::APIC Apic {&Acpi, &Cpu, &Pic, &Paging};
     FileSystem::InitRam* InitRamFS;
     Formats::SymbolLoader *KernelSymbols;

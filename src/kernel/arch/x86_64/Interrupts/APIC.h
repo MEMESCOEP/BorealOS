@@ -3,6 +3,7 @@
 
 #include <Definitions.h>
 #include "Utility/MemoryUtilities.h"
+#include "Utility/List.h"
 #include "../Core/ACPI.h"
 #include "../Core/CPU.h"
 #include "../Memory/Paging.h"
@@ -13,16 +14,32 @@ namespace Interrupts {
     class APIC {
         public:
             explicit APIC(Core::ACPI* acpi, Core::CPU* cpu, PIC* pic, Memory::Paging* paging);
-            void LAPIC_Spurious_Handler();
             void Initialize();
-            static constexpr uint8_t MSR_IA32_APIC_BASE = 0x1B;
+            static constexpr uint32_t MADT_VLRECORDS_OFFSET = 0x2C;
+            static constexpr uint32_t ERROR_STATUS_REG_OFFSET = 0x280;
+            static constexpr uint32_t SPIRV_REG_OFFSET = 0xF0;
+            static constexpr uint32_t EOI_REG_OFFSET = 0xB0;
+            static constexpr uint32_t MSR_IA32_APIC_BASE = 0x1B;
+            static constexpr uint32_t LVT_TIMER_OFFSET = 0x320;
+            static constexpr uint32_t LVT_LINT0_OFFSET = 0x350;
+            static constexpr uint32_t LVT_LINT1_OFFSET = 0x360;
+            static constexpr uint32_t LVT_ERROR_OFFSET = 0x370;
+            static constexpr uint32_t SPIRV_VECTOR = 0xFE;
+            static constexpr uint8_t IRQ_SRCOVR_ENTRY_TYPE = 0x02;
+            static constexpr uint8_t IOAPIC_ENTRY_TYPE = 0x01;
 
         private:
+            void WriteRegister(uint32_t regOffset, uint32_t value);
+            uint32_t ReadRegister(uint32_t regOffset);
+            void UnmaskLVTEntry(uint32_t regOffset);
+            void MaskLVTEntry(uint32_t regOffset);
+            
             Memory::Paging* _paging;
             Core::ACPI::MADT* _madt;
             Core::ACPI* _acpi;
             Core::CPU* _cpu;
             PIC* _pic;
+
             volatile uint32_t* MMIOLAPICAddr;
     };
 }
