@@ -86,6 +86,10 @@ namespace Core::Time {
         return (total + delta) * 1'000'000'000ULL / _hpetFrequency;
     }
 
+    uint64_t HPET::GetFrequency() const {
+        return _hpetFrequency;
+    }
+
     void HPET::BusyWait(uint64_t nanoseconds) const {
         uint64_t startTime = GetNanoseconds();
         while (GetNanoseconds() - startTime < nanoseconds) {

@@ -17,6 +17,8 @@
 #include "Core/Drivers/DriverManager.h"
 #include <Core/ServiceManager.h>
 #include "Core/Time/HPET.h"
+#include "Core/Time/Scheduler.h"
+#include "Core/Time/TSC.h"
 #include "Formats/SymbolLoader.h"
 
 struct KernelData {
@@ -31,10 +33,12 @@ struct KernelData {
     Memory::HeapAllocator HeapAllocator {&Pmm, &Paging, Paging.GetKernelPagingState(), Memory::HeapAllocator::HeapHigherHalf};
     Core::ACPI Acpi;
     Core::Time::HPET Hpet {&Acpi, &Paging, &Idt};
+    Core::Time::TSC Tsc {&Hpet, &Cpu};
     FileSystem::InitRam* InitRamFS;
     Formats::SymbolLoader *KernelSymbols;
     Core::ServiceManager *ServiceManager;
     Core::Drivers::DriverManager *DriverManager;
+    Core::Time::Scheduler *DefaultScheduler; // Core 0 scheduler. Other cores should have their own scheduler instance.
 };
 
 #endif //BOREALOS_KERNELDATA_H

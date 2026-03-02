@@ -90,7 +90,9 @@ namespace Core {
     class CPU {
         public:
         void Initialize();
-        bool CPUHasFeature(CPUFeatures::Feature feature);
+        bool HasFeature(CPUFeatures::Feature feature);
+        bool HasInvariantTSC();
+
         char processorName[49];
         char vendorID[13];
 

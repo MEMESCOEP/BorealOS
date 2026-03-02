@@ -16,6 +16,7 @@ namespace Core::Time {
 
         [[nodiscard]] uint64_t GetCounter() const;
         [[nodiscard]] uint64_t GetNanoseconds() const;
+        [[nodiscard]] uint64_t GetFrequency() const;
 
         void BusyWait(uint64_t nanoseconds) const;
 
