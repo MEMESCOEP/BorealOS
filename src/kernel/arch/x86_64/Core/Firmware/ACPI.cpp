@@ -1,12 +1,13 @@
 #include "ACPI.h"
-#include "../IO/Serial.h"
+#include "../../IO/Serial.h"
+#include "lai_include.h"
 
-namespace Core {
+namespace Core::Firmware {
     void ACPI::WriteByteCommand(uint8_t command) {
-        if (!(IO::Serial::inw(fadt->PM1aControlBlock) & 1)) {
-            IO::Serial::outb(fadt->SMI_CommandPort, command);
+        if (!(IO::Serial::inw(_fadt->PM1aControlBlock) & 1)) {
+            IO::Serial::outb(_fadt->SMI_CommandPort, command);
 
-            while (!(IO::Serial::inw(fadt->PM1aControlBlock) & 1));
+            while (!(IO::Serial::inw(_fadt->PM1aControlBlock) & 1));
         }
     }
 
@@ -92,7 +93,7 @@ namespace Core {
         return sum == 0;
     }
 
-    bool ACPI::ACPISupported() { return systemHasACPI; }
+    bool ACPI::ACPISupported() { return _systemHasACPI; }
 
     void ACPI::Initialize() {
         char OEMID[7];
@@ -100,38 +101,37 @@ namespace Core {
 
         // Check if limine provided a response for the RSDP table; we'll determine the exact ACPI revision later
         if (!rsdp_request.response) {
-            LOG_WARNING("Limine did not provide a response for the RSDP table, ACPI is likely not supported!");
-            return;
+            PANIC("Limine did not provide a response for the RSDP table, ACPI is likely not supported!");
         }
 
         // Get the response
-        RSDPResponse = rsdp_request.response;
-        rsdp = (RSDP*)RSDPResponse->address;
-        LOG_DEBUG("_SDP table was found at address %p, with early revision %u64 (%s).", RSDPResponse->address, rsdp->revision, ACPI::SDPRevisionStrings[rsdp->revision]);
+        _rsdp_response = rsdp_request.response;
+        _rsdp = (RSDP*)_rsdp_response->address;
+        LOG_DEBUG("_SDP table was found at address %p, with early revision %u64 (%s).", _rsdp_response->address, _rsdp->revision, ACPI::SDPRevisionStrings[_rsdp->revision]);
 
         // Now that we have the SDP, we need to verify its checksum based on its type
-        if (rsdp->revision > 0) {
-            xsdp = (XSDP*)RSDPResponse->address;
+        if (_rsdp->revision > 0) {
+            _xsdp = (XSDP*)_rsdp_response->address;
 
-            if (!ValidateXSDP(xsdp)) {
+            if (!ValidateXSDP(_xsdp)) {
                 LOG_WARNING("XSDP checksum is invalid!");
                 return;
             }
 
-            xsdt = reinterpret_cast<XSDT*>(xsdp->XSDTAddress + hhdm_request.response->offset);
+            _xsdt = reinterpret_cast<XSDT*>(_xsdp->XSDTAddress + hhdm_request.response->offset);
         }
         else {
-            rsdt = reinterpret_cast<RSDT*>(rsdp->RSDTAddress + hhdm_request.response->offset);
+            _rsdt = reinterpret_cast<RSDT*>(_rsdp->RSDTAddress + hhdm_request.response->offset);
 
-            if (!ValidateSDT(&rsdt->sdt)) {
+            if (!ValidateSDT(&_rsdt->sdt)) {
                 LOG_WARNING("RSDT checksum is invalid!");
                 return;
             }
         }
 
         // Get the OEMID and signature and trim trailing spaces
-        memcpy(OEMID, rsdp->OEMID, 6);
-        memcpy(Signature, rsdp->signature, 8);
+        memcpy(OEMID, _rsdp->OEMID, 6);
+        memcpy(Signature, _rsdp->signature, 8);
         Utility::StringFormatter::TrimTrailingSpaces(OEMID, 6);
         Utility::StringFormatter::TrimTrailingSpaces(Signature, 8);
 
@@ -139,9 +139,9 @@ namespace Core {
         LOG_DEBUG("_SDP OEMID: \"%s\"", OEMID);
 
         // Now find the *SDT
-        bool SDTType = rsdp->revision > 0;
+        bool SDTType = _rsdp->revision > 0;
         const char* SDTStr = SDTType ? "XSDT" : "RSDT";
-        uint64_t sdtAddrPhysical = (rsdp->revision > 0) ? xsdp->XSDTAddress : rsdp->RSDTAddress;
+        uint64_t sdtAddrPhysical = (_rsdp->revision > 0) ? _xsdp->XSDTAddress : _rsdp->RSDTAddress;
         uint64_t sdtAddrVirtual = sdtAddrPhysical + hhdm_request.response->offset;
         SDTHeader* sdt = reinterpret_cast<SDTHeader*>(sdtAddrVirtual);
 
@@ -154,50 +154,61 @@ namespace Core {
         }
 
         // Find the FACP
-        facp = FindFACP(sdt);
-        if (!facp) {
+        _facp = FindFACP(sdt);
+        if (!_facp) {
             LOG_WARNING("Failed to find a FACP entry!");
             return;
         }
 
-        LOG_DEBUG("FACP address: %p (offset from physical address %p)", facp, (uintptr_t)facp - hhdm_request.response->offset);
+        LOG_DEBUG("FACP address: %p (offset from physical address %p)", _facp, (uintptr_t)_facp - hhdm_request.response->offset);
 
         // Get the FADT
-        fadt = (FADT*)facp;
-        LOG_DEBUG("FADT address: %p (offset from physical address %p)", fadt, (uintptr_t)fadt - hhdm_request.response->offset);
+        _fadt = (FADT*)_facp;
+        LOG_DEBUG("FADT address: %p (offset from physical address %p)", _fadt, (uintptr_t)_fadt - hhdm_request.response->offset);
 
         // Retrieve the DSDT
         uint64_t DSDTAddrPhysical = 0;
 
-        if (fadt->sdt.length >= offsetof(FADT, X_Dsdt) + sizeof(uint64_t) && fadt->X_Dsdt != 0) DSDTAddrPhysical = fadt->X_Dsdt;
-        else DSDTAddrPhysical = fadt->Dsdt;
+        if (_fadt->sdt.length >= offsetof(FADT, X_Dsdt) + sizeof(uint64_t) && _fadt->X_Dsdt != 0) DSDTAddrPhysical = _fadt->X_Dsdt;
+        else DSDTAddrPhysical = _fadt->Dsdt;
 
         if (!DSDTAddrPhysical) {
             LOG_WARNING("Failed to find the DSDT!");
             return;
         }
 
-        dsdt = (void*)(DSDTAddrPhysical + hhdm_request.response->offset);
-        LOG_DEBUG("DSDT address: %p (offset from physical address %p)", dsdt, DSDTAddrPhysical);
+        _dsdt = (void*)(DSDTAddrPhysical + hhdm_request.response->offset);
+        LOG_DEBUG("DSDT address: %p (offset from physical address %p)", _dsdt, DSDTAddrPhysical);
 
         // Enable ACPI mode
-        LOG_DEBUG("Writing 0x%x8 to PM1a control block (address is %p) to enable ACPI...", fadt->AcpiEnable, fadt->PM1aControlBlock);
-        WriteByteCommand(fadt->AcpiEnable);
+        LOG_DEBUG("Writing 0x%x8 to PM1a control block (address is %p) to enable ACPI...", _fadt->AcpiEnable, _fadt->PM1aControlBlock);
+        WriteByteCommand(_fadt->AcpiEnable);
 
         // Get the system's preferred power management profile
-        powerProfile = fadt->PreferredPowerManagementProfile;
-        if (powerProfile <= 7) LOG_DEBUG("The device has a preferred power management profile of \"%s\" (profile ID %u8).", powerProfileStrings[powerProfile], powerProfile);
-        else LOG_WARNING("ACPI power profile ID %u8 is invalid.", powerProfile);
-        systemHasACPI = true;
+        PowerProfile = _fadt->PreferredPowerManagementProfile;
+        if (PowerProfile <= 7) LOG_DEBUG("The device has a preferred power management profile of \"%s\" (profile ID %u8).", powerProfileStrings[PowerProfile], PowerProfile);
+        else LOG_WARNING("ACPI power profile ID %u8 is invalid.", PowerProfile);
+        _systemHasACPI = true;
+    }
+
+    void ACPI::LoadLAI() {
+        // lai_enable_tracing(LAI_TRACE_IO | LAI_TRACE_NS | LAI_TRACE_OP); SLOW! Takes like 8 minutes to boot with this enabled on real hardware.
+        lai_set_acpi_revision(_rsdp->revision);
+        asm volatile("cli"); // Disable interrupts while we set up the ACPI namespace to avoid
+        lai_create_namespace();
+        asm volatile("sti");
+
+        lai_enable_acpi(0);
+        _laiLoaded = true;
     }
 
     void* ACPI::GetTable(const char* signature, uint64_t index) {
-        if (strcmp(signature, "DSDT") == 0) return dsdt;
-        if (strcmp(signature, "FACP") == 0 || strcmp(signature, "FADT") == 0) return facp;
-        if (!systemHasACPI) return nullptr;
+        if (strcmp(signature, "DSDT") == 0) return _dsdt;
+        if (strcmp(signature, "FACP") == 0 || strcmp(signature, "FADT") == 0) return _facp;
+        if (!_systemHasACPI) return nullptr;
 
-        bool isXSDT = rsdp->revision > 0;
-        SDTHeader* header = isXSDT ? &xsdt->sdt : &rsdt->sdt;
+        bool isXSDT = _rsdp->revision > 0;
+        SDTHeader* header = isXSDT ? &_xsdt->sdt : &_rsdt->sdt;
         uintptr_t ptrStart = reinterpret_cast<uintptr_t>(header) + sizeof(SDTHeader);
 
         size_t entrySize = isXSDT ? 8 : 4;

@@ -3,7 +3,7 @@
 
 #include <Definitions.h>
 
-#include "../ACPI.h"
+#include "../Firmware/ACPI.h"
 #include "../../Memory/Paging.h"
 #include "../../Interrupts/IDT.h"
 #include "../../Memory/HeapAllocator.h"
@@ -11,7 +11,7 @@
 namespace Core::Time {
     class HPET {
     public:
-        explicit HPET(ACPI* acpi, Memory::Paging *paging, Interrupts::IDT* idt);
+        explicit HPET(Firmware::ACPI* acpi, Memory::Paging *paging, Interrupts::IDT* idt);
         void Initialize();
 
         [[nodiscard]] uint64_t GetCounter() const;
@@ -21,7 +21,7 @@ namespace Core::Time {
         void BusyWait(uint64_t nanoseconds) const;
 
     private:
-        ACPI* _acpi;
+        Firmware::ACPI* _acpi;
         Memory::Paging* _paging;
         Interrupts::IDT* _idt;
 
@@ -29,9 +29,9 @@ namespace Core::Time {
 
         struct HPETTable
         {
-            ACPI::SDTHeader Header;
+            Firmware::ACPI::SDTHeader Header;
             uint32_t EventTimerBlockID;
-            ACPI::GenericAddr Address;
+            Firmware::ACPI::GenericAddr Address;
             uint8_t HPETNumber;
             uint16_t MinimumTick;
             uint8_t PageProtection;

@@ -77,6 +77,9 @@ void Kernel<T>::Initialize() {
     ArchitectureData->Acpi.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized ACPI.");
 
+    // System:
+    ArchitectureData->Hardware = Core::Firmware::Hardware(&ArchitectureData->Acpi);
+
     // HPET:
     ArchitectureData->Hpet = Core::Time::HPET(&ArchitectureData->Acpi, &ArchitectureData->Paging, &ArchitectureData->Idt);
     ArchitectureData->Hpet.Initialize();
@@ -122,6 +125,10 @@ void Kernel<T>::Initialize() {
     // Scheduler:
     ArchitectureData->DefaultScheduler = new Core::Time::Scheduler(&ArchitectureData->Tsc);
     LOG_INFO("Initialized scheduler.");
+
+    // Load the AML interpreter:
+    ArchitectureData->Acpi.LoadLAI();
+    LOG_INFO("Initialized ACPI AML interpreter (LAI).");
 }
 
 template<typename T>
