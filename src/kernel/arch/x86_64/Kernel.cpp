@@ -77,6 +77,10 @@ void Kernel<T>::Initialize() {
     ArchitectureData->Acpi.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized ACPI.");
 
+    // System:
+    ArchitectureData->Hardware = Core::Firmware::Hardware(&ArchitectureData->Acpi);
+    // We don't need to initialize the system.
+
     // HPET:
     ArchitectureData->Hpet = Core::Time::HPET(&ArchitectureData->Acpi, &ArchitectureData->Paging, &ArchitectureData->Idt);
     ArchitectureData->Hpet.Initialize();
@@ -126,9 +130,14 @@ void Kernel<T>::Initialize() {
 
 template<typename T>
 void Kernel<T>::Start() {
+    ArchitectureData->Acpi.LoadLAI();
+
     // Load all drivers, we do this in the start function because this ensures we have finished initialization of all main kernel subsystems before we start loading drivers, which may depend on those subsystems.
     ArchitectureData->DriverManager->LoadDriversFromFileSystem();
     LOG_INFO("Finished loading drivers.");
+
+    // Core::Firmware::Hardware* hw = &ArchitectureData->Hardware;
+    // hw->PowerManagement.Shutdown();
 }
 
 template<typename T>

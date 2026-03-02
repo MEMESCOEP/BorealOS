@@ -4,6 +4,14 @@ void IO::Serial::outb(uint16_t port, uint8_t value) {
     asm volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
 }
 
+void IO::Serial::outw(uint16_t port, uint16_t value) {
+    asm volatile ("outw %0, %1" : : "a"(value), "Nd"(port));
+}
+
+void IO::Serial::outl(uint16_t port, uint32_t value) {
+    asm volatile ("outl %0, %1" : : "a"(value), "Nd"(port));
+}
+
 uint8_t IO::Serial::inb(uint16_t port) {
     uint8_t ret;
     asm volatile ("inb %1, %0" : "=a"(ret) : "Nd"(port));
@@ -13,6 +21,12 @@ uint8_t IO::Serial::inb(uint16_t port) {
 uint16_t IO::Serial::inw(uint16_t port) {
     uint16_t ret;
     asm volatile ("inw %1, %0" : "=a"(ret) : "Nd"(port));
+    return ret;
+}
+
+uint32_t IO::Serial::inl(uint16_t port) {
+    uint32_t ret;
+    asm volatile ("inl %1, %0" : "=a"(ret) : "Nd"(port));
     return ret;
 }
 

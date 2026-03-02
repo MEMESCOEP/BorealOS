@@ -21,14 +21,23 @@ FetchContent_Declare(
         GIT_TAG        trunk
 )
 
-FetchContent_MakeAvailable(flanterm)
+FetchContent_Declare(
+        lai
+        GIT_REPOSITORY https://github.com/managarm/lai.git
+        GIT_TAG        master
+)
+
+FetchContent_MakeAvailable(flanterm lai)
 
 file(GLOB_RECURSE FLANTERM_SOURCES ${flanterm_SOURCE_DIR}/src/*.c)
+file(GLOB_RECURSE LAI_SOURCES ${lai_SOURCE_DIR}/*.c)
+set_source_files_properties(${LAI_SOURCES} PROPERTIES COMPILE_FLAGS "-w -Wno-pedantic -Wno-error")
 
-add_executable(kernel.elf ${SOURCES} ${COMMON_SOURCES} ${HEADERS} ${FLANTERM_SOURCES})
+add_executable(kernel.elf ${SOURCES} ${COMMON_SOURCES} ${HEADERS} ${FLANTERM_SOURCES} ${LAI_SOURCES})
 target_include_directories(kernel.elf PRIVATE Include)
 target_include_directories(kernel.elf PRIVATE ${CMAKE_SOURCE_DIR}/deps/Limine)
 target_include_directories(kernel.elf PRIVATE ${flanterm_SOURCE_DIR}/src)
+target_include_directories(kernel.elf PRIVATE ${lai_SOURCE_DIR}/include)
 
 target_compile_options(kernel.elf PRIVATE
         $<$<COMPILE_LANGUAGE:CXX>:${KERNEL_COMPILE_FLAGS_CXX}>

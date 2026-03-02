@@ -4,7 +4,7 @@
 #include "../../KernelData.h"
 
 namespace Core::Time {
-    HPET::HPET(ACPI *acpi, Memory::Paging *paging, Interrupts::IDT* idt) : _acpi(acpi), _paging(paging), _idt(idt), _totalTicks(0) {
+    HPET::HPET(Firmware::ACPI *acpi, Memory::Paging *paging, Interrupts::IDT* idt) : _acpi(acpi), _paging(paging), _idt(idt), _totalTicks(0) {
         _hpetTable = reinterpret_cast<HPETTable*>(_acpi->GetTable("HPET"));
     }
 

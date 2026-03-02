@@ -13,9 +13,10 @@
 #include "Core/Time/RTC.h"
 #include "FileSystems/InitRam.h"
 #include "Memory/HeapAllocator.h"
-#include "Core/ACPI.h"
+#include "Core/Firmware/ACPI.h"
 #include "Core/Drivers/DriverManager.h"
 #include <Core/ServiceManager.h>
+#include "Core/Firmware/System.h"
 #include "Core/Time/HPET.h"
 #include "Core/Time/Scheduler.h"
 #include "Core/Time/TSC.h"
@@ -31,7 +32,8 @@ struct KernelData {
     Core::CPU Cpu;
     Memory::Paging Paging {&Pmm};
     Memory::HeapAllocator HeapAllocator {&Pmm, &Paging, Paging.GetKernelPagingState(), Memory::HeapAllocator::HeapHigherHalf};
-    Core::ACPI Acpi;
+    Core::Firmware::ACPI Acpi;
+    Core::Firmware::Hardware Hardware {&Acpi};
     Core::Time::HPET Hpet {&Acpi, &Paging, &Idt};
     Core::Time::TSC Tsc {&Hpet, &Cpu};
     FileSystem::InitRam* InitRamFS;

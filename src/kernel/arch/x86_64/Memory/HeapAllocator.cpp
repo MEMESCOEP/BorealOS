@@ -395,22 +395,42 @@ namespace Memory {
     }
 
     void HeapAllocator::FreeMetadata(uintptr_t address) {
-        if (!metadataBin) PANIC("No metadata bin available to free metadata!");
-        *reinterpret_cast<uintptr_t *>(address) = metadataBin->freeListHead;
-        metadataBin->freeListHead = address;
-        metadataBin->usedBlockCount--;
-        metadataBin->freeBlockCount++;
+        Bin* prev = nullptr;
+        Bin* current = metadataBin;
 
-        if (metadataBin->usedBlockCount == 0) {
-            Bin* next = metadataBin->next;
-            // If the metadata bin is now empty, we can free the page backing it and remove it from the metadata bin list.
-            uintptr_t pageAddress = paging->GetPhysicalAddress(metadataBin->startAddress - sizeof(Bin));
-            if (!pageAddress) PANIC("Failed to get physical address for metadata bin page during free!");
-            paging->UnmapPage(metadataBin->startAddress);
-            physicalMemoryManager->FreePages(pageAddress, 1);
+        while (current) {
+            uintptr_t binStart = current->startAddress;
+            uintptr_t binEnd = binStart + current->blockSize * (current->usedBlockCount + current->freeBlockCount);
 
-            metadataBin = next;
+            if (address >= binStart && address < binEnd) {
+                *reinterpret_cast<uintptr_t*>(address) = current->freeListHead;
+                current->freeListHead = address;
+                current->usedBlockCount--;
+                current->freeBlockCount++;
+
+                if (current->usedBlockCount == 0) {
+                    // Unlink from chain before touching the page
+                    if (prev) {
+                        prev->next = current->next;
+                    } else {
+                        metadataBin = current->next;
+                    }
+
+                    uintptr_t pageVirtual = reinterpret_cast<uintptr_t>(current);
+                    uintptr_t pagePhysical = paging->GetPhysicalAddress(pageVirtual);
+                    if (!pagePhysical) PANIC("Failed to get physical address for metadata bin page during free!");
+
+                    paging->UnmapPage(pageVirtual);
+                    physicalMemoryManager->FreePages(pagePhysical, 1);
+                }
+                return;
+            }
+
+            prev = current;
+            current = current->next;
         }
+
+        PANIC("Attempted to free metadata address not belonging to any metadata bin!");
     }
 
     STATUS HeapAllocator::Test() {

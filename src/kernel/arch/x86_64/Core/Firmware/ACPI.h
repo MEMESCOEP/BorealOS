@@ -3,13 +3,13 @@
 
 #include <Definitions.h>
 #include "Boot/LimineDefinitions.h"
-#include "Utility/StringFormatter.h"
+#include <Utility/StringFormatter.h>
 
 // ACPI structs are from the OSDev wiki
-namespace Core
+namespace Core::Firmware
 {
     class ACPI {
-        public:
+    public:
         static constexpr const char* SDPRevisionStrings[] = {
             "ACPI 1.0",
             "Unknown",
@@ -141,26 +141,29 @@ namespace Core
         } PACKED;
 
         void Initialize();
-        void* GetTable(const char* signature, uint64_t index = 0);
+        void LoadLAI();
         bool ACPISupported();
-        uint8_t powerProfile = 0;
+        void* GetTable(const char* signature, uint64_t index = 0);
 
-        private:
+        uint8_t PowerProfile = 0;
+
+    private:
         bool ValidateRSDP(RSDP* rsdp);
         bool ValidateXSDP(XSDP* xsdp);
         bool ValidateSDT(SDTHeader* sdt);
         void* FindFACP(void* rootSDT);
         void WriteByteCommand(uint8_t command);
 
-        limine_rsdp_response* RSDPResponse;
-        bool systemHasACPI = false;
-        RSDP* rsdp;
-        RSDT* rsdt;
-        XSDP* xsdp;
-        XSDT* xsdt;
-        FADT* fadt;
-        void* dsdt;
-        void* facp;
+        limine_rsdp_response* _rsdp_response{};
+        bool _systemHasACPI = false;
+        bool _laiLoaded = false;
+        RSDP* _rsdp{};
+        RSDT* _rsdt{};
+        XSDP* _xsdp{};
+        XSDT* _xsdt{};
+        FADT* _fadt{};
+        void* _dsdt{};
+        void* _facp{};
     };
 } // Core
 

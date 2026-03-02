@@ -48,7 +48,6 @@ namespace Memory {
 
         // The offset of the start of the heap, this is the start of the virtual address range that the heap will use.
         // This just means applications will receive addresses starting from this offset.
-        // It is 2 MiB by default because checking if an address is valid is usually done by checking if it's not null, so this ensures that all heap addresses are non-null.
         size_t heapOffset;
 
         struct Bin {
