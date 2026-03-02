@@ -79,8 +79,8 @@ void Kernel<T>::Initialize() {
     LOG(LOG_LEVEL::INFO, "Initialized ACPI.");
 
     // APIC:
-    ArchitectureData->Apic = Interrupts::APIC(&ArchitectureData->Acpi, &ArchitectureData->Cpu, &ArchitectureData->Pic, &ArchitectureData->Paging);
-    ArchitectureData->Apic.Initialize();
+    ArchitectureData->Apic = new Interrupts::APIC(&ArchitectureData->Acpi, &ArchitectureData->Cpu, &ArchitectureData->Pic, &ArchitectureData->Paging);
+    ArchitectureData->Apic->Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized APIC.");
 
     // HPET:
