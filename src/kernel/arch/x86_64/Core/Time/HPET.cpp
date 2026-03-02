@@ -58,7 +58,7 @@ namespace Core::Time {
             hpet->Tick();
         });
 
-        _idt->ClearIRQMask(0);
+        _idt->UnmaskIRQ(0);
 
         SET_BIT(*configReg, 1); // Enable legacy replacement mode. TODO: When using the modern APIC, replace this.
         SET_BIT(*configReg, 0); // Enable the HPET main counter

@@ -38,12 +38,14 @@ void Kernel<T>::Initialize() {
         Interrupts::TSS::GetTSSStruct());
 
     // PIC:
-    ArchitectureData->Pic = Interrupts::PIC(0x20, 0x28);
-    ArchitectureData->Pic.Initialize();
+    static uint8_t picData [sizeof(Interrupts::PIC)]; // bit ugly, but required to init a vtable class before we can use new to allocate it on the heap.
+    auto pic = new (picData) Interrupts::PIC(0x20, 0x28);
+    ArchitectureData->Pic = pic;
+    ArchitectureData->Pic->Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized PIC.");
 
     // IDT:
-    ArchitectureData->Idt = Interrupts::IDT(&ArchitectureData->Pic);
+    ArchitectureData->Idt = Interrupts::IDT(ArchitectureData->Pic);
     ArchitectureData->Idt.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized IDT.");
 
@@ -79,7 +81,7 @@ void Kernel<T>::Initialize() {
     LOG(LOG_LEVEL::INFO, "Initialized ACPI.");
 
     // APIC:
-    ArchitectureData->Apic = new Interrupts::APIC(&ArchitectureData->Acpi, &ArchitectureData->Cpu, &ArchitectureData->Pic, &ArchitectureData->Paging);
+    ArchitectureData->Apic = new Interrupts::APIC(&ArchitectureData->Acpi, &ArchitectureData->Cpu, ArchitectureData->Pic, &ArchitectureData->Paging);
     ArchitectureData->Apic->Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized APIC.");
 

@@ -29,17 +29,18 @@ namespace Interrupts {
         };
 #pragma pack(pop)
 
-        explicit IDT(PIC* pic);
+        explicit IDT(InterruptController* ic);
 
         void Initialize();
         void RegisterExceptionHandler(uint8_t exceptionVector, void (*handler)(void));
         void RegisterIRQHandler(uint8_t irq, void (*handler)(void));
         void IRQHandler(uint8_t irq, Registers *registers);
         void HandleException(uint32_t exceptionVector, uint32_t errorCode, Registers *registers) const;
-        void ClearIRQMask(uint8_t uint8) const;
+        void UnmaskIRQ(uint8_t uint8) const;
+        void MaskIRQ(uint8_t uint8) const;
 
     private:
-        PIC* _pic;
+        InterruptController* _ic;
         IDTPointer _idtPointer = {0, 0};
         void (*_exceptionHandlers[32])(void) = { nullptr };
         void (*_irqHandlers[16])(void) = { nullptr };

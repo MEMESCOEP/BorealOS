@@ -2,9 +2,10 @@
 #define BOREALOS_PIC_H
 
 #include <Definitions.h>
+#include "InterruptController.h"
 
 namespace Interrupts {
-    class PIC {
+    class PIC : public InterruptController {
     public:
         static constexpr int PIC1 = 0x20;
         static constexpr int PIC2 = 0xA0;
@@ -28,11 +29,11 @@ namespace Interrupts {
 
         explicit PIC(uint8_t masterOffset, uint8_t slaveOffset);
 
-        void Initialize();
+        void Initialize() override;
         void Disable();
-        void SetIRQMask(uint8_t irq_line);
-        void ClearIRQMask(uint8_t irq);
-        void SendEOI(uint8_t irq);
+        void MaskIRQ(uint8_t irqNum) override;
+        void UnmaskIRQ(uint8_t irqNum) override;
+        void SendEOI(uint8_t irq) override;
     private:
         uint8_t _masterOffset;
         uint8_t _slaveOffset;

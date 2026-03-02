@@ -24,8 +24,8 @@
 
 struct KernelData {
     IO::SerialPort SerialPort {IO::Serial::COM1};
-    Interrupts::PIC Pic {0x20, 0x28};
-    Interrupts::IDT Idt {&Pic};
+    Interrupts::PIC* Pic;
+    Interrupts::IDT Idt {Pic};
     IO::FramebufferConsole Console;
     Core::Time::RTC Rtc {&Idt};
     Memory::PMM Pmm;

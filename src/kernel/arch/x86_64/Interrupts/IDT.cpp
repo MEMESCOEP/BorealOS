@@ -43,8 +43,8 @@ extern "C" {
 }
 
 namespace Interrupts {
-    IDT::IDT(PIC *pic) {
-        this->_pic = pic;
+    IDT::IDT(InterruptController *ic) {
+        this->_ic = ic;
     }
 
     static IDT::IDTEntry _idtEntries[256] ALIGNED(16) = {}; // Static allocation for 256 IDT entries
@@ -104,7 +104,7 @@ namespace Interrupts {
             _irqHandlers[irq]();
         }
 
-        _pic->SendEOI(irq);
+        _ic->SendEOI(irq);
     }
 
     void IDT::HandleException(uint32_t exceptionVector, uint32_t errorCode, Registers *registers) const {
@@ -134,13 +134,12 @@ namespace Interrupts {
         PANIC("Exception occurred");
     }
 
-    void IDT::ClearIRQMask(uint8_t uint8) const {
-        if (uint8 >= 16) {
-            LOG_ERROR("Attempted to clear mask for IRQ %u8, which is out of bounds!", uint8);
-            return;
-        }
+    void IDT::UnmaskIRQ(uint8_t uint8) const {
+        _ic->UnmaskIRQ(uint8);
+    }
 
-        _pic->ClearIRQMask(uint8);
+    void IDT::MaskIRQ(uint8_t uint8) const {
+        _ic->MaskIRQ(uint8);
     }
 
     void IDT::SetIDTEntry(uint8_t vector, uint64_t isr, uint8_t flags) {
