@@ -45,6 +45,8 @@ namespace Interrupts {
             void UnmaskLVTEntry(uint32_t regOffset);
             void MaskLVTEntry(uint32_t regOffset);
             
+            Utility::List<Core::ACPI::MADTIRQSrcOverride*> _IRQSrcOverrides;
+            Utility::List<Core::ACPI::MADTIOAPIC*> _IOAPICEntries;
             Memory::Paging* _paging;
             Core::ACPI::MADT* _madt;
             Core::ACPI* _acpi;

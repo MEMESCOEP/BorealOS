@@ -94,7 +94,7 @@ namespace Core
             uint32_t globalSystemInterruptBase;
         } PACKED;
 
-        struct MADTIOSrcOverride { // Type 2
+        struct MADTIRQSrcOverride { // Type 2
             MADTEntryHeader entryHeader;
             uint8_t busSource;
             uint8_t IRQSource;

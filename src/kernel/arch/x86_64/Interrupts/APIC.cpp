@@ -1,7 +1,7 @@
 #include "APIC.h"
 
 namespace Interrupts {
-    APIC::APIC(Core::ACPI* acpi, Core::CPU* cpu, PIC* pic, Memory::Paging* paging) {
+    APIC::APIC(Core::ACPI* acpi, Core::CPU* cpu, PIC* pic, Memory::Paging* paging) : _IRQSrcOverrides(256), _IOAPICEntries(256) {
         _paging = paging;
         _acpi = acpi;
         _cpu = cpu;
@@ -27,7 +27,7 @@ namespace Interrupts {
     // NOTE: This APIC init is uniprocessor only, it doesn't yet initialize other per-core APIC chips
     void APIC::Initialize() {
         // Check if this system has APIC
-        if (!_cpu->CPUHasFeature(Core::CPUFeatures::APIC)) {
+        if (!_cpu->HasFeature(Core::CPUFeatures::APIC)) {
             PANIC("This system does not support APIC!");
         }
 
@@ -54,9 +54,6 @@ namespace Interrupts {
         _madt = (Core::ACPI::MADT*)_acpi->GetTable("APIC");
         if (!_madt) PANIC("Failed to find the MADT!");
 
-        // The 8259 PIC chip MUST be disabled before APIC can be used
-        _pic->Disable();
-
         uint32_t LAPICID = (ReadRegister(LAPIC_ID_REG_OFFSET) >> 24) & 0xFF;
         LOG_DEBUG("LAPIC ID: %u32", LAPICID);
 
@@ -69,6 +66,9 @@ namespace Interrupts {
         MaskLVTEntry(LVT_LINT0_OFFSET);
         MaskLVTEntry(LVT_LINT1_OFFSET);
         MaskLVTEntry(LVT_ERROR_OFFSET);
+
+        // The 8259 PIC chip MUST be disabled before APIC can be used
+        _pic->Disable();
 
         // We need to clear the Error Status Register by writing to it *TWICE*. After this we can issue an initial End Of Interrupt by writing 0x0 to offset 0xB0
         WriteRegister(ERROR_STATUS_REG_OFFSET, 0x00);
@@ -95,18 +95,22 @@ namespace Interrupts {
                         IOAPICEntry->ioApicId,
                         IOAPICEntry->globalSystemInterruptBase
                     );
+
+                    _IOAPICEntries.Add(IOAPICEntry);
                     break;
                 }
 
                 // IRQ Source Override (ISO)
                 case IRQ_SRCOVR_ENTRY_TYPE: {
-                    Core::ACPI::MADTIOSrcOverride* overrideEntry = (Core::ACPI::MADTIOSrcOverride*)VLRecordsPtr;
+                    Core::ACPI::MADTIRQSrcOverride* overrideEntry = (Core::ACPI::MADTIRQSrcOverride*)VLRecordsPtr;
                     LOG_DEBUG("Found IRQ src override entry at %p:\n\r  * Bus source: %u8\n\r  * Global system interrupt: %u32\n\r  * IRQ source: %u8\n\r",
                         VLRecordsPtr,
                         overrideEntry->busSource,
                         overrideEntry->globalSysInterrupt,
                         overrideEntry->IRQSource
                     );
+
+                    _IRQSrcOverrides.Add(overrideEntry);
                     break;
                 }
 
