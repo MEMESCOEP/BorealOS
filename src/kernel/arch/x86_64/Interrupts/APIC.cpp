@@ -75,6 +75,24 @@ namespace Interrupts {
         WriteRegister(ERROR_STATUS_REG_OFFSET, 0x00);
         WriteRegister(EOI_REG_OFFSET, 0x00);
 
+        // Now we can set up a vector for the LVT timer, we'll use 0x21
+        WriteRegister(LVT_TIMER_OFFSET, 
+            0x21
+            | (0 << 8)  // Fixed delivery
+            | (0 << 16) // Unmasked
+            | (1 << 17) // Periodic mode
+        );
+
+        // We set the division configuration register to 16, and the initial count register to 1; this triggers a very fast interrupt
+        // NOTE: The DivConf register does not take a literal integer divisor, it uses a specific encoding
+        //      see figure 11-10 in section 11.5.4 for the correct values (Intel 64 and IA-32 Software Developer's Manual, Volume 3A, page 401)
+        WriteRegister(DIVIDE_CONFIG_REG_OFFSET, 0b011);
+        WriteRegister(INITIAL_COUNT_REG_OFFSET, 1);
+
+        // Finally, set the task priority register (TPR) to 0 so no interrupts are blocked
+        // NOTE: Interrupts below <TPR value> are blocked, so we set it to 0 becasue there are no interrupts less than 0
+        WriteRegister(TPR_REG_OFFSET, MINIMUM_IRQ_NUM);
+
 
 
         // --- IOAPIC ---
@@ -114,12 +132,16 @@ namespace Interrupts {
                     break;
                 }
 
-                // We don't care about other entry types yet
+                // We don't care about other entry types right now
                 default:
                     break;
             }
 
             VLRecordsPtr += entryHeader->length;
         }
+
+        uint64_t IOAPICEntryCount = _IOAPICEntries.Size();
+        LOG_DEBUG("Found %u64 IOAPIC %s.", IOAPICEntryCount, IOAPICEntryCount == 1 ? "entry" : "entries");
+        LOG_DEBUG("Found %u64 IRQ source override(s).", _IRQSrcOverrides.Size());
     }
 }

@@ -10,6 +10,8 @@
 #include "IDT.h"
 #include "PIC.h"
 
+// APIC information was provided by the Intel 64 and IA-32 Software Developer's Manual, Volume 3A, Chapter 11
+// See Table 11-1 on pages 390-391 for a table of LAPIC register offsets and their properties (only the second "half" of the address is used)
 namespace Interrupts {
     class APIC {
         public:
@@ -25,6 +27,9 @@ namespace Interrupts {
             static constexpr uint32_t ERROR_STATUS_REG_OFFSET = 0x280;
             static constexpr uint32_t SPIRV_REG_OFFSET = 0xF0;
             static constexpr uint32_t EOI_REG_OFFSET = 0xB0;
+            static constexpr uint32_t TPR_REG_OFFSET = 0x80;
+            static constexpr uint32_t INITIAL_COUNT_REG_OFFSET = 0x380;
+            static constexpr uint32_t DIVIDE_CONFIG_REG_OFFSET = 0x3E0;
 
             // LVT offsets
             static constexpr uint32_t LVT_TIMER_OFFSET = 0x320;
@@ -38,6 +43,9 @@ namespace Interrupts {
             // Entry types
             static constexpr uint8_t IRQ_SRCOVR_ENTRY_TYPE = 0x02;
             static constexpr uint8_t IOAPIC_ENTRY_TYPE = 0x01;
+
+            // Misc
+            static constexpr uint8_t MINIMUM_IRQ_NUM = 0x00;
 
         private:
             void WriteRegister(uint32_t regOffset, uint32_t value);
