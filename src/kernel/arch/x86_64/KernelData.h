@@ -16,7 +16,7 @@
 #include "Core/Firmware/ACPI.h"
 #include "Core/Drivers/DriverManager.h"
 #include <Core/ServiceManager.h>
-#include "Core/Firmware/System.h"
+#include "Core/Firmware/Hardware.h"
 #include "Core/Time/HPET.h"
 #include "Core/Time/Scheduler.h"
 #include "Core/Time/TSC.h"
