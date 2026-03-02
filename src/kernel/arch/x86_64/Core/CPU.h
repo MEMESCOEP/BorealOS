@@ -92,7 +92,9 @@ namespace Core {
         uint64_t ReadMSR(uint32_t msr);
         void WriteMSR(uint32_t msr, uint64_t value);
         void Initialize();
-        bool CPUHasFeature(CPUFeatures::Feature feature);
+        bool HasFeature(CPUFeatures::Feature feature);
+        bool HasInvariantTSC();
+
         char processorName[49];
         char vendorID[13];
 

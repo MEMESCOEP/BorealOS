@@ -10,6 +10,8 @@ extern "C" [[noreturn]] void kmain() {
 
     auto kernel = Kernel<KernelData>::GetInstance();
     kernel->Initialize();
+    LOG_INFO("Finished loading kernel systems");
+
     kernel->Start();
 
     LOG_ERROR("Clearly, something is not working correctly but whatever");

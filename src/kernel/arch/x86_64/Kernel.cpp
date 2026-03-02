@@ -88,6 +88,10 @@ void Kernel<T>::Initialize() {
     ArchitectureData->Hpet.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized HPET.");
 
+    // Invariant TSC:
+    ArchitectureData->Tsc = Core::Time::TSC(&ArchitectureData->Hpet, &ArchitectureData->Cpu);
+    LOG(LOG_LEVEL::INFO, "Initialized TSC with frequency approximately %u64hz.", ArchitectureData->Tsc.GetFrequency());
+
     // Init ram fs:
     auto files = module_request.response->modules;
     if (!files || module_request.response->module_count == 0) {
@@ -121,6 +125,10 @@ void Kernel<T>::Initialize() {
     // Driver manager:
     ArchitectureData->DriverManager = new Core::Drivers::DriverManager("/ramfs/modules", ArchitectureData->KernelSymbols, ArchitectureData->InitRamFS, &ArchitectureData->Paging, &ArchitectureData->Pmm);
     LOG_INFO("Initialized driver manager.");
+
+    // Scheduler:
+    ArchitectureData->DefaultScheduler = new Core::Time::Scheduler(&ArchitectureData->Tsc);
+    LOG_INFO("Initialized scheduler.");
 }
 
 template<typename T>

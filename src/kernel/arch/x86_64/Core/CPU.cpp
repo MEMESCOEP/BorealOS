@@ -209,8 +209,8 @@ namespace Core {
         if (!__get_cpuid(CPUIDLeaves::Features, &featureEAX, &featureEBX, &featureECX, &featureEDX)) PANIC("Failed to get CPU features!");
 
         // Check if the CPU supports SSE and FXSR
-        if (!CPUHasFeature(CPUFeatures::SSE)) PANIC("This system doesn't support SSE, which is required by x86_64!");
-        if (!CPUHasFeature(CPUFeatures::FXSR)) PANIC("This system doesn't support FXSR, which is required by x86_64!");
+        if (!HasFeature(CPUFeatures::SSE)) PANIC("This system doesn't support SSE, which is required by x86_64!");
+        if (!HasFeature(CPUFeatures::FXSR)) PANIC("This system doesn't support FXSR, which is required by x86_64!");
 
         // Initialize SSE
         InitializeSSE();
@@ -220,7 +220,7 @@ namespace Core {
     }
 
     // This implementation is only safe for leaf 1, because it assumes CPUID set up the registers for leaf 1
-    bool CPU::CPUHasFeature(CPUFeatures::Feature feature) {
+    bool CPU::HasFeature(CPUFeatures::Feature feature) {
         // Make sure the bit is between 0 and 31
         if (feature.bit > 31) return false;
 
@@ -234,5 +234,11 @@ namespace Core {
         }
 
         return false;
+    }
+
+    bool CPU::HasInvariantTSC() {
+        uint32_t eax, ebx, ecx, edx;
+        __cpuid(0x80000007, eax, ebx, ecx, edx);
+        return (edx >> 8) & 1;
     }
 }
