@@ -1,4 +1,4 @@
-#include "System.h"
+#include "Hardware.h"
 #include "lai_include.h"
 
 namespace Core::Firmware {

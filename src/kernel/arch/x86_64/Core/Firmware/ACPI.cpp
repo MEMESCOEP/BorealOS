@@ -101,8 +101,7 @@ namespace Core::Firmware {
 
         // Check if limine provided a response for the RSDP table; we'll determine the exact ACPI revision later
         if (!rsdp_request.response) {
-            LOG_WARNING("Limine did not provide a response for the RSDP table, ACPI is likely not supported!");
-            return;
+            PANIC("Limine did not provide a response for the RSDP table, ACPI is likely not supported!");
         }
 
         // Get the response
@@ -193,16 +192,6 @@ namespace Core::Firmware {
     }
 
     void ACPI::LoadLAI() {
-        if (!_systemHasACPI) {
-            LOG_WARNING("Cannot load ACPI interpreter because ACPI is not supported on this system!");
-            return;
-        }
-
-        if (!_dsdt) {
-            LOG_WARNING("Cannot load ACPI interpreter because the DSDT could not be found!");
-            return;
-        }
-
         // lai_enable_tracing(LAI_TRACE_IO | LAI_TRACE_NS | LAI_TRACE_OP); SLOW! Takes like 8 minutes to boot with this enabled on real hardware.
         lai_set_acpi_revision(_rsdp->revision);
         asm volatile("cli"); // Disable interrupts while we set up the ACPI namespace to avoid
