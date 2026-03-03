@@ -5,11 +5,12 @@
 #define HID_MODULE_DESCRIPTION "This is the Human Interface Device (HID) service, which provides an abstract API for input devices like keyboards, mice, etc."
 #define HID_MODULE_VERSION VERSION(0,0,1)
 #define HID_MODULE_IMPORTANCE Formats::DriverModule::Importance::Required
-
 #define HID_SERVICE_NAME "hid.service"
 
+#include "Keycodes.h"
+
 namespace HID {
-    enum class DeviceType {
+    enum class DeviceType : uint16_t {
         Keyboard,
         Mouse,
         Gamepad
@@ -26,7 +27,7 @@ namespace HID {
         char manufacturer[64]; // Manufacturer of the device, for example "Logitech"
     };
 
-    enum class InputEventType {
+    enum class InputEventType : uint16_t {
         KeyPress,
         KeyRelease,
         MouseMove,
@@ -37,12 +38,21 @@ namespace HID {
         GamepadAxisMove
     };
 
-    enum class MouseButton {
+    enum class MouseButton : uint16_t {
         Left,
         Right,
         Middle,
         Button4,
         Button5
+    };
+
+    enum class GamepadAxis : uint16_t {
+        LeftStickX,
+        LeftStickY,
+        RightStickX,
+        RightStickY,
+        LeftTrigger,
+        RightTrigger
     };
 
 #pragma GCC diagnostic push
@@ -52,7 +62,7 @@ namespace HID {
         InputEventType type;
         union {
             struct {
-                uint16_t keyCode; // for keyboards
+                KeyCode keyCode; // for keyboard events, using USB HID usage codes
             } keyEvent;
             struct {
                 int16_t deltaX; // for mouse movement
@@ -63,8 +73,8 @@ namespace HID {
             } mouseEvent;
             struct {
                 uint16_t button; // for gamepad button events
-                int16_t axis; // for gamepad axis events
-                int16_t value; // for gamepad axis events
+                GamepadAxis axis; // for gamepad axis events
+                int16_t value; // for gamepad axis events. [-32768, 32767], where 0 is the neutral position.
             } gamepadEvent;
         };
     };
