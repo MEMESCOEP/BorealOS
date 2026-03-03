@@ -100,6 +100,7 @@ namespace Interrupts {
     }
 
     void IDT::IRQHandler(uint8_t irq, Registers *registers) {
+        //LOG_DEBUG("IRQ %u8", irq);
         if (irq < 16 && _irqHandlers[irq] != nullptr) {
             _irqHandlers[irq]();
         }
@@ -151,6 +152,10 @@ namespace Interrupts {
         entry.OffsetMiddle = (isr >> 16) & 0xFFFF;
         entry.OffsetHigh = (isr >> 32) & 0xFFFFFFFF;
         entry.Zero = 0;
+    }
+
+    void IDT::SetInterruptController(InterruptController* ic) {
+        _ic = ic;
     }
 } // Interrupts
 

@@ -1,27 +1,157 @@
 #include "APIC.h"
 
 namespace Interrupts {
-    APIC::APIC(Core::ACPI* acpi, Core::CPU* cpu, PIC* pic, Memory::Paging* paging) : _IRQSrcOverrides(256), _IOAPICEntries(256) {
+    APIC::APIC(Core::ACPI* acpi, Core::CPU* cpu, PIC* pic, Memory::Paging* paging, IDT* idt) : _IRQSrcOverrides(256), _IOAPICEntries(256), _IOAPICs(256) {
         _paging = paging;
         _acpi = acpi;
         _cpu = cpu;
         _pic = pic;
+        _idt = idt;
     }
 
-    void APIC::WriteRegister(uint32_t regOffset, uint32_t value) {
+    Core::ACPI::MADTIRQSrcOverride* APIC::GetIRQSrcOverride(uint8_t irqNum) {
+        for (uint8_t i = 0; i < _IRQSrcOverrides.Size(); i++) {
+            if (_IRQSrcOverrides[i]->IRQSource == irqNum) {
+                return _IRQSrcOverrides[i];
+            }
+        }
+
+        return nullptr;
+    }
+
+    APIC::IOAPICData* APIC::GetIOAPICFromIRQ(uint32_t irqNum) {
+        for (uint8_t i = 0; i < _IOAPICs.Size(); i++) {
+            IOAPICData* ioapic = _IOAPICs[i];
+            if (irqNum >= ioapic->gsiBase && irqNum < ioapic->gsiBase + ioapic->redirectionEntryCount) {
+                return ioapic;
+            }
+        }
+
+        return nullptr;
+    }
+
+    void APIC::WriteLAPICRegister(uint32_t regOffset, uint32_t value) {
         MMIOLAPICAddr[regOffset / 4] = value;
     }
 
-    uint32_t APIC::ReadRegister(uint32_t regOffset) {
+    uint32_t APIC::ReadLAPICRegister(uint32_t regOffset) {
         return MMIOLAPICAddr[regOffset / 4];
     }
 
+    void APIC::WriteIOAPICRegister(volatile uint32_t* base, uint8_t regOffset, uint32_t value) {
+        base[0] = regOffset;        // IOREGSEL
+        base[4] = value;            // IOWIN (0x10 / 4 = index 4)
+    }
+
+    uint32_t APIC::ReadIOAPICRegister(volatile uint32_t* base, uint8_t regOffset) {
+        base[0] = regOffset;        // IOREGSEL
+        return base[4];             // IOWIN
+    }
+
     void APIC::MaskLVTEntry(uint32_t regOffset) {
-        WriteRegister(regOffset, ReadRegister(regOffset) | (1 << 16));
+        WriteLAPICRegister(regOffset, ReadLAPICRegister(regOffset) | (1 << 16));
     }
 
     void APIC::UnmaskLVTEntry(uint32_t regOffset) {
-        WriteRegister(regOffset, ReadRegister(regOffset) & ~(1 << 16));
+        WriteLAPICRegister(regOffset, ReadLAPICRegister(regOffset) & ~(1 << 16));
+    }
+
+    void APIC::MaskIRQ(uint8_t irqNum) {
+        // Check if there is an override available for this IRQ
+        Core::ACPI::MADTIRQSrcOverride* IRQOverride = GetIRQSrcOverride(irqNum);
+        uint32_t gsi = IRQOverride ? IRQOverride->globalSysInterrupt : irqNum;
+        
+        // Check if any IOAPIC chips are set up to handle this IRQ
+        IOAPICData* APICData = GetIOAPICFromIRQ(gsi);
+        if (!APICData) {
+            LOG_ERROR("No IOAPICs are set up to handle IRQ #%u8", irqNum);
+            PANIC("No IOAPIC was found for the IRQ!");
+        }        
+
+        // Now we can actually mask the IRQ
+        uint8_t entry = gsi - APICData->gsiBase;
+        uint8_t reg = 0x10 + (entry * 2);
+        WriteIOAPICRegister(APICData->base, reg, ReadIOAPICRegister(APICData->base, reg) | (1 << 16));
+    }
+
+    void APIC::UnmaskIRQ(uint8_t irqNum) {
+        // Check if there is an override available for this IRQ
+        Core::ACPI::MADTIRQSrcOverride* IRQOverride = GetIRQSrcOverride(irqNum);
+        uint32_t gsi = IRQOverride ? IRQOverride->globalSysInterrupt : irqNum;
+        
+        // Check if any IOAPIC chips are set up to handle this IRQ
+        IOAPICData* APICData = GetIOAPICFromIRQ(gsi);
+        if (!APICData) {
+            LOG_ERROR("No IOAPICs are set up to handle IRQ #%u8", irqNum);
+            PANIC("No IOAPIC was found for the IRQ!");
+        }        
+
+        // Now we can actually unmask the IRQ
+        uint8_t entry = gsi - APICData->gsiBase;
+        uint8_t reg = 0x10 + (entry * 2);
+        WriteIOAPICRegister(APICData->base, reg, ReadIOAPICRegister(APICData->base, reg) & ~(1 << 16));
+    }
+
+    void APIC::SendEOI(uint8_t irqNum) {
+        LOG_DEBUG("%u8", irqNum);
+        WriteLAPICRegister(EOI_REG_OFFSET, 0x00);
+    }
+
+    void APIC::MapIRQ(uint8_t irqNum, uint8_t irqVector) {
+        // Check if there is an override available for this IRQ
+        Core::ACPI::MADTIRQSrcOverride* IRQOverride = GetIRQSrcOverride(irqNum);
+        uint32_t gsi = IRQOverride ? IRQOverride->globalSysInterrupt : irqNum;
+
+        // ISA PIC defaults to active high and edge triggered modes
+        uint8_t polarity = 0;
+        uint8_t triggerMode = 0;
+
+        if (IRQOverride) {
+            // Make sure the override IRQ actually matches this IRQ
+            if (IRQOverride->IRQSource != irqNum) {
+                LOG_ERROR("IRQ override source (%u8) does not match IRQ number (%u8)!", IRQOverride->IRQSource, irqNum);
+                PANIC("Invalid IRQ source override!");
+            }
+
+            uint8_t polarityFlags = IRQOverride->flags & 0x03;
+            uint8_t triggerFlags = (IRQOverride->flags >> 2) & 0x03;
+
+            if (polarityFlags == 0x3) polarity = 1;   // 0x01 means active high, 0x03 means active low
+            if (triggerFlags == 0x3) triggerMode = 1; // 0x01 means edge triggered, 0x03 means level triggered
+        }
+
+        IOAPICData* APICData = GetIOAPICFromIRQ(gsi);
+        if (!APICData) {
+            LOG_ERROR("No IOAPICs are set up to handle IRQ #%u8", irqNum);
+            PANIC("No IOAPIC was found for the IRQ!");
+        }
+
+        uint8_t entry = gsi - APICData->gsiBase;
+        uint32_t low =
+            irqVector
+            | (0 << 8)            // Fixed delivery mode
+            | (0 << 11)           // Physical destination mode
+            | (polarity << 13)    // Polarity
+            | (triggerMode << 15) // Trigger mode
+            | (1 << 16);          // Masked
+
+        // High 32 bits: destination LAPIC ID in bits 56-59 (bits 24-27 of the high register)
+        uint32_t high = ((_LAPICID & 0xFF) << 24);
+
+        WriteIOAPICRegister(APICData->base, 0x10 + (entry * 2), low);
+        WriteIOAPICRegister(APICData->base, 0x11 + (entry * 2), high);
+        LOG_DEBUG("MapIRQ: IRQ %u8 -> vector %u8, GSI %u32, entry %u8, low %x32, high %x32",
+    irqNum, irqVector, gsi, entry, low, high);
+    }
+
+    void KeyboardHandler() {
+        uint8_t scancode;
+        asm volatile("inb $0x60, %0" : "=a"(scancode));
+        LOG_DEBUG("User pressed key 0x%x8.", scancode);
+    }
+
+    void IRQHandler() {
+        LOG_DEBUG("IRQ!");
     }
 
     // NOTE: This APIC init is uniprocessor only, it doesn't yet initialize other per-core APIC chips
@@ -50,16 +180,14 @@ namespace Interrupts {
             Memory::PageFlags::ReadWrite | Memory::PageFlags::NoExecute | Memory::PageFlags::CacheDisable
         );        
 
-        // Find the MADT
+        // Find the MADT and LAPIC ID
         _madt = (Core::ACPI::MADT*)_acpi->GetTable("APIC");
         if (!_madt) PANIC("Failed to find the MADT!");
-
-        uint32_t LAPICID = (ReadRegister(LAPIC_ID_REG_OFFSET) >> 24) & 0xFF;
-        LOG_DEBUG("LAPIC ID: %u32", LAPICID);
+        _LAPICID = (ReadLAPICRegister(LAPIC_ID_REG_OFFSET) >> 24) & 0xFF;
 
         // Now we need to configure the Spurious Interrupt Vector Register
-        WriteRegister(SPIRV_REG_OFFSET, SPIRV_VECTOR | (1 << 8));
-        if ((ReadRegister(SPIRV_REG_OFFSET) & (1 << 8)) == 0) PANIC("Failed to configure LAPIC spurious vector register, bit 8 (software enable) of LAPIC SPIRV is not set!");
+        WriteLAPICRegister(SPIRV_REG_OFFSET, SPIRV_VECTOR | (1 << 8));
+        if ((ReadLAPICRegister(SPIRV_REG_OFFSET) & (1 << 8)) == 0) PANIC("Failed to configure LAPIC spurious vector register, bit 8 (software enable) of LAPIC SPIRV is not set!");
 
         // We should mask all of the Local Vector Table entries to put the LAPIC into a controlled state, this disables interrupts during initialization
         MaskLVTEntry(LVT_TIMER_OFFSET);
@@ -71,27 +199,27 @@ namespace Interrupts {
         _pic->Disable();
 
         // We need to clear the Error Status Register by writing to it *TWICE*. After this we can issue an initial End Of Interrupt by writing 0x0 to offset 0xB0
-        WriteRegister(ERROR_STATUS_REG_OFFSET, 0x00);
-        WriteRegister(ERROR_STATUS_REG_OFFSET, 0x00);
-        WriteRegister(EOI_REG_OFFSET, 0x00);
+        WriteLAPICRegister(ERROR_STATUS_REG_OFFSET, 0x00);
+        WriteLAPICRegister(ERROR_STATUS_REG_OFFSET, 0x00);
+        WriteLAPICRegister(EOI_REG_OFFSET, 0x00);
 
         // Now we can set up a vector for the LVT timer, we'll use 0x21
-        WriteRegister(LVT_TIMER_OFFSET, 
+        WriteLAPICRegister(LVT_TIMER_OFFSET, 
             0x21
             | (0 << 8)  // Fixed delivery
             | (0 << 16) // Unmasked
             | (1 << 17) // Periodic mode
         );
 
-        // We set the division configuration register to 16, and the initial count register to 1; this triggers a very fast interrupt
+        // We set the division configuration register to 16, and the initial count register to 10^7; this triggers a very fast interrupt
         // NOTE: The DivConf register does not take a literal integer divisor, it uses a specific encoding
         //      see figure 11-10 in section 11.5.4 for the correct values (Intel 64 and IA-32 Software Developer's Manual, Volume 3A, page 401)
-        WriteRegister(DIVIDE_CONFIG_REG_OFFSET, 0b011);
-        WriteRegister(INITIAL_COUNT_REG_OFFSET, 1);
+        WriteLAPICRegister(DIVIDE_CONFIG_REG_OFFSET, 0b011);
+        WriteLAPICRegister(INITIAL_COUNT_REG_OFFSET, 10000000);
 
         // Finally, set the task priority register (TPR) to 0 so no interrupts are blocked
         // NOTE: Interrupts below <TPR value> are blocked, so we set it to 0 becasue there are no interrupts less than 0
-        WriteRegister(TPR_REG_OFFSET, MINIMUM_IRQ_NUM);
+        WriteLAPICRegister(TPR_REG_OFFSET, MINIMUM_IRQ_NUM);
 
 
 
@@ -106,29 +234,13 @@ namespace Interrupts {
             switch(entryHeader->type) {
                 // IOAPIC descriptor
                 case IOAPIC_ENTRY_TYPE: {
-                    Core::ACPI::MADTIOAPIC* IOAPICEntry = (Core::ACPI::MADTIOAPIC*)VLRecordsPtr;
-                    LOG_DEBUG("Found IOAPIC entry at %p:\n\r  * Physical address: %p\n\r  * ID: %u8\n\r  * GSI base: %p\n\r",
-                        VLRecordsPtr,
-                        IOAPICEntry->ioApicAddress,
-                        IOAPICEntry->ioApicId,
-                        IOAPICEntry->globalSystemInterruptBase
-                    );
-
-                    _IOAPICEntries.Add(IOAPICEntry);
+                    _IOAPICEntries.Add((Core::ACPI::MADTIOAPIC*)VLRecordsPtr);
                     break;
                 }
 
                 // IRQ Source Override (ISO)
                 case IRQ_SRCOVR_ENTRY_TYPE: {
-                    Core::ACPI::MADTIRQSrcOverride* overrideEntry = (Core::ACPI::MADTIRQSrcOverride*)VLRecordsPtr;
-                    LOG_DEBUG("Found IRQ src override entry at %p:\n\r  * Bus source: %u8\n\r  * Global system interrupt: %u32\n\r  * IRQ source: %u8\n\r",
-                        VLRecordsPtr,
-                        overrideEntry->busSource,
-                        overrideEntry->globalSysInterrupt,
-                        overrideEntry->IRQSource
-                    );
-
-                    _IRQSrcOverrides.Add(overrideEntry);
+                    _IRQSrcOverrides.Add((Core::ACPI::MADTIRQSrcOverride*)VLRecordsPtr);
                     break;
                 }
 
@@ -143,5 +255,51 @@ namespace Interrupts {
         uint64_t IOAPICEntryCount = _IOAPICEntries.Size();
         LOG_DEBUG("Found %u64 IOAPIC %s.", IOAPICEntryCount, IOAPICEntryCount == 1 ? "entry" : "entries");
         LOG_DEBUG("Found %u64 IRQ source override(s).", _IRQSrcOverrides.Size());
+
+        // Now that we've found each IOAPIC, we have to initialize them all
+        for (uint8_t IOAPICIndex = 0; IOAPICIndex < IOAPICEntryCount; IOAPICIndex++) {
+            Core::ACPI::MADTIOAPIC* entry = _IOAPICEntries[IOAPICIndex];
+
+            // Map the IOAPIC MMIO region
+            if (entry->ioApicAddress % Architecture::KernelPageSize != 0) PANIC("IOAPIC base address is not page aligned!");
+            _paging->MapPage(
+                entry->ioApicAddress,
+                entry->ioApicAddress,
+                Memory::PageFlags::ReadWrite | Memory::PageFlags::NoExecute | Memory::PageFlags::CacheDisable
+            );
+
+            volatile uint32_t* base = reinterpret_cast<volatile uint32_t*>(entry->ioApicAddress);
+            uint32_t ioapicVer = ReadIOAPICRegister(base, IOAPIC_VERSION_REG_OFFSET);
+            uint8_t IOAPICVersion = ioapicVer & 0xFF;
+            uint8_t redirectionEntryCount = ((ioapicVer >> 16) & 0xFF) + 1;
+
+            // Mask all redirection entries
+            for (uint8_t redirEntryIndex = 0; redirEntryIndex < redirectionEntryCount; redirEntryIndex++) {
+                WriteIOAPICRegister(base, 0x10 + (redirEntryIndex * 2), 1 << 16); // Mask
+                WriteIOAPICRegister(base, 0x11 + (redirEntryIndex * 2), 0);       // Clear high bits
+            }
+
+            // Finally, store the data for this IOAPIC in the list
+            IOAPICData* data = new IOAPICData();
+            data->base = base;
+            data->gsiBase = entry->globalSystemInterruptBase;
+            data->redirectionEntryCount = redirectionEntryCount;
+
+            _IOAPICs.Add(data);
+        }
+
+
+
+        // --- IRQ SETUP ---
+        // Map the first 16 IRQs, these are 1:1 form the legacy PIC IRQs we chose already
+        for (uint8_t irqNum = MINIMUM_IRQ_NUM; irqNum < 16; irqNum++) {
+            MapIRQ(irqNum, 0x20 + irqNum);
+
+            // Set up the handlers for the new APIC code, as they need to send an EOI differently than the legacy PIC method
+            _idt->RegisterIRQHandler(irqNum, IRQHandler);
+        }
+
+        _idt->RegisterIRQHandler(1, KeyboardHandler);
+        UnmaskIRQ(1);
     }
 }

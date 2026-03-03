@@ -13,8 +13,9 @@ extern "C" [[noreturn]] void kmain() {
     LOG_INFO("Finished loading kernel systems");
 
     kernel->Start();
-
-    LOG_ERROR("Clearly, something is not working correctly but whatever");
+    
+    PANIC("Kernel::Start exited, no valid code to execute!");
+    
     asm volatile ("cli");
     while (true) {
         asm ("hlt");

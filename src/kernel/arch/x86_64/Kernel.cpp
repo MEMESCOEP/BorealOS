@@ -81,8 +81,9 @@ void Kernel<T>::Initialize() {
     LOG(LOG_LEVEL::INFO, "Initialized ACPI.");
 
     // APIC:
-    ArchitectureData->Apic = new Interrupts::APIC(&ArchitectureData->Acpi, &ArchitectureData->Cpu, ArchitectureData->Pic, &ArchitectureData->Paging);
+    ArchitectureData->Apic = new Interrupts::APIC(&ArchitectureData->Acpi, &ArchitectureData->Cpu, ArchitectureData->Pic, &ArchitectureData->Paging, &ArchitectureData->Idt);
     ArchitectureData->Apic->Initialize();
+    ArchitectureData->Idt.SetInterruptController(ArchitectureData->Apic);
     LOG(LOG_LEVEL::INFO, "Initialized APIC.");
 
     // HPET:
@@ -138,6 +139,8 @@ void Kernel<T>::Start() {
     // Load all drivers, we do this in the start function because this ensures we have finished initialization of all main kernel subsystems before we start loading drivers, which may depend on those subsystems.
     ArchitectureData->DriverManager->LoadDriversFromFileSystem();
     LOG_INFO("Finished loading drivers.");
+
+    while (1);
 }
 
 template<typename T>

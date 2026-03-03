@@ -38,6 +38,7 @@ namespace Interrupts {
         void HandleException(uint32_t exceptionVector, uint32_t errorCode, Registers *registers) const;
         void UnmaskIRQ(uint8_t uint8) const;
         void MaskIRQ(uint8_t uint8) const;
+        void SetInterruptController(InterruptController* ic);
 
     private:
         InterruptController* _ic;
