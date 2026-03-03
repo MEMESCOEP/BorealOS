@@ -1,5 +1,7 @@
 #include "APIC.h"
 
+#include "../IO/Serial.h"
+
 namespace Interrupts {
     APIC::APIC(Core::ACPI* acpi, Core::CPU* cpu, PIC* pic, Memory::Paging* paging, IDT* idt) : _IRQSrcOverrides(256), _IOAPICEntries(256), _IOAPICs(256) {
         _paging = paging;
@@ -205,7 +207,7 @@ namespace Interrupts {
 
         // Now we can set up a vector for the LVT timer, we'll use 0x21
         WriteLAPICRegister(LVT_TIMER_OFFSET, 
-            0x21
+            0x40
             | (0 << 8)  // Fixed delivery
             | (0 << 16) // Unmasked
             | (1 << 17) // Periodic mode
@@ -300,6 +302,12 @@ namespace Interrupts {
         }
 
         _idt->RegisterIRQHandler(1, KeyboardHandler);
+
+        // Keep reading 0x60 until the status register bit of ps2 is 0.
+        while (IO::Serial::inb(0x64) & 1) {
+            IO::Serial::inb(0x60);
+        }
+
         UnmaskIRQ(1);
     }
 }
