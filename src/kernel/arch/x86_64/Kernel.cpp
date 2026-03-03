@@ -81,10 +81,12 @@ void Kernel<T>::Initialize() {
     LOG(LOG_LEVEL::INFO, "Initialized ACPI.");
 
     // APIC:
+    asm volatile ("cli");
     ArchitectureData->Apic = new Interrupts::APIC(&ArchitectureData->Acpi, &ArchitectureData->Cpu, ArchitectureData->Pic, &ArchitectureData->Paging, &ArchitectureData->Idt);
     ArchitectureData->Apic->Initialize();
     ArchitectureData->Idt.SetInterruptController(ArchitectureData->Apic);
     LOG(LOG_LEVEL::INFO, "Initialized APIC.");
+    asm volatile ("sti");
 
     // HPET:
     ArchitectureData->Hpet = Core::Time::HPET(&ArchitectureData->Acpi, &ArchitectureData->Paging, &ArchitectureData->Idt);

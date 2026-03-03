@@ -55,7 +55,7 @@ namespace Interrupts {
         _idtPointer.Base = reinterpret_cast<uint64_t>(&_idtEntries[0]);
         _idtPointer.Limit = sizeof(IDTEntry) * 256 - 1;
 
-        for (uint8_t vec = 0; vec < 48; vec++) {
+        for (uint16_t vec = 0; vec < 256; vec++) {
             SetIDTEntry(vec, reinterpret_cast<uint64_t>(((void**) &ISRStubTable)[vec]), 0x8E); // 0x8E = Present, DPL=0, Type=Interrupt Gate
         }
 
@@ -91,17 +91,12 @@ namespace Interrupts {
     }
 
     void IDT::RegisterIRQHandler(uint8_t irq, void(*handler)()) {
-        if (irq >= 16) {
-            LOG_ERROR("Attempted to register an IRQ handler for IRQ %u8, which is out of bounds!", irq);
-            return;
-        }
-
         _irqHandlers[irq] = handler;
     }
 
     void IDT::IRQHandler(uint8_t irq, Registers *registers) {
         //LOG_DEBUG("IRQ %u8", irq);
-        if (irq < 16 && _irqHandlers[irq] != nullptr) {
+        if (_irqHandlers[irq] != nullptr) {
             _irqHandlers[irq]();
         }
 

@@ -44,7 +44,7 @@ namespace Interrupts {
         InterruptController* _ic;
         IDTPointer _idtPointer = {0, 0};
         void (*_exceptionHandlers[32])(void) = { nullptr };
-        void (*_irqHandlers[16])(void) = { nullptr };
+        void (*_irqHandlers[256])(void) = { nullptr };
         void SetIDTEntry(uint8_t vector, uint64_t isr, uint8_t flags);
         bool _isTesting = false;
     };

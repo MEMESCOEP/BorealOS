@@ -141,7 +141,7 @@ namespace Interrupts {
         WriteIOAPICRegister(APICData->base, 0x10 + (entry * 2), low);
         WriteIOAPICRegister(APICData->base, 0x11 + (entry * 2), high);
         LOG_DEBUG("MapIRQ: IRQ %u8 -> vector %u8, GSI %u32, entry %u8, low %x32, high %x32",
-    irqNum, irqVector, gsi, entry, low, high);
+            irqNum, irqVector, gsi, entry, low, high);
     }
 
     void KeyboardHandler() {
