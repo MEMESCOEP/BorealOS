@@ -42,7 +42,7 @@ namespace Interrupts {
         IO::Serial::outb(PIC2_DATA, 0xFF);
         IO::Serial::IOWait();
 
-        PIC::ClearIRQMask(2); // Unmask the cascade IRQ line on the master PIC to allow communication with the slave PIC
+        PIC::UnmaskIRQ(2); // Unmask the cascade IRQ so we can receive interrupts from the slave PIC
     }
 
     void PIC::Disable() {
@@ -53,7 +53,12 @@ namespace Interrupts {
         IO::Serial::IOWait();
     }
 
-    void PIC::SetIRQMask(uint8_t irq_line) {
+    void PIC::MaskIRQ(uint8_t irq_line) {
+        if (irq_line > 15) {
+            LOG_ERROR("Invalid IRQ line %u8 to mask! Valid range is 0-15.", irq_line);
+            return;
+        }
+
         uint16_t port;
         uint8_t mask;
 
@@ -69,7 +74,12 @@ namespace Interrupts {
         IO::Serial::IOWait();
     }
 
-    void PIC::ClearIRQMask(uint8_t irq) {
+    void PIC::UnmaskIRQ(uint8_t irq) {
+        if (irq > 15) {
+            LOG_ERROR("Invalid IRQ line %u8 to unmask! Valid range is 0-15.", irq);
+            return;
+        }
+
         uint16_t port;
         uint8_t mask;
 
@@ -86,6 +96,11 @@ namespace Interrupts {
     }
 
     void PIC::SendEOI(uint8_t irq) {
+        if (irq > 15) {
+            LOG_ERROR("Invalid IRQ line %u8 for EOI! Valid range is 0-15.", irq);
+            return;
+        }
+
         if (irq >= 8) {
             IO::Serial::outb(PIC2_COMMAND, PIC_EOI); // Send EOI to slave PIC
         }

@@ -17,17 +17,18 @@ namespace Memory {
         bool IsPageReserved(uint64_t pageIndex);
         STATUS TestPMM();
 
-        limine_memmap_response* limineMemmapResponse;
+        limine_memmap_response* _limineMemmapResponse{};
 
-        size_t frameCount;
-        size_t usableFrames;
-        size_t bitmapSize;
+        size_t _frameCount{};
+        size_t _usableFrames{};
+        size_t _bitmapSize{};
 
-        uint8_t* allocatableBitmap;
-        uint8_t* reservedBitmap;
+        uint8_t* _allocatableBitmap{};
+        uint8_t* _reservedBitmap{};
 
-        uint64_t higherHalfOffset;
-        uint64_t bitmapBase;
+        uint64_t _higherHalfOffset{};
+        uint64_t _bitmapBase{};
+        uint64_t _endAddr{};
     };
 } // Memory
 

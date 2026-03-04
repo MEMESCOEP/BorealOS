@@ -43,8 +43,8 @@ extern "C" {
 }
 
 namespace Interrupts {
-    IDT::IDT(PIC *pic) {
-        this->_pic = pic;
+    IDT::IDT(InterruptController *ic) {
+        this->_ic = ic;
     }
 
     static IDT::IDTEntry _idtEntries[256] ALIGNED(16) = {}; // Static allocation for 256 IDT entries
@@ -55,7 +55,7 @@ namespace Interrupts {
         _idtPointer.Base = reinterpret_cast<uint64_t>(&_idtEntries[0]);
         _idtPointer.Limit = sizeof(IDTEntry) * 256 - 1;
 
-        for (uint8_t vec = 0; vec < 48; vec++) {
+        for (uint16_t vec = 0; vec < 256; vec++) {
             SetIDTEntry(vec, reinterpret_cast<uint64_t>(((void**) &ISRStubTable)[vec]), 0x8E); // 0x8E = Present, DPL=0, Type=Interrupt Gate
         }
 
@@ -91,20 +91,16 @@ namespace Interrupts {
     }
 
     void IDT::RegisterIRQHandler(uint8_t irq, void(*handler)()) {
-        if (irq >= 16) {
-            LOG_ERROR("Attempted to register an IRQ handler for IRQ %u8, which is out of bounds!", irq);
-            return;
-        }
-
         _irqHandlers[irq] = handler;
     }
 
     void IDT::IRQHandler(uint8_t irq, Registers *registers) {
-        if (irq < 16 && _irqHandlers[irq] != nullptr) {
+        //LOG_DEBUG("IRQ %u8", irq);
+        if (_irqHandlers[irq] != nullptr) {
             _irqHandlers[irq]();
         }
 
-        _pic->SendEOI(irq);
+        _ic->SendEOI(irq);
     }
 
     void IDT::HandleException(uint32_t exceptionVector, uint32_t errorCode, Registers *registers) const {
@@ -134,13 +130,12 @@ namespace Interrupts {
         PANIC("Exception occurred");
     }
 
-    void IDT::ClearIRQMask(uint8_t uint8) const {
-        if (uint8 >= 16) {
-            LOG_ERROR("Attempted to clear mask for IRQ %u8, which is out of bounds!", uint8);
-            return;
-        }
+    void IDT::UnmaskIRQ(uint8_t uint8) const {
+        _ic->UnmaskIRQ(uint8);
+    }
 
-        _pic->ClearIRQMask(uint8);
+    void IDT::MaskIRQ(uint8_t uint8) const {
+        _ic->MaskIRQ(uint8);
     }
 
     void IDT::SetIDTEntry(uint8_t vector, uint64_t isr, uint8_t flags) {
@@ -152,6 +147,10 @@ namespace Interrupts {
         entry.OffsetMiddle = (isr >> 16) & 0xFFFF;
         entry.OffsetHigh = (isr >> 32) & 0xFFFFFFFF;
         entry.Zero = 0;
+    }
+
+    void IDT::SetInterruptController(InterruptController* ic) {
+        _ic = ic;
     }
 } // Interrupts
 

@@ -147,6 +147,214 @@ mac_IRQStub 44
 mac_IRQStub 45
 mac_IRQStub 46
 mac_IRQStub 47
+mac_IRQStub 48
+mac_IRQStub 49
+mac_IRQStub 50
+mac_IRQStub 51
+mac_IRQStub 52
+mac_IRQStub 53
+mac_IRQStub 54
+mac_IRQStub 55
+mac_IRQStub 56
+mac_IRQStub 57
+mac_IRQStub 58
+mac_IRQStub 59
+mac_IRQStub 60
+mac_IRQStub 61
+mac_IRQStub 62
+mac_IRQStub 63
+mac_IRQStub 64
+mac_IRQStub 65
+mac_IRQStub 66
+mac_IRQStub 67
+mac_IRQStub 68
+mac_IRQStub 69
+mac_IRQStub 70
+mac_IRQStub 71
+mac_IRQStub 72
+mac_IRQStub 73
+mac_IRQStub 74
+mac_IRQStub 75
+mac_IRQStub 76
+mac_IRQStub 77
+mac_IRQStub 78
+mac_IRQStub 79
+mac_IRQStub 80
+mac_IRQStub 81
+mac_IRQStub 82
+mac_IRQStub 83
+mac_IRQStub 84
+mac_IRQStub 85
+mac_IRQStub 86
+mac_IRQStub 87
+mac_IRQStub 88
+mac_IRQStub 89
+mac_IRQStub 90
+mac_IRQStub 91
+mac_IRQStub 92
+mac_IRQStub 93
+mac_IRQStub 94
+mac_IRQStub 95
+mac_IRQStub 96
+mac_IRQStub 97
+mac_IRQStub 98
+mac_IRQStub 99
+mac_IRQStub 100
+mac_IRQStub 101
+mac_IRQStub 102
+mac_IRQStub 103
+mac_IRQStub 104
+mac_IRQStub 105
+mac_IRQStub 106
+mac_IRQStub 107
+mac_IRQStub 108
+mac_IRQStub 109
+mac_IRQStub 110
+mac_IRQStub 111
+mac_IRQStub 112
+mac_IRQStub 113
+mac_IRQStub 114
+mac_IRQStub 115
+mac_IRQStub 116
+mac_IRQStub 117
+mac_IRQStub 118
+mac_IRQStub 119
+mac_IRQStub 120
+mac_IRQStub 121
+mac_IRQStub 122
+mac_IRQStub 123
+mac_IRQStub 124
+mac_IRQStub 125
+mac_IRQStub 126
+mac_IRQStub 127
+mac_IRQStub 128
+mac_IRQStub 129
+mac_IRQStub 130
+mac_IRQStub 131
+mac_IRQStub 132
+mac_IRQStub 133
+mac_IRQStub 134
+mac_IRQStub 135
+mac_IRQStub 136
+mac_IRQStub 137
+mac_IRQStub 138
+mac_IRQStub 139
+mac_IRQStub 140
+mac_IRQStub 141
+mac_IRQStub 142
+mac_IRQStub 143
+mac_IRQStub 144
+mac_IRQStub 145
+mac_IRQStub 146
+mac_IRQStub 147
+mac_IRQStub 148
+mac_IRQStub 149
+mac_IRQStub 150
+mac_IRQStub 151
+mac_IRQStub 152
+mac_IRQStub 153
+mac_IRQStub 154
+mac_IRQStub 155
+mac_IRQStub 156
+mac_IRQStub 157
+mac_IRQStub 158
+mac_IRQStub 159
+mac_IRQStub 160
+mac_IRQStub 161
+mac_IRQStub 162
+mac_IRQStub 163
+mac_IRQStub 164
+mac_IRQStub 165
+mac_IRQStub 166
+mac_IRQStub 167
+mac_IRQStub 168
+mac_IRQStub 169
+mac_IRQStub 170
+mac_IRQStub 171
+mac_IRQStub 172
+mac_IRQStub 173
+mac_IRQStub 174
+mac_IRQStub 175
+mac_IRQStub 176
+mac_IRQStub 177
+mac_IRQStub 178
+mac_IRQStub 179
+mac_IRQStub 180
+mac_IRQStub 181
+mac_IRQStub 182
+mac_IRQStub 183
+mac_IRQStub 184
+mac_IRQStub 185
+mac_IRQStub 186
+mac_IRQStub 187
+mac_IRQStub 188
+mac_IRQStub 189
+mac_IRQStub 190
+mac_IRQStub 191
+mac_IRQStub 192
+mac_IRQStub 193
+mac_IRQStub 194
+mac_IRQStub 195
+mac_IRQStub 196
+mac_IRQStub 197
+mac_IRQStub 198
+mac_IRQStub 199
+mac_IRQStub 200
+mac_IRQStub 201
+mac_IRQStub 202
+mac_IRQStub 203
+mac_IRQStub 204
+mac_IRQStub 205
+mac_IRQStub 206
+mac_IRQStub 207
+mac_IRQStub 208
+mac_IRQStub 209
+mac_IRQStub 210
+mac_IRQStub 211
+mac_IRQStub 212
+mac_IRQStub 213
+mac_IRQStub 214
+mac_IRQStub 215
+mac_IRQStub 216
+mac_IRQStub 217
+mac_IRQStub 218
+mac_IRQStub 219
+mac_IRQStub 220
+mac_IRQStub 221
+mac_IRQStub 222
+mac_IRQStub 223
+mac_IRQStub 224
+mac_IRQStub 225
+mac_IRQStub 226
+mac_IRQStub 227
+mac_IRQStub 228
+mac_IRQStub 229
+mac_IRQStub 230
+mac_IRQStub 231
+mac_IRQStub 232
+mac_IRQStub 233
+mac_IRQStub 234
+mac_IRQStub 235
+mac_IRQStub 236
+mac_IRQStub 237
+mac_IRQStub 238
+mac_IRQStub 239
+mac_IRQStub 240
+mac_IRQStub 241
+mac_IRQStub 242
+mac_IRQStub 243
+mac_IRQStub 244
+mac_IRQStub 245
+mac_IRQStub 246
+mac_IRQStub 247
+mac_IRQStub 248
+mac_IRQStub 249
+mac_IRQStub 250
+mac_IRQStub 251
+mac_IRQStub 252
+mac_IRQStub 253
+mac_IRQStub 254
+mac_IRQStub 255
 
 /* Now we need an ISR stub table to reference these stubs */
 .section .rodata
@@ -201,5 +409,213 @@ ISRStubTable:
     .quad    stub_ISRStub_45
     .quad    stub_ISRStub_46
     .quad    stub_ISRStub_47
+    .quad    stub_ISRStub_48
+    .quad    stub_ISRStub_49
+    .quad    stub_ISRStub_50
+    .quad    stub_ISRStub_51
+    .quad    stub_ISRStub_52
+    .quad    stub_ISRStub_53
+    .quad    stub_ISRStub_54
+    .quad    stub_ISRStub_55
+    .quad    stub_ISRStub_56
+    .quad    stub_ISRStub_57
+    .quad    stub_ISRStub_58
+    .quad    stub_ISRStub_59
+    .quad    stub_ISRStub_60
+    .quad    stub_ISRStub_61
+    .quad    stub_ISRStub_62
+    .quad    stub_ISRStub_63
+    .quad    stub_ISRStub_64
+    .quad    stub_ISRStub_65
+    .quad    stub_ISRStub_66
+    .quad    stub_ISRStub_67
+    .quad    stub_ISRStub_68
+    .quad    stub_ISRStub_69
+    .quad    stub_ISRStub_70
+    .quad    stub_ISRStub_71
+    .quad    stub_ISRStub_72
+    .quad    stub_ISRStub_73
+    .quad    stub_ISRStub_74
+    .quad    stub_ISRStub_75
+    .quad    stub_ISRStub_76
+    .quad    stub_ISRStub_77
+    .quad    stub_ISRStub_78
+    .quad    stub_ISRStub_79
+    .quad    stub_ISRStub_80
+    .quad    stub_ISRStub_81
+    .quad    stub_ISRStub_82
+    .quad    stub_ISRStub_83
+    .quad    stub_ISRStub_84
+    .quad    stub_ISRStub_85
+    .quad    stub_ISRStub_86
+    .quad    stub_ISRStub_87
+    .quad    stub_ISRStub_88
+    .quad    stub_ISRStub_89
+    .quad    stub_ISRStub_90
+    .quad    stub_ISRStub_91
+    .quad    stub_ISRStub_92
+    .quad    stub_ISRStub_93
+    .quad    stub_ISRStub_94
+    .quad    stub_ISRStub_95
+    .quad    stub_ISRStub_96
+    .quad    stub_ISRStub_97
+    .quad    stub_ISRStub_98
+    .quad    stub_ISRStub_99
+    .quad    stub_ISRStub_100
+    .quad    stub_ISRStub_101
+    .quad    stub_ISRStub_102
+    .quad    stub_ISRStub_103
+    .quad    stub_ISRStub_104
+    .quad    stub_ISRStub_105
+    .quad    stub_ISRStub_106
+    .quad    stub_ISRStub_107
+    .quad    stub_ISRStub_108
+    .quad    stub_ISRStub_109
+    .quad    stub_ISRStub_110
+    .quad    stub_ISRStub_111
+    .quad    stub_ISRStub_112
+    .quad    stub_ISRStub_113
+    .quad    stub_ISRStub_114
+    .quad    stub_ISRStub_115
+    .quad    stub_ISRStub_116
+    .quad    stub_ISRStub_117
+    .quad    stub_ISRStub_118
+    .quad    stub_ISRStub_119
+    .quad    stub_ISRStub_120
+    .quad    stub_ISRStub_121
+    .quad    stub_ISRStub_122
+    .quad    stub_ISRStub_123
+    .quad    stub_ISRStub_124
+    .quad    stub_ISRStub_125
+    .quad    stub_ISRStub_126
+    .quad    stub_ISRStub_127
+    .quad    stub_ISRStub_128
+    .quad    stub_ISRStub_129
+    .quad    stub_ISRStub_130
+    .quad    stub_ISRStub_131
+    .quad    stub_ISRStub_132
+    .quad    stub_ISRStub_133
+    .quad    stub_ISRStub_134
+    .quad    stub_ISRStub_135
+    .quad    stub_ISRStub_136
+    .quad    stub_ISRStub_137
+    .quad    stub_ISRStub_138
+    .quad    stub_ISRStub_139
+    .quad    stub_ISRStub_140
+    .quad    stub_ISRStub_141
+    .quad    stub_ISRStub_142
+    .quad    stub_ISRStub_143
+    .quad    stub_ISRStub_144
+    .quad    stub_ISRStub_145
+    .quad    stub_ISRStub_146
+    .quad    stub_ISRStub_147
+    .quad    stub_ISRStub_148
+    .quad    stub_ISRStub_149
+    .quad    stub_ISRStub_150
+    .quad    stub_ISRStub_151
+    .quad    stub_ISRStub_152
+    .quad    stub_ISRStub_153
+    .quad    stub_ISRStub_154
+    .quad    stub_ISRStub_155
+    .quad    stub_ISRStub_156
+    .quad    stub_ISRStub_157
+    .quad    stub_ISRStub_158
+    .quad    stub_ISRStub_159
+    .quad    stub_ISRStub_160
+    .quad    stub_ISRStub_161
+    .quad    stub_ISRStub_162
+    .quad    stub_ISRStub_163
+    .quad    stub_ISRStub_164
+    .quad    stub_ISRStub_165
+    .quad    stub_ISRStub_166
+    .quad    stub_ISRStub_167
+    .quad    stub_ISRStub_168
+    .quad    stub_ISRStub_169
+    .quad    stub_ISRStub_170
+    .quad    stub_ISRStub_171
+    .quad    stub_ISRStub_172
+    .quad    stub_ISRStub_173
+    .quad    stub_ISRStub_174
+    .quad    stub_ISRStub_175
+    .quad    stub_ISRStub_176
+    .quad    stub_ISRStub_177
+    .quad    stub_ISRStub_178
+    .quad    stub_ISRStub_179
+    .quad    stub_ISRStub_180
+    .quad    stub_ISRStub_181
+    .quad    stub_ISRStub_182
+    .quad    stub_ISRStub_183
+    .quad    stub_ISRStub_184
+    .quad    stub_ISRStub_185
+    .quad    stub_ISRStub_186
+    .quad    stub_ISRStub_187
+    .quad    stub_ISRStub_188
+    .quad    stub_ISRStub_189
+    .quad    stub_ISRStub_190
+    .quad    stub_ISRStub_191
+    .quad    stub_ISRStub_192
+    .quad    stub_ISRStub_193
+    .quad    stub_ISRStub_194
+    .quad    stub_ISRStub_195
+    .quad    stub_ISRStub_196
+    .quad    stub_ISRStub_197
+    .quad    stub_ISRStub_198
+    .quad    stub_ISRStub_199
+    .quad    stub_ISRStub_200
+    .quad    stub_ISRStub_201
+    .quad    stub_ISRStub_202
+    .quad    stub_ISRStub_203
+    .quad    stub_ISRStub_204
+    .quad    stub_ISRStub_205
+    .quad    stub_ISRStub_206
+    .quad    stub_ISRStub_207
+    .quad    stub_ISRStub_208
+    .quad    stub_ISRStub_209
+    .quad    stub_ISRStub_210
+    .quad    stub_ISRStub_211
+    .quad    stub_ISRStub_212
+    .quad    stub_ISRStub_213
+    .quad    stub_ISRStub_214
+    .quad    stub_ISRStub_215
+    .quad    stub_ISRStub_216
+    .quad    stub_ISRStub_217
+    .quad    stub_ISRStub_218
+    .quad    stub_ISRStub_219
+    .quad    stub_ISRStub_220
+    .quad    stub_ISRStub_221
+    .quad    stub_ISRStub_222
+    .quad    stub_ISRStub_223
+    .quad    stub_ISRStub_224
+    .quad    stub_ISRStub_225
+    .quad    stub_ISRStub_226
+    .quad    stub_ISRStub_227
+    .quad    stub_ISRStub_228
+    .quad    stub_ISRStub_229
+    .quad    stub_ISRStub_230
+    .quad    stub_ISRStub_231
+    .quad    stub_ISRStub_232
+    .quad    stub_ISRStub_233
+    .quad    stub_ISRStub_234
+    .quad    stub_ISRStub_235
+    .quad    stub_ISRStub_236
+    .quad    stub_ISRStub_237
+    .quad    stub_ISRStub_238
+    .quad    stub_ISRStub_239
+    .quad    stub_ISRStub_240
+    .quad    stub_ISRStub_241
+    .quad    stub_ISRStub_242
+    .quad    stub_ISRStub_243
+    .quad    stub_ISRStub_244
+    .quad    stub_ISRStub_245
+    .quad    stub_ISRStub_246
+    .quad    stub_ISRStub_247
+    .quad    stub_ISRStub_248
+    .quad    stub_ISRStub_249
+    .quad    stub_ISRStub_250
+    .quad    stub_ISRStub_251
+    .quad    stub_ISRStub_252
+    .quad    stub_ISRStub_253
+    .quad    stub_ISRStub_254
+    .quad    stub_ISRStub_255
 
 /* End of IDT.S */
