@@ -138,8 +138,6 @@ void Kernel<T>::Start() {
     // Load all drivers, we do this in the start function because this ensures we have finished initialization of all main kernel subsystems before we start loading drivers, which may depend on those subsystems.
     ArchitectureData->DriverManager->LoadDriversFromFileSystem();
     LOG_INFO("Finished loading drivers.");
-
-    while (1);
 }
 
 template<typename T>
