@@ -95,7 +95,9 @@ namespace Interrupts {
     }
 
     void APIC::SendEOI(uint8_t irqNum) {
-        LOG_DEBUG("%u8", irqNum);
+        // Vector 0xFF must not receive an EOI
+        if (irqNum == 0xFF) return;
+
         WriteLAPICRegister(EOI_REG_OFFSET, 0x00);
     }
 
@@ -142,18 +144,6 @@ namespace Interrupts {
 
         WriteIOAPICRegister(APICData->base, 0x10 + (entry * 2), low);
         WriteIOAPICRegister(APICData->base, 0x11 + (entry * 2), high);
-        LOG_DEBUG("MapIRQ: IRQ %u8 -> vector %u8, GSI %u32, entry %u8, low %x32, high %x32",
-            irqNum, irqVector, gsi, entry, low, high);
-    }
-
-    void KeyboardHandler() {
-        uint8_t scancode;
-        asm volatile("inb $0x60, %0" : "=a"(scancode));
-        LOG_DEBUG("User pressed key 0x%x8.", scancode);
-    }
-
-    void IRQHandler() {
-        LOG_DEBUG("IRQ!");
     }
 
     // NOTE: This APIC init is uniprocessor only, it doesn't yet initialize other per-core APIC chips
@@ -163,6 +153,9 @@ namespace Interrupts {
             PANIC("This system does not support APIC!");
         }
 
+        // Disable interrupts until APIC is fully initialized
+        asm volatile ("cli");
+
         // --- LAPIC ---
         // Extract the physical APIC base address (bits 12 to 35)
         uint64_t APICBaseIA32 = _cpu->ReadMSR(MSR_IA32_APIC_BASE);
@@ -171,10 +164,11 @@ namespace Interrupts {
         LOG_DEBUG("MMIO LAPIC address is %p.", MMIOLAPICAddr);
 
         // Check if the system supports x2APIC (bit 10) and that APIC is globally enabled (bit 11)
+        // NOTE: Set up xAPIC if/when it becomes necessary
         if (APICBaseIA32 & (1ULL << 10)) PANIC("x2APIC mode is enabled, MMIO is not possible!");
         if ((APICBaseIA32 & (1ULL << 11)) == 0) PANIC("APIC is globally disabled!");
 
-        // Map the APIC MMIO region
+        // Map the LAPIC MMIO region
         if (MMIOLAPICPhysAddr % Architecture::KernelPageSize != 0) PANIC("LAPIC base address is not page aligned!");
         _paging->MapPage(
             MMIOLAPICPhysAddr,
@@ -205,9 +199,9 @@ namespace Interrupts {
         WriteLAPICRegister(ERROR_STATUS_REG_OFFSET, 0x00);
         WriteLAPICRegister(EOI_REG_OFFSET, 0x00);
 
-        // Now we can set up a vector for the LVT timer, we'll use 0x21
+        // Now we can set up a vector for the LVT timer, we'll use 0x40 to avoid IRQ conflicts with vectors 0x21-0x2F
         WriteLAPICRegister(LVT_TIMER_OFFSET, 
-            0x40
+            LVT_VECTOR
             | (0 << 8)  // Fixed delivery
             | (0 << 16) // Unmasked
             | (1 << 17) // Periodic mode
@@ -251,6 +245,7 @@ namespace Interrupts {
                     break;
             }
 
+            // Advance to the next entry
             VLRecordsPtr += entryHeader->length;
         }
 
@@ -263,27 +258,31 @@ namespace Interrupts {
             Core::ACPI::MADTIOAPIC* entry = _IOAPICEntries[IOAPICIndex];
 
             // Map the IOAPIC MMIO region
-            if (entry->ioApicAddress % Architecture::KernelPageSize != 0) PANIC("IOAPIC base address is not page aligned!");
+            if (entry->ioApicAddress % Architecture::KernelPageSize != 0) {
+                LOG_ERROR("IOAPIC base address %p is not aligned to page size %u64!", entry->ioApicAddress, Architecture::KernelPageSize);
+                PANIC("IOAPIC base address is not page aligned!");
+            }
+
             _paging->MapPage(
                 entry->ioApicAddress,
                 entry->ioApicAddress,
                 Memory::PageFlags::ReadWrite | Memory::PageFlags::NoExecute | Memory::PageFlags::CacheDisable
             );
 
-            volatile uint32_t* base = reinterpret_cast<volatile uint32_t*>(entry->ioApicAddress);
-            uint32_t ioapicVer = ReadIOAPICRegister(base, IOAPIC_VERSION_REG_OFFSET);
-            uint8_t IOAPICVersion = ioapicVer & 0xFF;
-            uint8_t redirectionEntryCount = ((ioapicVer >> 16) & 0xFF) + 1;
+            volatile uint32_t* baseAddress = reinterpret_cast<volatile uint32_t*>(entry->ioApicAddress);
+            uint32_t rawIOAPICVer = ReadIOAPICRegister(baseAddress, IOAPIC_VERSION_REG_OFFSET);
+            uint8_t IOAPICVersion = rawIOAPICVer & 0xFF;
+            uint8_t redirectionEntryCount = ((rawIOAPICVer >> 16) & 0xFF) + 1;
 
             // Mask all redirection entries
             for (uint8_t redirEntryIndex = 0; redirEntryIndex < redirectionEntryCount; redirEntryIndex++) {
-                WriteIOAPICRegister(base, 0x10 + (redirEntryIndex * 2), 1 << 16); // Mask
-                WriteIOAPICRegister(base, 0x11 + (redirEntryIndex * 2), 0);       // Clear high bits
+                WriteIOAPICRegister(baseAddress, 0x10 + (redirEntryIndex * 2), 1 << 16); // Mask
+                WriteIOAPICRegister(baseAddress, 0x11 + (redirEntryIndex * 2), 0);       // Clear high bits
             }
 
             // Finally, store the data for this IOAPIC in the list
             IOAPICData* data = new IOAPICData();
-            data->base = base;
+            data->base = baseAddress;
             data->gsiBase = entry->globalSystemInterruptBase;
             data->redirectionEntryCount = redirectionEntryCount;
 
@@ -293,21 +292,16 @@ namespace Interrupts {
 
 
         // --- IRQ SETUP ---
-        // Map the first 16 IRQs, these are 1:1 form the legacy PIC IRQs we chose already
+        // Map the first 16 IRQs, these are 1:1 from the legacy PIC IRQs we chose already
+        // NOTE: Drivers and other programs are responsible for setting up IRQ handlers and unmasking IRQs
         for (uint8_t irqNum = MINIMUM_IRQ_NUM; irqNum < 16; irqNum++) {
-            MapIRQ(irqNum, 0x20 + irqNum);
-
-            // Set up the handlers for the new APIC code, as they need to send an EOI differently than the legacy PIC method
-            _idt->RegisterIRQHandler(irqNum, IRQHandler);
+            MapIRQ(irqNum, IRQ_OFFSET + irqNum);
         }
 
-        _idt->RegisterIRQHandler(1, KeyboardHandler);
+        // Tell the IDT that IRQs are handled via the APIC now and not the legacy PIC
+        _idt->SetInterruptController(this);
 
-        // Keep reading 0x60 until the status register bit of ps2 is 0.
-        while (IO::Serial::inb(0x64) & 1) {
-            IO::Serial::inb(0x60);
-        }
-
-        UnmaskIRQ(1);
+        // Finally, enable interrupts again so this whole init process has a purpose and isn't here for shits and giggles
+        asm volatile ("sti");
     }
 }
