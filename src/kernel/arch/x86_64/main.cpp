@@ -10,14 +10,9 @@ extern "C" [[noreturn]] void kmain() {
 
     auto kernel = Kernel<KernelData>::GetInstance();
     kernel->Initialize();
-    LOG_INFO("Finished loading kernel systems");
+    LOG_INFO("Finished loading kernel systems.");
 
     kernel->Start();
     
     PANIC("Kernel::Start exited, no valid code to execute!");
-    
-    asm volatile ("cli");
-    while (true) {
-        asm ("hlt");
-    }
 }
