@@ -89,10 +89,10 @@ namespace Core {
     
     class CPU {
         public:
-        uint64_t ReadMSR(uint32_t msr);
-        void WriteMSR(uint32_t msr, uint64_t value);
         void Initialize();
         bool HasFeature(CPUFeatures::Feature feature);
+        uint64_t ReadMSR(uint32_t msr);
+        void WriteMSR(uint32_t msr, uint64_t value);
         bool HasInvariantTSC();
 
         char processorName[49];
