@@ -64,13 +64,6 @@ void operator delete[](void* ptr, size_t size) noexcept {
     FreeWithHeader(ptr);
 }
 
-// Placement new (required by the C++ standard library/headers)
-inline void* operator new(size_t, void* p) noexcept {
-    return p;
-}
-
-// End of C++ new operator stuff.
-
 namespace Memory {
     HeapAllocator::HeapAllocator(PMM *pmm, Paging *paging, Paging::PagingState* pagingState) : _pmm(pmm), _paging(paging), _pagingState(pagingState) {
         uintptr_t phys = _pmm->AllocatePages(ALIGN_UP(InitialHeapSize, (size_t)Architecture::KernelPageSize) / (Architecture::KernelPageSize));
