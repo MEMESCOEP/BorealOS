@@ -5,7 +5,7 @@
 #include <Kernel.h>
 #include "Utility/MemoryUtilities.h"
 #include "Utility/List.h"
-#include "../Core/ACPI.h"
+#include "../Core/Firmware/ACPI.h"
 #include "../Core/CPU.h"
 #include "../Memory/Paging.h"
 #include "IDT.h"
@@ -16,7 +16,7 @@
 namespace Interrupts {
     class APIC : public InterruptController {
         public:
-            explicit APIC(Core::ACPI* acpi, Core::CPU* cpu, PIC* pic, Memory::Paging* paging, IDT* idt);
+            explicit APIC(Core::Firmware::ACPI* acpi, Core::CPU* cpu, PIC* pic, Memory::Paging* paging, IDT* idt);
             void Initialize() override;
 
             // Register offsets
@@ -62,7 +62,7 @@ namespace Interrupts {
             uint32_t ReadIOAPICRegister(volatile uint32_t* base, uint8_t regOffset);
             uint32_t ReadLAPICRegister(uint32_t regOffset);
 
-            Core::ACPI::MADTIRQSrcOverride* GetIRQSrcOverride(uint8_t irqNum);
+            Core::Firmware::ACPI::MADTIRQSrcOverride* GetIRQSrcOverride(uint8_t irqNum);
             IOAPICData* GetIOAPICFromIRQ(uint32_t irqNum);
             void UnmaskLVTEntry(uint32_t regOffset);
             void MaskLVTEntry(uint32_t regOffset);
@@ -71,12 +71,12 @@ namespace Interrupts {
             void MapIRQ(uint8_t irqNum, uint8_t irqVector);
             void SendEOI(uint8_t irq) override;
             
-            Utility::List<Core::ACPI::MADTIRQSrcOverride*> _IRQSrcOverrides;
-            Utility::List<Core::ACPI::MADTIOAPIC*> _IOAPICEntries;
+            Utility::List<Core::Firmware::ACPI::MADTIRQSrcOverride*> _IRQSrcOverrides;
+            Utility::List<Core::Firmware::ACPI::MADTIOAPIC*> _IOAPICEntries;
             Utility::List<IOAPICData*> _IOAPICs;
             Memory::Paging* _paging;
-            Core::ACPI::MADT* _madt;
-            Core::ACPI* _acpi;
+            Core::Firmware::ACPI::MADT* _madt;
+            Core::Firmware::ACPI* _acpi;
             Core::CPU* _cpu;
             PIC* _pic;
             IDT* _idt;

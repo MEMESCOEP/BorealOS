@@ -3,7 +3,7 @@
 #include "../IO/Serial.h"
 
 namespace Interrupts {
-    APIC::APIC(Core::ACPI* acpi, Core::CPU* cpu, PIC* pic, Memory::Paging* paging, IDT* idt) : _IRQSrcOverrides(256), _IOAPICEntries(256), _IOAPICs(256) {
+    APIC::APIC(Core::Firmware::ACPI* acpi, Core::CPU* cpu, PIC* pic, Memory::Paging* paging, IDT* idt) : _IRQSrcOverrides(256), _IOAPICEntries(256), _IOAPICs(256) {
         _paging = paging;
         _acpi = acpi;
         _cpu = cpu;
@@ -11,7 +11,7 @@ namespace Interrupts {
         _idt = idt;
     }
 
-    Core::ACPI::MADTIRQSrcOverride* APIC::GetIRQSrcOverride(uint8_t irqNum) {
+    Core::Firmware::ACPI::MADTIRQSrcOverride* APIC::GetIRQSrcOverride(uint8_t irqNum) {
         for (uint8_t i = 0; i < _IRQSrcOverrides.Size(); i++) {
             if (_IRQSrcOverrides[i]->IRQSource == irqNum) {
                 return _IRQSrcOverrides[i];
@@ -60,7 +60,7 @@ namespace Interrupts {
 
     void APIC::MaskIRQ(uint8_t irqNum) {
         // Check if there is an override available for this IRQ
-        Core::ACPI::MADTIRQSrcOverride* IRQOverride = GetIRQSrcOverride(irqNum);
+        Core::Firmware::ACPI::MADTIRQSrcOverride* IRQOverride = GetIRQSrcOverride(irqNum);
         uint32_t gsi = IRQOverride ? IRQOverride->globalSysInterrupt : irqNum;
         
         // Check if any IOAPIC chips are set up to handle this IRQ
@@ -78,7 +78,7 @@ namespace Interrupts {
 
     void APIC::UnmaskIRQ(uint8_t irqNum) {
         // Check if there is an override available for this IRQ
-        Core::ACPI::MADTIRQSrcOverride* IRQOverride = GetIRQSrcOverride(irqNum);
+        Core::Firmware::ACPI::MADTIRQSrcOverride* IRQOverride = GetIRQSrcOverride(irqNum);
         uint32_t gsi = IRQOverride ? IRQOverride->globalSysInterrupt : irqNum;
         
         // Check if any IOAPIC chips are set up to handle this IRQ
@@ -103,7 +103,7 @@ namespace Interrupts {
 
     void APIC::MapIRQ(uint8_t irqNum, uint8_t irqVector) {
         // Check if there is an override available for this IRQ
-        Core::ACPI::MADTIRQSrcOverride* IRQOverride = GetIRQSrcOverride(irqNum);
+        Core::Firmware::ACPI::MADTIRQSrcOverride* IRQOverride = GetIRQSrcOverride(irqNum);
         uint32_t gsi = IRQOverride ? IRQOverride->globalSysInterrupt : irqNum;
 
         // ISA PIC defaults to active high and edge triggered modes
@@ -177,7 +177,7 @@ namespace Interrupts {
         );        
 
         // Find the MADT and LAPIC ID
-        _madt = (Core::ACPI::MADT*)_acpi->GetTable("APIC");
+        _madt = (Core::Firmware::ACPI::MADT*)_acpi->GetTable("APIC");
         if (!_madt) PANIC("Failed to find the MADT!");
         _LAPICID = (ReadLAPICRegister(LAPIC_ID_REG_OFFSET) >> 24) & 0xFF;
 
@@ -225,18 +225,18 @@ namespace Interrupts {
         uint8_t* MADTEnd = (uint8_t*)_madt + _madt->sdt.length;
 
         while (VLRecordsPtr < MADTEnd) {
-            Core::ACPI::MADTEntryHeader* entryHeader = (Core::ACPI::MADTEntryHeader*)VLRecordsPtr;
+            Core::Firmware::ACPI::MADTEntryHeader* entryHeader = (Core::Firmware::ACPI::MADTEntryHeader*)VLRecordsPtr;
             
             switch(entryHeader->type) {
                 // IOAPIC descriptor
                 case IOAPIC_ENTRY_TYPE: {
-                    _IOAPICEntries.Add((Core::ACPI::MADTIOAPIC*)VLRecordsPtr);
+                    _IOAPICEntries.Add((Core::Firmware::ACPI::MADTIOAPIC*)VLRecordsPtr);
                     break;
                 }
 
                 // IRQ Source Override (ISO)
                 case IRQ_SRCOVR_ENTRY_TYPE: {
-                    _IRQSrcOverrides.Add((Core::ACPI::MADTIRQSrcOverride*)VLRecordsPtr);
+                    _IRQSrcOverrides.Add((Core::Firmware::ACPI::MADTIRQSrcOverride*)VLRecordsPtr);
                     break;
                 }
 
@@ -255,7 +255,7 @@ namespace Interrupts {
 
         // Now that we've found each IOAPIC, we have to initialize them all
         for (uint8_t IOAPICIndex = 0; IOAPICIndex < IOAPICEntryCount; IOAPICIndex++) {
-            Core::ACPI::MADTIOAPIC* entry = _IOAPICEntries[IOAPICIndex];
+            Core::Firmware::ACPI::MADTIOAPIC* entry = _IOAPICEntries[IOAPICIndex];
 
             // Map the IOAPIC MMIO region
             if (entry->ioApicAddress % Architecture::KernelPageSize != 0) {
