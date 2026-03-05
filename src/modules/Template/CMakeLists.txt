@@ -17,12 +17,7 @@ add_executable(${MODULE_NAME}.drv src/main.cpp)
 
 target_link_options(${MODULE_NAME}.drv PRIVATE ${DEFAULT_LINKER_OPTIONS})
 target_compile_options(${MODULE_NAME}.drv PRIVATE ${DEFAULT_CXX_COMPILE_OPTIONS})
-target_include_directories(${MODULE_NAME}.drv PRIVATE
-        ${CMAKE_SOURCE_DIR}/src/modules/Include
-        ${CMAKE_SOURCE_DIR}/src/kernel/Include
-        ${CMAKE_SOURCE_DIR}/src/kernel/arch/${ARCH_DIR}
-        ${CMAKE_SOURCE_DIR}/src/modules/${ARCH_DIR}
-)
+target_link_libraries(${MODULE_NAME}.drv PRIVATE kernel.api)
 
 set(DESTINATION_PATH "${MODULE_OUTPUT_DIR}/${MODULE_NAME}.drv")
 
