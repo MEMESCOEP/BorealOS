@@ -3,7 +3,8 @@
 namespace Core::Time {
     TSC::TSC(HPET *hpet, CPU *cpu) {
         if (!cpu->HasInvariantTSC()) {
-            PANIC("CPU does not have an invariant TSC, cannot initialize TSC!");
+            // PANIC("CPU does not have an invariant TSC, cannot initialize TSC!");
+            LOG_WARNING("CPU does not have an invariant TSC, TSC frequency may be inaccurate!");
         }
 
         // First try to get the frequency from the TSC frequency leaf.
