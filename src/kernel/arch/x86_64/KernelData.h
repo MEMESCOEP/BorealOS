@@ -32,7 +32,7 @@ struct KernelData {
     Memory::PMM Pmm;
     Core::CPU Cpu;
     Memory::Paging Paging {&Pmm};
-    Memory::HeapAllocator HeapAllocator {&Pmm, &Paging, Paging.GetKernelPagingState(), Memory::HeapAllocator::HeapHigherHalf};
+    Memory::HeapAllocator HeapAllocator {&Pmm, &Paging, Paging.GetKernelPagingState()};
     Core::Firmware::ACPI Acpi;
     Core::Firmware::Hardware Hardware {&Acpi};
     Core::Time::HPET Hpet {&Acpi, &Paging, &Idt};

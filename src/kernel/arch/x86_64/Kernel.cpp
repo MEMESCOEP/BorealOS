@@ -71,7 +71,7 @@ void Kernel<T>::Initialize() {
     LOG(LOG_LEVEL::INFO, "Initialized paging.");
 
     // Heap:
-    ArchitectureData->HeapAllocator = Memory::HeapAllocator(&ArchitectureData->Pmm, &ArchitectureData->Paging, ArchitectureData->Paging.GetKernelPagingState(), Memory::HeapAllocator::HeapHigherHalf);
+    ArchitectureData->HeapAllocator = Memory::HeapAllocator(&ArchitectureData->Pmm, &ArchitectureData->Paging, ArchitectureData->Paging.GetKernelPagingState());
     ArchitectureData->HeapAllocator.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized heap allocator.");
 
@@ -222,6 +222,39 @@ void Core::Log(LOG_LEVEL level, const char *fmt, ...) {
 [[noreturn]] void Core::Panic(const char *message) {
     asm volatile ("cli"); // Disable interrupts to prevent any further damage or interference with the panic process.
     kernel.Panic(message);
+}
+
+extern "C" void kernel_assert(bool condition, const char* message) {
+    if (!condition) {
+        LOG_ERROR("Assertion failed: %s", message);
+        Core::Panic("Assertion failed!");
+    }
+}
+
+// Unfortunately printf is a requirement for the tlsf allocator.
+extern "C" size_t printf(const char *fmt, ...) {
+    char buffer[1025]; // +1 for null terminator
+    va_list args;
+    va_start(args, fmt);
+    auto len = Utility::StringFormatter::vsnprintf(buffer, sizeof(buffer), fmt, args);
+    va_end(args);
+
+    bool truncated = false;
+    if (len > 1024) {
+        len = 1024;
+        truncated = true;
+    }
+    buffer[len] = '\0';
+
+    kernel.Log(buffer);
+    kernelData.Console.PrintString(buffer);
+    kernelData.Console.PrintString("\r");
+    if (truncated) {
+        kernel.Log("...[TRUNCATED]");
+        kernelData.Console.PrintString("...[TRUNCATED]\r");
+    }
+
+    return len;
 }
 
 template class Kernel<KernelData>; // Initialize the template class

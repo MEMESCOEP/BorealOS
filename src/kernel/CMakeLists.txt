@@ -27,17 +27,27 @@ FetchContent_Declare(
         GIT_TAG        master
 )
 
-FetchContent_MakeAvailable(flanterm lai)
+FetchContent_Declare(
+        tlsf
+        GIT_REPOSITORY https://github.com/mattconte/tlsf.git
+        GIT_TAG        master
+)
+
+FetchContent_MakeAvailable(flanterm lai tlsf)
 
 file(GLOB_RECURSE FLANTERM_SOURCES ${flanterm_SOURCE_DIR}/src/*.c)
 file(GLOB_RECURSE LAI_SOURCES ${lai_SOURCE_DIR}/*.c)
-set_source_files_properties(${LAI_SOURCES} PROPERTIES COMPILE_FLAGS "-w -Wno-pedantic -Wno-error")
+FILE(GLOB_RECURSE TLSF_SOURCES ${tlsf_SOURCE_DIR}/*.c)
 
-add_executable(kernel.elf ${SOURCES} ${COMMON_SOURCES} ${HEADERS} ${FLANTERM_SOURCES} ${LAI_SOURCES})
+set_source_files_properties(${LAI_SOURCES} PROPERTIES COMPILE_FLAGS "-w -Wno-pedantic -Wno-error")
+set_source_files_properties(${tlsf_SOURCE_DIR}/tlsf.c PROPERTIES COMPILE_FLAGS "-D tlsf_assert=kernel_assert -Wno-implicit-function-declaration -Wno-unused-function")
+
+add_executable(kernel.elf ${SOURCES} ${COMMON_SOURCES} ${HEADERS} ${FLANTERM_SOURCES} ${LAI_SOURCES} ${TLSF_SOURCES})
 target_include_directories(kernel.elf PRIVATE Include)
 target_include_directories(kernel.elf PRIVATE ${CMAKE_SOURCE_DIR}/deps/Limine)
 target_include_directories(kernel.elf PRIVATE ${flanterm_SOURCE_DIR}/src)
 target_include_directories(kernel.elf PRIVATE ${lai_SOURCE_DIR}/include)
+target_include_directories(kernel.elf PRIVATE ${tlsf_SOURCE_DIR})
 
 target_compile_options(kernel.elf PRIVATE
         $<$<COMPILE_LANGUAGE:CXX>:${KERNEL_COMPILE_FLAGS_CXX}>
