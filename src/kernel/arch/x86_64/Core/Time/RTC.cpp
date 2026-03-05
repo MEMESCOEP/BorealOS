@@ -19,7 +19,7 @@ namespace Core::Time {
 
     void RTC::Initialize()  {
         _idt->RegisterIRQHandler(RTCInterruptVector, RTCInterruptHandler);
-        _idt->ClearIRQMask(RTCInterruptVector);
+        _idt->UnmaskIRQ(RTCInterruptVector);
 
         // Capture initial time once
         TimeData initialTime = ReadFullCMOS();

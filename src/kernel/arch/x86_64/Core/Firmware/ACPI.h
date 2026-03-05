@@ -66,6 +66,49 @@ namespace Core::Firmware
             uint64_t pointers[1]; // Placeholder for flexible array
         } PACKED;
 
+        struct MADT {
+            SDTHeader sdt;
+            uint32_t localAPICAddr;
+            uint32_t flags;
+        } PACKED;
+
+        struct MADTEntryHeader {
+            uint8_t type;
+            uint8_t length;
+        } PACKED;
+
+        struct MADTLocalAPIC // Type 0
+        {
+            MADTEntryHeader entryHeader;
+            uint8_t  acpiProcessorId;
+            uint8_t  apicId;
+            uint32_t flags;
+        } PACKED;
+
+        struct MADTIOAPIC // Type 1
+        {
+            MADTEntryHeader entryHeader;
+            uint8_t  ioApicId;
+            uint8_t  reserved;
+            uint32_t ioApicAddress;
+            uint32_t globalSystemInterruptBase;
+        } PACKED;
+
+        struct MADTIRQSrcOverride { // Type 2
+            MADTEntryHeader entryHeader;
+            uint8_t busSource;
+            uint8_t IRQSource;
+            uint32_t globalSysInterrupt;
+            uint16_t flags;
+        } PACKED;
+
+        struct MADTLocalAPICOverride // Type 5
+        {
+            MADTEntryHeader entryHeader;
+            uint16_t reserved;
+            uint64_t address;
+        } PACKED;
+
         struct GenericAddr {
             uint8_t AddressSpace;
             uint8_t BitWidth;

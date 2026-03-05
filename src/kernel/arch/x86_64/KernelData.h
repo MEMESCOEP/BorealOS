@@ -1,6 +1,7 @@
 #ifndef BOREALOS_KERNELDATA_H
 #define BOREALOS_KERNELDATA_H
 
+#include "Interrupts/APIC.h"
 #include "Interrupts/GDT.h"
 #include "Interrupts/IDT.h"
 #include "Interrupts/PIC.h"
@@ -24,8 +25,8 @@
 
 struct KernelData {
     IO::SerialPort SerialPort {IO::Serial::COM1};
-    Interrupts::PIC Pic {0x20, 0x28};
-    Interrupts::IDT Idt {&Pic};
+    Interrupts::PIC* Pic;
+    Interrupts::IDT Idt {Pic};
     IO::FramebufferConsole Console;
     Core::Time::RTC Rtc {&Idt};
     Memory::PMM Pmm;
@@ -35,6 +36,7 @@ struct KernelData {
     Core::Firmware::ACPI Acpi;
     Core::Firmware::Hardware Hardware {&Acpi};
     Core::Time::HPET Hpet {&Acpi, &Paging, &Idt};
+    Interrupts::APIC *Apic;
     Core::Time::TSC Tsc {&Hpet, &Cpu};
     FileSystem::InitRam* InitRamFS;
     Formats::SymbolLoader *KernelSymbols;

@@ -24,6 +24,15 @@ namespace Formats {
             }
         }
 
+        // If the binary search didn't work, we'll have to try searching everything manually. This shit SUCKS and is slow and I hate it, but I have to do it
+        // because for whatever reason, the same compiler binaries on CachyOS produce a different result than on Kubuntu, and I'm seeing symbol resolution failures
+        for (uint64_t entryIndex = 0; entryIndex < _entryCount; entryIndex++) {
+            SymbolEntry entry = _entries[entryIndex];
+            if (strcmp(entry.name, symbolName) == 0) return entry.address;
+        }
+
+        // Uh-oh, something fucked up, the symbol doesn't exist!
+        // D:
         return 0;
     }
 

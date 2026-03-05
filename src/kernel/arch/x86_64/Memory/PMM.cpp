@@ -10,22 +10,22 @@ namespace Memory {
         if (!memmap_request.response) PANIC("Limine did not provide a memory map!");
         if (!hhdm_request.response) PANIC("Limine did not provide a higher-half offset!");
 
-        limineMemmapResponse = memmap_request.response;
-        higherHalfOffset = hhdm_request.response->offset;
-        LOG_DEBUG("Limine memory map response contains %u64 entries, at %p.", limineMemmapResponse->entry_count, memmap_request.response);
+        _limineMemmapResponse = memmap_request.response;
+        _higherHalfOffset = hhdm_request.response->offset;
+        LOG_DEBUG("Limine memory map response contains %u64 entries, at %p.", _limineMemmapResponse->entry_count, memmap_request.response);
         LOG_DEBUG("Higher half offset is %p.", hhdm_request.response->offset);
 
         struct {
             uint64_t addr;
             uint64_t length;
-        } validRegions[limineMemmapResponse->entry_count];
+        } validRegions[_limineMemmapResponse->entry_count];
 
         // Calculate the number of valid regions, usable frame count, usable memory, and bitmap size
         uint64_t validRegionCount = 0;
-        uint64_t totalMemory = 0;
+        uint64_t endAddr = 0;
 
-        for (uint64_t i = 0; i < limineMemmapResponse->entry_count; i++) {
-            limine_memmap_entry* entry = limineMemmapResponse->entries[i];
+        for (uint64_t i = 0; i < _limineMemmapResponse->entry_count; i++) {
+            limine_memmap_entry* entry = _limineMemmapResponse->entries[i];
             
             // Skip entries that are unusable or below 1MB
             if (entry->type != LIMINE_MEMMAP_USABLE) continue;
@@ -34,18 +34,19 @@ namespace Memory {
             // The entry is writable and abbove 1MB, so we can store it
             validRegions[validRegionCount].addr = entry->base;
             validRegions[validRegionCount].length = entry->length;
-            totalMemory += entry->length;
+            if (endAddr < entry->base + entry->length) endAddr = entry->base + entry->length;
             validRegionCount++;
         }
 
-        usableFrames = totalMemory / Architecture::KernelPageSize;
-        bitmapSize = (usableFrames + 7) / 8; // Round up to the nearest byte
-        bitmapSize = ALIGN_UP(bitmapSize, Architecture::KernelPageSize);
-        LOG_DEBUG("Memory map contains %u64 usable memory regions and %u64 usable frames, totaling %u64 bytes (%u64 KiB).", validRegionCount, usableFrames, totalMemory, totalMemory / Constants::KiB);
-        LOG_DEBUG("Memory bitmap size is %u64 bytes.", bitmapSize);
+        _endAddr = endAddr;
+        _usableFrames = endAddr / Architecture::KernelPageSize;
+        _bitmapSize = (_usableFrames + 7) / 8; // Round up to the nearest byte
+        _bitmapSize = ALIGN_UP(_bitmapSize, (size_t)Architecture::KernelPageSize);
+        LOG_DEBUG("Memory map contains %u64 usable memory regions and %u64 usable frames, totaling %u64 bytes (%u64 KiB).", validRegionCount, _usableFrames, endAddr, endAddr / Constants::KiB);
+        LOG_DEBUG("Memory bitmap size is %u64 bytes.", _bitmapSize);
 
         // Find space to store our two bitmaps
-        uint64_t requiredMapStorageSize = bitmapSize * 2; // We need 2 bitmaps; one for reserved and one for allocatable
+        uint64_t requiredMapStorageSize = _bitmapSize * 2; // We need 2 bitmaps; one for reserved and one for allocatable
         void* bitmapMemory = nullptr;
 
         for (uint64_t regionIndex = 0; regionIndex < validRegionCount; regionIndex++) {
@@ -72,14 +73,14 @@ namespace Memory {
         }
 
         // Allocate the bitmaps
-        allocatableBitmap = (uint8_t*)bitmapMemory;
-        reservedBitmap = (uint8_t *)bitmapMemory + bitmapSize;
-        LOG_DEBUG("Allocatable bitmap is at address %p, reserved bitmap is at address %p.", allocatableBitmap, reservedBitmap);
+        _allocatableBitmap = (uint8_t*)bitmapMemory;
+        _reservedBitmap = (uint8_t *)bitmapMemory + _bitmapSize;
+        LOG_DEBUG("Allocatable bitmap is at address %p, reserved bitmap is at address %p.", _allocatableBitmap, _reservedBitmap);
 
         // Mark all bits as reserved
-        for(uint64_t byteIndex = 0; byteIndex < bitmapSize; byteIndex++) {
-            (allocatableBitmap + higherHalfOffset)[byteIndex] = 0xFF;
-            (reservedBitmap + higherHalfOffset)[byteIndex] = 0xFF;
+        for(uint64_t byteIndex = 0; byteIndex < _bitmapSize; byteIndex++) {
+            (_allocatableBitmap + _higherHalfOffset)[byteIndex] = 0xFF;
+            (_reservedBitmap + _higherHalfOffset)[byteIndex] = 0xFF;
         }
 
         // Mark all valid regions as free
@@ -91,25 +92,25 @@ namespace Memory {
 
             // Mark all bits in this page as free
             for (uint64_t page = startPage; page < endPage; page++) {
-                (reservedBitmap + higherHalfOffset)[page / 8] &= ~(1 << (page % 8));
+                (_reservedBitmap + _higherHalfOffset)[page / 8] &= ~(1 << (page % 8));
             }
         }
 
         // Mark the first 1MB of memory as reserved, critical data already lives there!
         for (uint64_t page = 0; page < (1 * Constants::MiB) / Architecture::KernelPageSize; page++) {
-            (reservedBitmap + higherHalfOffset)[page / 8] |= (1 << (page % 8));
+            (_reservedBitmap + _higherHalfOffset)[page / 8] |= (1 << (page % 8));
         }
 
         // Reserve the two bitmaps
         size_t bitmapStartPage = (size_t)(uintptr_t)bitmapMemory / Architecture::KernelPageSize;
         size_t bitmapEndPage = bitmapStartPage + (ALIGN_UP(requiredMapStorageSize, Architecture::KernelPageSize) / Architecture::KernelPageSize);
         for (size_t page = bitmapStartPage; page < bitmapEndPage; page++) {
-            (reservedBitmap + higherHalfOffset)[page / 8] |= (1 << (page % 8)); // Mark as reserved
+            (_reservedBitmap + _higherHalfOffset)[page / 8] |= (1 << (page % 8)); // Mark as reserved
         }
 
         // Free up the allocation bitmap for use now that we know what's reserved
-        for (uint64_t i = 0; i < bitmapSize; i++) {
-            (allocatableBitmap + higherHalfOffset)[i] = 0x00;
+        for (uint64_t i = 0; i < _bitmapSize; i++) {
+            (_allocatableBitmap + _higherHalfOffset)[i] = 0x00;
         }
 
         LOG_INFO("Configured bitmaps.");
@@ -120,9 +121,15 @@ namespace Memory {
 
             for (uint64_t i = 0; i < modules->module_count; i++) {
                 limine_file* mod = modules->modules[i];
-                uint64_t physStart = (uint64_t)mod->address - higherHalfOffset;
+                uint64_t physStart = (uint64_t)mod->address - _higherHalfOffset;
                 uint64_t physLength = mod->size;
-                PMM::ReserveRegion((void*)physStart, (ALIGN_UP(physLength, Architecture::KernelPageSize) / Architecture::KernelPageSize));
+                if (physStart + physLength < _endAddr) {
+                    PMM::ReserveRegion((void*)physStart, (ALIGN_UP(physLength, Architecture::KernelPageSize) / Architecture::KernelPageSize));
+                }
+                if (physStart < _endAddr && physStart + physLength > _endAddr) {
+                    PMM::ReserveRegion((void*)physStart, (_endAddr - physStart) / Architecture::KernelPageSize);
+                }
+                // We don't need to do anything if the module is completely outside our managed memory range
             }
         }
 
@@ -136,12 +143,15 @@ namespace Memory {
 
     // Mark a region of physical memory as reserved
     void PMM::ReserveRegion(void *startAddr, uint64_t size) {
+        if (size == 0) return;
+        if ((uint64_t)startAddr + (size * Architecture::KernelPageSize) > _endAddr) PANIC("Cannot reserve memory outside of managed range!");
+
         uint64_t startPage = (uint64_t)startAddr / Architecture::KernelPageSize;
         uint64_t endPage = startPage + size;
         
         // Mark the memory as reserved
         for (uint64_t page = startPage; page < endPage; page++) {
-            (reservedBitmap + higherHalfOffset)[page / 8] |= (1 << (page % 8));
+            (_reservedBitmap + _higherHalfOffset)[page / 8] |= (1 << (page % 8));
         }
     }
 
@@ -149,15 +159,12 @@ namespace Memory {
     uintptr_t PMM::AllocatePages(uint32_t numPages) {
         if (numPages == 0) return 0;
 
-        uint64_t totalPages = bitmapSize * 8;
+        uint64_t totalPages = _bitmapSize * 8;
         uint64_t runStart = 0;
         uint64_t runLength = 0;
 
         // Scan for a contiguous memory block that's large enough to hold the requested number of pages
         for (uint64_t page = 0; page < totalPages; page++) {
-            uint64_t byteIndex = page / 8;
-            uint8_t  bitIndex  = page % 8;
-
             if (!PMM::IsPageReserved(page) && !PMM::IsPageAllocated(page)) {
                 if (runLength == 0) runStart = page;
                 runLength++;
@@ -177,7 +184,7 @@ namespace Memory {
         for (uint64_t page = runStart; page < runStart + numPages; page++) {
             uint64_t byteIndex = page / 8;
             uint8_t  bitIndex  = page % 8;
-            (allocatableBitmap + higherHalfOffset)[byteIndex] |= (1 << bitIndex);
+            (_allocatableBitmap + _higherHalfOffset)[byteIndex] |= (1 << bitIndex);
         }
 
         // Return the address of the allocation
@@ -189,6 +196,7 @@ namespace Memory {
     void PMM::FreePages(uint64_t startAddr, uint32_t numPages) {
         // At least 1 page needs to be freed
         if (numPages <= 0) PANIC("At least one page needs to be freed!");
+        if (startAddr + (numPages * Architecture::KernelPageSize) > _endAddr) PANIC("Cannot free memory outside of managed range!");
 
         // Make sure the starting address is aligned to the kernel page size
         if ((startAddr & (Architecture::KernelPageSize - 1)) != 0) PANIC("Cannot free unaligned pages!");
@@ -197,7 +205,7 @@ namespace Memory {
         uint64_t endPage = startPage + numPages;
         
         // Make sure the end page is within the managed memory range
-        if (endPage > bitmapSize * 8) PANIC("End page is outside of managed memory range!");
+        if (endPage > _bitmapSize * 8) PANIC("End page is outside of managed memory range!");
 
         for (uint64_t page = startPage; page < endPage; page++) {
             uint64_t byteIndex = page / 8;
@@ -208,7 +216,7 @@ namespace Memory {
             if (!PMM::IsPageAllocated(page)) PANIC("Invalid attempt to free unallocated pages!");
 
             // Mark the page as unallocated
-            (allocatableBitmap + higherHalfOffset)[byteIndex] &= ~(1 << bitIndex);
+            (_allocatableBitmap + _higherHalfOffset)[byteIndex] &= ~(1 << bitIndex);
         }
     }
 
@@ -216,14 +224,18 @@ namespace Memory {
     bool PMM::IsPageAllocated(uint64_t pageIndex) {
         uint64_t byteIndex = pageIndex / 8;
         uint8_t bitIndex = pageIndex % 8;
-        return (allocatableBitmap + higherHalfOffset)[byteIndex] & (1 << bitIndex);
+        if (byteIndex >= _bitmapSize) PANIC("Page index is outside of managed memory range!");
+
+        return (_allocatableBitmap + _higherHalfOffset)[byteIndex] & (1 << bitIndex);
     }
 
     // Returns the reserved status of a page
     bool PMM::IsPageReserved(uint64_t pageIndex) {
         uint64_t byteIndex = pageIndex / 8;
         uint8_t bitIndex = pageIndex % 8;
-        return (reservedBitmap + higherHalfOffset)[byteIndex] & (1 << bitIndex);
+        if (byteIndex >= _bitmapSize) PANIC("Page index is outside of managed memory range!");
+
+        return (_reservedBitmap + _higherHalfOffset)[byteIndex] & (1 << bitIndex);
     }
 
     // Test the PMM to make sure allocation and freeing is propely working
@@ -252,7 +264,7 @@ namespace Memory {
         LOG_DEBUG("PMM 10 MiB multi-page test allocation succeeded with address %p.", massiveMultiAlloc);
 
         // All of the allocation tests passed, now we need to try writing to and reading from the allocated areas
-        uint8_t* memory = (uint8_t*)(massiveMultiAlloc + higherHalfOffset);
+        uint8_t* memory = (uint8_t*)(massiveMultiAlloc + _higherHalfOffset);
         uint64_t writeCount = 2560 * Architecture::KernelPageSize;
         for (uint64_t i = 0; i < writeCount; i++) {
             *memory = 0xAE;
