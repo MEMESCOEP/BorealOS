@@ -43,11 +43,19 @@ set_source_files_properties(${LAI_SOURCES} PROPERTIES COMPILE_FLAGS "-w -Wno-ped
 set_source_files_properties(${tlsf_SOURCE_DIR}/tlsf.c PROPERTIES COMPILE_FLAGS "-D tlsf_assert=kernel_assert -Wno-implicit-function-declaration -Wno-unused-function")
 
 add_executable(kernel.elf ${SOURCES} ${COMMON_SOURCES} ${HEADERS} ${FLANTERM_SOURCES} ${LAI_SOURCES} ${TLSF_SOURCES})
-target_include_directories(kernel.elf PRIVATE Include)
-target_include_directories(kernel.elf PRIVATE ${CMAKE_SOURCE_DIR}/deps/Limine)
-target_include_directories(kernel.elf PRIVATE ${flanterm_SOURCE_DIR}/src)
-target_include_directories(kernel.elf PRIVATE ${lai_SOURCE_DIR}/include)
-target_include_directories(kernel.elf PRIVATE ${tlsf_SOURCE_DIR})
+
+add_library(kernel.api INTERFACE)
+target_include_directories(kernel.api INTERFACE
+        ${CMAKE_SOURCE_DIR}/src/modules/Include
+        ${CMAKE_SOURCE_DIR}/src/kernel/Include
+        ${CMAKE_SOURCE_DIR}/src/kernel/arch/${ARCH_DIR}
+        ${CMAKE_SOURCE_DIR}/src/modules/${ARCH_DIR}
+        ${flanterm_SOURCE_DIR}/src
+        ${lai_SOURCE_DIR}/include
+        ${tlsf_SOURCE_DIR}
+)
+
+target_link_libraries(kernel.elf PRIVATE kernel.api)
 
 target_compile_options(kernel.elf PRIVATE
         $<$<COMPILE_LANGUAGE:CXX>:${KERNEL_COMPILE_FLAGS_CXX}>

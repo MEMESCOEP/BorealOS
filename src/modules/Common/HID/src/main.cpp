@@ -1,6 +1,7 @@
 #include <Kernel.h>
 #include <Module.h>
 #include <Core/ServiceManager.h>
+#include <KernelData.h>
 
 #include "../Service.h"
 #include "Tracker.h"
