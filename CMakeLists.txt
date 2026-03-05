@@ -36,6 +36,7 @@ endif()
 set(KERNEL_COMPILE_FLAGS_COMMON
         -ffreestanding
         -fno-asynchronous-unwind-tables
+        -fno-stack-protector
         -Wall -Wextra -Werror -Wpedantic
         -Wno-unused-parameter
         -Wno-unused-variable

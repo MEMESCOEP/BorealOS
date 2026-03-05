@@ -79,17 +79,20 @@ void Kernel<T>::Initialize() {
     ArchitectureData->Acpi.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized ACPI.");
 
-    // System:
-    ArchitectureData->Hardware = Core::Firmware::Hardware(&ArchitectureData->Acpi);
+    // APIC:
+    ArchitectureData->Apic = new Interrupts::APIC(&ArchitectureData->Acpi, &ArchitectureData->Cpu, ArchitectureData->Pic, &ArchitectureData->Paging, &ArchitectureData->Idt);
+    ArchitectureData->Apic->Initialize();
+    LOG(LOG_LEVEL::INFO, "Initialized APIC.");
 
     // HPET:
     ArchitectureData->Hpet = Core::Time::HPET(&ArchitectureData->Acpi, &ArchitectureData->Paging, &ArchitectureData->Idt);
     ArchitectureData->Hpet.Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized HPET.");
 
+    // Invariant TSC:
     ArchitectureData->Tsc = Core::Time::TSC(&ArchitectureData->Hpet, &ArchitectureData->Cpu);
     LOG(LOG_LEVEL::INFO, "Initialized TSC with frequency approximately %u64hz.", ArchitectureData->Tsc.GetFrequency());
-  
+
     // Init ram fs:
     auto files = module_request.response->modules;
     if (!files || module_request.response->module_count == 0) {

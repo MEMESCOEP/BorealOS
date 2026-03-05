@@ -74,6 +74,9 @@ extern "C" {
     char *strstr(const char *haystack, const char *needle);
 }
 
+// In place new operator (used for constructing objects in pre-allocated memory)
+inline void* operator new(size_t, void* ptr) noexcept { return ptr; }
+
 // Module definitions
 #define MODULE_SECTION_NAME ".module"
 #define MODULE_SECTION __attribute__((used, section(MODULE_SECTION_NAME)))
