@@ -1,13 +1,13 @@
 #ifndef BOREALOS_SERVICE_H
 #define BOREALOS_SERVICE_H
 
-#define TEMPLATE_MODULE_NAME "PS/2 Keyboard and Mouse HID Service"
-#define TEMPLATE_MODULE_DESCRIPTION "Configures PS/2 keyboards and mice for HID use"
-#define TEMPLATE_MODULE_VERSION VERSION(0,0,1)
-#define TEMPLATE_MODULE_IMPORTANCE Formats::DriverModule::Importance::Required
+#define PS2_MODULE_NAME "PS/2 HID Service"
+#define PS2_MODULE_DESCRIPTION "Configures PS/2 keyboards and mice for HID use"
+#define PS2_MODULE_VERSION VERSION(0,0,1)
+#define PS2_MODULE_IMPORTANCE Formats::DriverModule::Importance::Optional
 
 #if HAS_SERVICE
-#define TEMPLATE_SERVICE_NAME "ps2.service" // We define the service as a macro, so we can't make a mistake when registering/getting the service from the manager.
+#define PS2_SERVICE_NAME "ps2.service" // We define the service as a macro, so we can't make a mistake when registering/getting the service from the manager.
 
 struct TemplateService {
     // Add API functions for your service here, and implement them in the corresponding .cpp file.
