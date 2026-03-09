@@ -3,17 +3,22 @@
 #define HAS_SERVICE 0 // Set this to 1 if your module provides a service for other modules to use.
 #include "../Service.h"
 
+#include "../../../modules/Common/HID/Service.h"
+#include "Core/ServiceManager.h"
 #include "Core/Firmware/ACPI.h"
 #include "IO/Serial.h"
 #include "KernelData.h"
 #include "PS2Definitions.h"
 
+RELY_ON(EXTERNAL_MODULE(HID_MODULE_NAME, HID_MODULE_VERSION));
 MODULE(PS2_MODULE_NAME, PS2_MODULE_DESCRIPTION, PS2_MODULE_VERSION, PS2_MODULE_IMPORTANCE);
 
+Core::ServiceManager* serviceManager;
+HID::HIDService* HIDService;
 Kernel<KernelData>* kernel;
+uint8_t lastScancode = 0x00;
 bool twoChannels = false;
-
-// It is safe to call any kernel function wherever!
+bool extended = false;
 
 COMPATIBLE_FUNC() {
     kernel = Kernel<KernelData>::GetInstance();
@@ -37,6 +42,10 @@ COMPATIBLE_FUNC() {
     }
 
     Core::Firmware::ACPI::FADT* fadt = (Core::Firmware::ACPI::FADT*)fadtPtr;
+
+    // We can safely assume that a PS/2 controller exists for ACPI 1.0
+    if (fadt->sdt.revision == 0x1) return true;
+
     if (fadt->BootArchitectureFlags != 0 && !(fadt->BootArchitectureFlags & (1 << 1))) {
         LOG_WARNING("There is no PS/2 controller to initialize.");
         return false;
@@ -116,27 +125,56 @@ uint8_t ResetPort(bool isPort2) {
 }
 
 void KeyboardHandler() {
-    uint8_t scancode = 0;
-    asm volatile("inb %1, %0" : "=a"(scancode) : "Nd"(DATA));
-    LOG_DEBUG("Scancode received: 0x%x8", scancode);
+    // Get the scancode
+    uint8_t scancode = IO::Serial::inb(DATA);
+    bool keyReleased = lastScancode == KEYBOARD_RELEASE_MODIFIER;
+
+    if (scancode == KEYBOARD_EXTENDED_MODIFIER) {
+        extended = true;
+        lastScancode = scancode;
+        return;
+    }
+
+    // We need to skip sending an event if the current scancode is 0xF0, as that is just a scancode that tells us wether a key was pressed or released. We check the last scancode to determine press/release
+    if (scancode != KEYBOARD_RELEASE_MODIFIER) {
+        // Generate and broadcast an input event
+        HID::InputEvent* inputEvent = new HID::InputEvent {
+            .deviceId = 0x00,
+            .type = keyReleased ? HID::InputEventType::KeyRelease : HID::InputEventType::KeyPress,
+            .keyEvent {
+                .keyCode = extended ? Set2ExtendedKeyCodes[scancode] : Set2KeyCodes[scancode]
+            }
+        };
+
+        HIDService->BroadcastInputEvent(inputEvent);
+
+        // Delete the key event to avoid memory leaks
+        delete inputEvent;
+
+        // Only clear the extended flag if a key is released, this preserves cases like 0xE0/0xF0/xxx where lastScancode would get overwritten
+        if (keyReleased) extended = false;
+    }
+
+    // Keep track of this scancode for multi-code sequences
+    lastScancode = scancode;
 }
 
 void MouseHandler() {
-    LOG_DEBUG("Mouse used!");
+    // TODO: Get mouse IRQs working properly
 }
 
-LOAD_FUNC() {
+STATUS InitPS2Controller() {
     // Disable the mouse and keyboard during initialization
+    LOG_DEBUG("Disabling PS/2 keyboard and mouse...");
     SendDataToController(STATUS_CMD, PORT_1_DISABLE);
     SendDataToController(STATUS_CMD, PORT_2_DISABLE); // This is ignored if the PS/2 controller only has one port
 
     // Clear any left over data in the PS/2 controller's data port. This will place the controller in a known and stable state
     // NOTE: We don't use ReadDataFromController because it waits, and we shouldn't wait for data to become available here!
-    while (IO::Serial::inb(STATUS_CMD) & 0x1) {
-        IO::Serial::inb(DATA);
-    }
+    ClearDataBuffer();
 
     // Set the controller's config byte
+    LOG_DEBUG("Modifying PS/2 controller's configuration byte...");
     SendDataToController(STATUS_CMD, READ_CONFIG_BYTE_CMD);
     uint8_t configByte = ReadDataFromController(DATA);
     CLEAR_BIT(configByte, 0); // Disable IRQs for port 1
@@ -146,6 +184,7 @@ LOAD_FUNC() {
     SendDataToController(DATA, configByte);
 
     // Test the controller by sending 0xAA and checking if the response is 0x55
+    LOG_DEBUG("Testing PS/2 controller...");
     SendDataToController(STATUS_CMD, CONTROLLER_SELF_TEST);
     uint8_t testResponse = ReadDataFromController(DATA);
     
@@ -157,6 +196,7 @@ LOAD_FUNC() {
     }    
 
     // Check if there are two channels
+    LOG_DEBUG("Getting PS/2 channel count...");
     SendDataToController(STATUS_CMD, PORT_2_ENABLE);
     SendDataToController(STATUS_CMD, READ_CONFIG_BYTE_CMD);
     configByte = ReadDataFromController(DATA);
@@ -172,6 +212,7 @@ LOAD_FUNC() {
     SendDataToController(DATA, configByte);
 
     // Perform an interface test on port 1 and port 2 (if port 2 exists)
+    LOG_DEBUG("Performing interface tests on %u8 channel(s)...", twoChannels ? 2 : 1);
     uint8_t port1TestResult = TestPort(PORT_1_TEST);
     uint8_t port2TestResult = 0xFF;
 
@@ -191,6 +232,7 @@ LOAD_FUNC() {
     }
 
     // Enable the peripherals again and enable interrupts in the config byte
+    LOG_DEBUG("Enabling PS/2 keyboard and mouse and their interrupts...");
     if (port1Works) SendDataToController(STATUS_CMD, PORT_1_ENABLE);    
     if (port2Works) SendDataToController(STATUS_CMD, PORT_2_ENABLE);
 
@@ -202,10 +244,12 @@ LOAD_FUNC() {
     SendDataToController(DATA, configByte);
 
     // Reset the peripherals
+    LOG_DEBUG("Resetting PS/2 keyboard and mouse...");
     if (port1Works) port1Works = ResetPort(false) == 0x00;
     if (port2Works) port2Works = ResetPort(true) == 0x00;
 
     // Finally, set up IRQ handlers and unmask IRQs
+    LOG_DEBUG("Setting up PS/2 keyboard and mouse IRQ handlers...");
     if (port1Works) {
         kernel->ArchitectureData->Idt.RegisterIRQHandler(KEYBOARD_IRQ, KeyboardHandler);
         kernel->ArchitectureData->Idt.UnmaskIRQ(KEYBOARD_IRQ);
@@ -217,5 +261,57 @@ LOAD_FUNC() {
     }
 
     LOG_INFO("PS/2 controller initialized in %s-channel mode.", (twoChannels && port1Works && port2Works) ? "dual" : "single");
+    return STATUS::SUCCESS;
+}
+
+LOAD_FUNC() {
+    // Get the service manager instance
+    LOG_DEBUG("Getting service manager and HID service instances...");
+    serviceManager = Core::ServiceManager::GetInstance();
+
+    if (!serviceManager) {
+        LOG_ERROR("Failed to get service manager instance!");
+        return STATUS::FAILURE;
+    }
+
+    // Get the HID service instance
+    HIDService = static_cast<HID::HIDService*>(serviceManager->GetService(HID_SERVICE_NAME));
+
+    if (!HIDService)  {
+        LOG_ERROR("Failed to get HID service instance!");
+        return STATUS::FAILURE;
+    }
+
+    // Initialize the PS/2 controller
+    LOG_DEBUG("Initializing PS/2 controller...");
+    if (InitPS2Controller() != STATUS::SUCCESS) {
+        LOG_ERROR("PS/2 controller initialization failed!");
+        return STATUS::FAILURE;
+    }
+
+    // Register the keyboard and mouse as HID devices
+    LOG_DEBUG("Registering keyboard and mouse...");
+    HID::InputDevice* keyboard = new HID::InputDevice {
+        .id = 1,
+        .type = HID::DeviceType::Keyboard,
+        .vendorId = 0x00,
+        .productId = 0x00,
+        .name = "Generic PS/2 Keyboard",
+        .description = "Generic PS/2 Keyboard",
+        .manufacturer = "Unknown"
+    };
+
+    HID::InputDevice* mouse = new HID::InputDevice {
+        .id = 1,
+        .type = HID::DeviceType::Mouse,
+        .vendorId = 0x00,
+        .productId = 0x00,
+        .name = "Generic PS/2 Mouse",
+        .description = "Generic PS/2 Mouse",
+        .manufacturer = "Unknown"
+    };
+
+    HIDService->RegisterDevice(keyboard);
+    HIDService->RegisterDevice(mouse);
     return STATUS::SUCCESS;
 }

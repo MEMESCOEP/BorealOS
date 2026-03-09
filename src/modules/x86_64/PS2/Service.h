@@ -1,5 +1,5 @@
-#ifndef BOREALOS_SERVICE_H
-#define BOREALOS_SERVICE_H
+#ifndef BOREALOS_PS2SERVICE_H
+#define BOREALOS_PS2SERVICE_H
 
 #define PS2_MODULE_NAME "PS/2 HID Service"
 #define PS2_MODULE_DESCRIPTION "Configures PS/2 keyboards and mice for HID use"
@@ -17,4 +17,4 @@ struct TemplateService {
 };
 #endif // HAS_SERVICE
 
-#endif //BOREALOS_SERVICE_H
+#endif //BOREALOS_PS2SERVICE_H
