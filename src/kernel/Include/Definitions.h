@@ -9,7 +9,7 @@
 #define ALIGNED(x) __attribute__((aligned(x)))
 #define UNUSED __attribute__((unused))
 #define SET_BIT(x, n) ((x) |= (1U << (n)))
-#define CLEAR_BIT(p, n) ((p) &= (~(1U) << (n)))
+#define CLEAR_BIT(p, n) ((p) &= ~(1U << (n)))
 
 enum class LOG_LEVEL {
     INFO,

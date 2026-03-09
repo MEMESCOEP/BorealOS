@@ -34,6 +34,14 @@
 #define KEYBOARD_EXTENDED_MODIFIER 0xE0
 #define KEYBOARD_RELEASE_MODIFIER  0xF0
 
+// Scancode set 2 special keys
+#define SPECIAL_KEY_SCROLLLOCK 0x7E
+#define SPECIAL_KEY_CAPSLOCK   0x58
+#define SPECIAL_KEY_NUMLOCK    0x77
+
+// Keyboard commands
+#define KEYBOARD_SET_LEDS 0xED
+
 // Set 2 regular scancode lookup table (index is the scancode)
 static const HID::KeyCode Set2KeyCodes[] = {
     HID::KeyCode::KeyNone,        // 0x00

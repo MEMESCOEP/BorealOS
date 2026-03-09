@@ -17,8 +17,10 @@ Core::ServiceManager* serviceManager;
 HID::HIDService* HIDService;
 Kernel<KernelData>* kernel;
 uint8_t lastScancode = 0x00;
+bool canHandleLockKey = true;
 bool twoChannels = false;
 bool extended = false;
+bool capsLock = false, scrollLock = false, numLock = false;
 
 COMPATIBLE_FUNC() {
     kernel = Kernel<KernelData>::GetInstance();
@@ -124,10 +126,46 @@ uint8_t ResetPort(bool isPort2) {
     return 0xFF;
 }
 
+void UpdateKeyboardLEDs() {
+    SendDataToController(DATA, KEYBOARD_SET_LEDS);
+    uint8_t LEDStates = 0;
+
+    // Configure the bits based on the lock states
+    scrollLock ? SET_BIT(LEDStates, 0) : CLEAR_BIT(LEDStates, 0);
+    numLock    ? SET_BIT(LEDStates, 1) : CLEAR_BIT(LEDStates, 1);
+    capsLock   ? SET_BIT(LEDStates, 2) : CLEAR_BIT(LEDStates, 2);
+
+    SendDataToController(DATA, LEDStates);
+}
+
 void KeyboardHandler() {
     // Get the scancode
     uint8_t scancode = IO::Serial::inb(DATA);
     bool keyReleased = lastScancode == KEYBOARD_RELEASE_MODIFIER;
+
+    // Toggle lock statuses and LEDs
+    if (keyReleased == false) {
+        if (canHandleLockKey == true) {
+            if (scancode == SPECIAL_KEY_CAPSLOCK) {
+                capsLock = !capsLock;
+                canHandleLockKey = false;
+                UpdateKeyboardLEDs();
+            }
+            else if (scancode == SPECIAL_KEY_SCROLLLOCK) {
+                scrollLock = !scrollLock;
+                canHandleLockKey = false;
+                UpdateKeyboardLEDs();
+            }
+            else if (scancode == SPECIAL_KEY_NUMLOCK) {
+                numLock = !numLock;
+                canHandleLockKey = false;
+                UpdateKeyboardLEDs();
+            }
+        }
+    }
+    else {
+        canHandleLockKey = true;
+    }
 
     if (scancode == KEYBOARD_EXTENDED_MODIFIER) {
         extended = true;
@@ -264,6 +302,10 @@ STATUS InitPS2Controller() {
     return STATUS::SUCCESS;
 }
 
+STATUS InitKeyboard() {
+    return STATUS::SUCCESS;
+}
+
 LOAD_FUNC() {
     // Get the service manager instance
     LOG_DEBUG("Getting service manager and HID service instances...");
@@ -286,6 +328,12 @@ LOAD_FUNC() {
     LOG_DEBUG("Initializing PS/2 controller...");
     if (InitPS2Controller() != STATUS::SUCCESS) {
         LOG_ERROR("PS/2 controller initialization failed!");
+        return STATUS::FAILURE;
+    }
+    
+    // Initialize the keyboard and mouse
+    if (InitKeyboard() != STATUS::SUCCESS) {
+        LOG_ERROR("PS/2 keyboard initialization failed!");
         return STATUS::FAILURE;
     }
 
@@ -313,5 +361,6 @@ LOAD_FUNC() {
 
     HIDService->RegisterDevice(keyboard);
     HIDService->RegisterDevice(mouse);
+    while(true);
     return STATUS::SUCCESS;
 }
