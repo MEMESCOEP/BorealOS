@@ -40,7 +40,10 @@
 #define SPECIAL_KEY_NUMLOCK    0x77
 
 // Keyboard commands
-#define KEYBOARD_SET_LEDS 0xED
+#define KEYBOARD_SET_TYPEMATIC_RATE_DELAY 0xF3
+#define KEYBOARD_GET_SELECT_SCANCODE_SET  0xF0
+#define KEYBOARD_ENABLE_SCANNING          0xF4
+#define KEYBOARD_SET_LEDS                 0xED
 
 // Set 2 regular scancode lookup table (index is the scancode)
 static const HID::KeyCode Set2KeyCodes[] = {

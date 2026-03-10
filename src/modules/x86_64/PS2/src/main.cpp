@@ -21,6 +21,8 @@ bool canHandleLockKey = true;
 bool twoChannels = false;
 bool extended = false;
 bool capsLock = false, scrollLock = false, numLock = false;
+bool keyboardInitialized = false;
+bool mouseInitialized = false;
 
 COMPATIBLE_FUNC() {
     kernel = Kernel<KernelData>::GetInstance();
@@ -127,6 +129,8 @@ uint8_t ResetPort(bool isPort2) {
 }
 
 void UpdateKeyboardLEDs() {
+    if (keyboardInitialized == false) return;
+
     SendDataToController(DATA, KEYBOARD_SET_LEDS);
     uint8_t LEDStates = 0;
 
@@ -138,7 +142,31 @@ void UpdateKeyboardLEDs() {
     SendDataToController(DATA, LEDStates);
 }
 
+uint8_t SendKBCommandWithResult(uint8_t command) {
+    uint8_t result;
+    uint8_t retries = 0;
+
+    do {
+        SendDataToController(DATA, command);
+        LOG_DEBUG("Result: 0x%x8", result);
+        result = ReadDataFromController(DATA);
+        retries++;
+    } while (result == DATA_RESEND && retries < 3);
+
+    // Failed to send after all retries
+    if (result == DATA_RESEND)
+        return DATA_RESEND;
+
+    // Consume the ACK, then read the real response
+    if (result == CONTROLLER_ACK)
+        result = ReadDataFromController(DATA);
+
+    return result;
+}
+
 void KeyboardHandler() {
+    if (keyboardInitialized == false) return;
+
     // Get the scancode
     uint8_t scancode = IO::Serial::inb(DATA);
     bool keyReleased = lastScancode == KEYBOARD_RELEASE_MODIFIER;
@@ -185,8 +213,6 @@ void KeyboardHandler() {
         };
 
         HIDService->BroadcastInputEvent(inputEvent);
-
-        // Delete the key event to avoid memory leaks
         delete inputEvent;
 
         // Only clear the extended flag if a key is released, this preserves cases like 0xE0/0xF0/xxx where lastScancode would get overwritten
@@ -195,6 +221,8 @@ void KeyboardHandler() {
 
     // Keep track of this scancode for multi-code sequences
     lastScancode = scancode;
+
+    LOG_DEBUG("Scancode: 0x%x8", scancode);
 }
 
 void MouseHandler() {
@@ -302,7 +330,39 @@ STATUS InitPS2Controller() {
     return STATUS::SUCCESS;
 }
 
+uint8_t BuildTypematicByte(uint8_t rate, uint8_t delay) {
+    rate  &= 0x1F;  // clamp to 5 bits
+    delay &= 0x03;  // clamp to 2 bits
+    return (delay << 3) | rate;
+}
+
 STATUS InitKeyboard() {
+    // We use scancode set 2
+    SendDataToController(DATA, KEYBOARD_GET_SELECT_SCANCODE_SET); // Set
+    SendDataToController(DATA, 0x2);
+
+    SendDataToController(DATA, KEYBOARD_GET_SELECT_SCANCODE_SET); // Get
+    uint8_t currentSet = SendKBCommandWithResult(0x0);
+
+    if (currentSet != 0x02) {
+        LOG_ERROR("PS/2 keyboard initialization failed, scancode set 0x%x8 is not set 2 (0x02)!", currentSet);
+        return STATUS::FAILURE;
+    }
+
+    /*
+    // Enable scanning so the keyboard actually sends scancodes
+    uint8_t scanningResult = SendKBCommandWithResult(KEYBOARD_ENABLE_SCANNING);
+    if (scanningResult != CONTROLLER_ACK) {
+        LOG_ERROR("PS/2 keyboard initialization failed, could not enable scanning (response was 0x%x8 instead of 0x%x8)!", scanningResult, CONTROLLER_ACK);
+        return STATUS::FAILURE;
+    }
+
+    // Finally, set the typematic rate and delay
+    SendDataToController(DATA, KEYBOARD_SET_TYPEMATIC_RATE_DELAY);
+    SendDataToController(DATA, BuildTypematicByte(0x05, 0x03));
+    */
+
+    keyboardInitialized = true;
     return STATUS::SUCCESS;
 }
 
@@ -350,7 +410,7 @@ LOAD_FUNC() {
     };
 
     HID::InputDevice* mouse = new HID::InputDevice {
-        .id = 1,
+        .id = 2,
         .type = HID::DeviceType::Mouse,
         .vendorId = 0x00,
         .productId = 0x00,
