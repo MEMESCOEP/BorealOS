@@ -598,39 +598,41 @@ LOAD_FUNC() {
     }
     
     // Initialize the keyboard and mouse
-    if (InitKeyboard() != STATUS::SUCCESS) {
-        LOG_ERROR("PS/2 keyboard initialization failed!");
-        return STATUS::FAILURE;
+    if (InitKeyboard() == STATUS::SUCCESS) {
+        LOG_DEBUG("Registering PS/2 keyboard as HID device...");
+        HID::InputDevice* keyboard = new HID::InputDevice {
+            .id = 1,
+            .type = HID::DeviceType::Keyboard,
+            .vendorId = 0x00,
+            .productId = 0x00,
+            .name = "Generic PS/2 Keyboard",
+            .description = "Generic PS/2 Keyboard",
+            .manufacturer = "Unknown"
+        };
+
+        HIDService->RegisterDevice(keyboard);
+    }
+    else {
+        LOG_WARNING("PS/2 keyboard initialization failed!");
     }
 
-    if (InitMouse() != STATUS::SUCCESS) {
-        LOG_ERROR("PS/2 Mouse initialization failed!");
-        return STATUS::FAILURE;
+    if (InitMouse() == STATUS::SUCCESS) {
+        LOG_DEBUG("Registering PS/2 mouse as HID device...");
+        HID::InputDevice* mouse = new HID::InputDevice {
+            .id = 2,
+            .type = HID::DeviceType::Mouse,
+            .vendorId = 0x00,
+            .productId = 0x00,
+            .name = "Generic PS/2 Mouse",
+            .description = "Generic PS/2 Mouse",
+            .manufacturer = "Unknown"
+        };
+
+        HIDService->RegisterDevice(mouse);
+    }
+    else {
+        LOG_WARNING("PS/2 Mouse initialization failed!");
     }
 
-    // Register the keyboard and mouse as HID devices
-    LOG_DEBUG("Registering keyboard and mouse...");
-    HID::InputDevice* keyboard = new HID::InputDevice {
-        .id = 1,
-        .type = HID::DeviceType::Keyboard,
-        .vendorId = 0x00,
-        .productId = 0x00,
-        .name = "Generic PS/2 Keyboard",
-        .description = "Generic PS/2 Keyboard",
-        .manufacturer = "Unknown"
-    };
-
-    HID::InputDevice* mouse = new HID::InputDevice {
-        .id = 2,
-        .type = HID::DeviceType::Mouse,
-        .vendorId = 0x00,
-        .productId = 0x00,
-        .name = "Generic PS/2 Mouse",
-        .description = "Generic PS/2 Mouse",
-        .manufacturer = "Unknown"
-    };
-
-    HIDService->RegisterDevice(keyboard);
-    HIDService->RegisterDevice(mouse);
     return STATUS::SUCCESS;
 }
