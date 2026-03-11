@@ -198,7 +198,7 @@ void KeyboardHandler() {
     if (keyboardInitialized == false) return;
 
     // Get the scancode
-    uint8_t scancode = IO::Serial::inb(DATA);
+    uint8_t scancode = ReadDataFromController(DATA);
     bool keyReleased = lastScancode == KEYBOARD_RELEASE_MODIFIER;
 
     // Toggle lock statuses and LEDs
@@ -261,7 +261,7 @@ void MouseHandler() {
 
     packetBuffer[packetIndex++] = ReadDataFromController(DATA);
 
-    // If we're reading the first byte but bit 3 isn't set, it's not a valid packet start - discard and resync
+    // If we're reading the first byte but bit 3 isn't set, it's not a valid packet start
     if (packetIndex == 1 && !(packetBuffer[0] & (1 << 3))) {
         packetIndex = 0;
         return;
@@ -300,23 +300,25 @@ void MouseHandler() {
         .mouseEvent = {
             .deltaX = xNegative ? (int16_t)(packet2 - 256) : (int16_t)packet2,
             .deltaY = yNegative ? (int16_t)(packet3 - 256) : (int16_t)packet3,
-            .deltaVerticalWheel = (int16_t)((mouseID == 0x03 || mouseID == 0x04) ?
+            .deltaVerticalWheel = (int16_t)((mouseID >= 0x03) ?
                 ((packet4 & 0x08) ? (int16_t)((packet4 & 0x0F) - 16) : (int16_t)(packet4 & 0x0F)) : 0),
             .deltaHorizontalWheel = 0,
-            .button = HID::MouseButton::None,
+            .button = HID::MouseButton::None, // BUtton events are handled later
         }
     };
 
-    if (inputEvent->mouseEvent.deltaX != 0 || inputEvent->mouseEvent.deltaY != 0 || inputEvent->mouseEvent.deltaVerticalWheel != 0)
-        LOG_DEBUG("Mouse moved horizontally %i16, and vertically %i16, scrolled vertically %i32.", inputEvent->mouseEvent.deltaX, inputEvent->mouseEvent.deltaY, inputEvent->mouseEvent.deltaVerticalWheel);
+    // Some mice broadcast "resting" state events where no movement or scrolling occurs
+    if (inputEvent->mouseEvent.deltaX != 0 || inputEvent->mouseEvent.deltaY != 0 ||
+        inputEvent->mouseEvent.deltaVerticalWheel != 0 || inputEvent->mouseEvent.deltaHorizontalWheel != 0) {
+        HIDService->BroadcastInputEvent(inputEvent);
+    }
 
-    HIDService->BroadcastInputEvent(inputEvent);
     delete inputEvent;
 
     // Buttons
     auto sendButtonEvent = [&](bool prev, bool curr, HID::MouseButton button) {
         if (prev == curr) return;
-        HID::InputEvent* event = new HID::InputEvent {
+        HID::InputEvent* inputEvent = new HID::InputEvent {
             .deviceId = 2,
             .type = curr ? HID::InputEventType::MouseButtonPress : HID::InputEventType::MouseButtonRelease,
             .mouseEvent = {
@@ -328,17 +330,8 @@ void MouseHandler() {
             }
         };
 
-        LOG_DEBUG("Mouse button %s: LEFT=%u8 | RIGHT=%u8 | MIDDLE=%u8 | BUTTON4=%u8 | BUTTON5=%u8",
-            curr ? "pressed" : "released",
-            leftBtnDown   ? 1 : 0,
-            rightBtnDown  ? 1 : 0,
-            middleBtnDown ? 1 : 0,
-            btn4Down      ? 1 : 0,
-            btn5Down      ? 1 : 0
-        );
-
-        HIDService->BroadcastInputEvent(event);
-        delete event;
+        HIDService->BroadcastInputEvent(inputEvent);
+        delete inputEvent;
     };
 
     sendButtonEvent(prevLeft,   leftBtnDown,   HID::MouseButton::Left);
@@ -497,7 +490,7 @@ STATUS InitKeyboard() {
     return STATUS::SUCCESS;
 }
 
-// NOTE: Apparently QEMU's PS/2 mouse emulation is actual shit. The mouse refuses to send IRQs if it's moved during the
+// NOTE: Apparently QEMU's PS/2 mouse emulation is kinda ass. The mouse refuses to send IRQs if it's moved during the
 //  init and is not yet fully initialized. Issuing the movement counter reset command seems to fix this *mostly*, maybe the values are corrupted?
 STATUS InitMouse() {
     if (!port2Works) {
@@ -521,7 +514,7 @@ STATUS InitMouse() {
     // NOTE: This seems to have fixed QEMU's dogshit PS/2 emulation. I guess the movement counters get corrupted if the mouse is moved during its init?
     // NOTE: This mist be done before IntelliMouse configuration, as it might reset the mouse to a 3-packet state
     LOG_DEBUG("Resetting PS/2 mouse movement counters...");
-    ClearDataBuffer(); // This is VERY important, the IntelliMouse sequences consume the reset counters command of this is not here!
+    ClearDataBuffer();
     uint8_t defaultsResult = SendMouseCommandWithResult(MOUSE_RESET_MOVEMENT_COUNTERS, true);
     if (defaultsResult != CONTROLLER_ACK) LOG_WARNING("PS/2 mouse set defaults command failed (response was 0x%x8 instead of 0x%x8)!", defaultsResult, CONTROLLER_ACK);
 
