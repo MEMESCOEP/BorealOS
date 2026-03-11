@@ -631,6 +631,5 @@ LOAD_FUNC() {
 
     HIDService->RegisterDevice(keyboard);
     HIDService->RegisterDevice(mouse);
-    while(true);
     return STATUS::SUCCESS;
 }
