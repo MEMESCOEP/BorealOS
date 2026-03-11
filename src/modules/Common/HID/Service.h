@@ -39,6 +39,7 @@ namespace HID {
     };
 
     enum class MouseButton : uint16_t {
+        None,
         Left,
         Right,
         Middle,

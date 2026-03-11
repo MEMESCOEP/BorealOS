@@ -26,6 +26,7 @@
 // Controller responses
 #define CONTROLLER_SELF_TEST_PASSED 0x55
 #define PERIPHERAL_RESET_NEXTCMD_ID 0xAA
+#define CONTROLLER_ADDRESS_MOUSE    0xD4
 #define PERIPHERAL_RESET_FAILED     0xFC
 #define CONTROLLER_ACK              0xFA
 #define DATA_RESEND                 0xFE
@@ -44,6 +45,13 @@
 #define KEYBOARD_GET_SELECT_SCANCODE_SET  0xF0
 #define KEYBOARD_ENABLE_SCANNING          0xF4
 #define KEYBOARD_SET_LEDS                 0xED
+
+// Mouse commands
+#define MOUSE_ENABLE_PACKET_TRANSMISSION 0xF4
+#define MOUSE_RESET_MOVEMENT_COUNTERS    0xF6
+#define MOUSE_SET_SAMPLE_RATE            0xF3
+#define MOUSE_SET_RESOLUTION             0xE8
+#define MOUSE_GET_ID                     0xF2
 
 // Set 2 regular scancode lookup table (index is the scancode)
 static const HID::KeyCode Set2KeyCodes[] = {
