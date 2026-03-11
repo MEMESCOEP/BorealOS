@@ -31,6 +31,7 @@ namespace HID {
         KeyPress,
         KeyRelease,
         MouseMove,
+        MouseScroll,
         MouseButtonPress,
         MouseButtonRelease,
         GamepadButtonPress,
@@ -66,17 +67,23 @@ namespace HID {
                 KeyCode keyCode; // for keyboard events, using USB HID usage codes
             } keyEvent;
             struct {
-                int16_t deltaX; // for mouse movement
+                int16_t deltaX;
                 int16_t deltaY;
+            } mouseMoveEvent;
+            struct {
                 int16_t deltaVerticalWheel;
                 int16_t deltaHorizontalWheel;
-                MouseButton button; // for mouse button events
-            } mouseEvent;
+            } mouseScrollEvent;
             struct {
-                uint16_t button; // for gamepad button events
+                MouseButton button;
+            } mouseButtonEvent;
+            struct {
+                uint16_t button;
+            } gamepadButtonEvent;
+            struct {
                 GamepadAxis axis; // for gamepad axis events
                 int16_t value; // for gamepad axis events. [-32768, 32767], where 0 is the neutral position.
-            } gamepadEvent;
+            } gamepadAxisEvent;
         };
     };
 #pragma GCC diagnostic pop // The above union with anonymous structs is technically non-standard.

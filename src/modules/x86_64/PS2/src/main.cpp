@@ -269,45 +269,48 @@ void MouseHandler() {
     bool yNegative = packet1 & (1 << 5);
 
     // Generate and broadcast input events
-    // Movement and scrolling
-    HID::InputEvent* inputEvent = new HID::InputEvent {
+    // Movement
+    HID::InputEvent* moveEvent = new HID::InputEvent {
         .deviceId = 2,
         .type = HID::InputEventType::MouseMove,
-        .mouseEvent = {
+        .mouseMoveEvent = {
             .deltaX = xNegative ? (int16_t)(packet2 - 256) : (int16_t)packet2,
             .deltaY = yNegative ? (int16_t)(packet3 - 256) : (int16_t)packet3,
-            .deltaVerticalWheel = (int16_t)((mouseID >= 0x03) ?
-                ((packet4 & 0x08) ? (int16_t)((packet4 & 0x0F) - 16) : (int16_t)(packet4 & 0x0F)) : 0),
-            .deltaHorizontalWheel = 0,
-            .button = HID::MouseButton::None, // BUtton events are handled later
         }
     };
 
-    // Some mice broadcast "resting" state events where no movement or scrolling occurs
-    if (inputEvent->mouseEvent.deltaX != 0 || inputEvent->mouseEvent.deltaY != 0 ||
-        inputEvent->mouseEvent.deltaVerticalWheel != 0 || inputEvent->mouseEvent.deltaHorizontalWheel != 0) {
-        HIDService->BroadcastInputEvent(inputEvent);
-    }
+    // Some mice broadcast "resting" state events when no movement occurs
+    if (moveEvent->mouseMoveEvent.deltaX != 0 || moveEvent->mouseMoveEvent.deltaY != 0) HIDService->BroadcastInputEvent(moveEvent);
+    delete moveEvent;
 
-    delete inputEvent;
+    // Scrolling
+    HID::InputEvent* scrollEvent = new HID::InputEvent {
+        .deviceId = 2,
+        .type = HID::InputEventType::MouseMove,
+        .mouseScrollEvent = {
+            .deltaVerticalWheel = (int16_t)((mouseID >= 0x03) ?
+                ((packet4 & 0x08) ? (int16_t)((packet4 & 0x0F) - 16) : (int16_t)(packet4 & 0x0F)) : 0),
+            .deltaHorizontalWheel = 0
+        }
+    };
+
+    // Some mice broadcast "resting" state events when no scrolling stops
+    if (scrollEvent->mouseScrollEvent.deltaVerticalWheel != 0 || scrollEvent->mouseScrollEvent.deltaHorizontalWheel != 0) HIDService->BroadcastInputEvent(scrollEvent);
+    delete scrollEvent;
 
     // Buttons
     auto sendButtonEvent = [&](bool prevState, bool currrentState, HID::MouseButton button) {
         if (prevState == currrentState) return;
-        HID::InputEvent* inputEvent = new HID::InputEvent {
+        HID::InputEvent* buttonEvent = new HID::InputEvent {
             .deviceId = 2,
             .type = currrentState ? HID::InputEventType::MouseButtonPress : HID::InputEventType::MouseButtonRelease,
-            .mouseEvent = {
-                .deltaX = 0,
-                .deltaY = 0,
-                .deltaVerticalWheel = 0,
-                .deltaHorizontalWheel = 0,
+            .mouseButtonEvent = {
                 .button = button,
             }
         };
 
-        HIDService->BroadcastInputEvent(inputEvent);
-        delete inputEvent;
+        HIDService->BroadcastInputEvent(buttonEvent);
+        delete buttonEvent;
     };
 
     sendButtonEvent(prevMouseLeft,   leftBtnDown,   HID::MouseButton::Left);
