@@ -101,6 +101,18 @@ namespace Interrupts {
         WriteLAPICRegister(EOI_REG_OFFSET, 0x00);
     }
 
+    void APIC::MapGSI(uint32_t gsi, uint8_t vector, uint8_t deliveryMode, uint8_t polarity, uint8_t trigger) {
+        IOAPICData* APICData = GetIOAPICFromIRQ(gsi);
+        if (!APICData) return;
+
+        uint8_t entry = gsi - APICData->gsiBase;
+        uint32_t low = vector | (deliveryMode << 8) | (polarity << 13) | (trigger << 15) | (1 << 16);
+        uint32_t high = (_LAPICID << 24);
+
+        WriteIOAPICRegister(APICData->base, 0x10 + (entry * 2), low);
+        WriteIOAPICRegister(APICData->base, 0x11 + (entry * 2), high);
+    }
+
     void APIC::MapIRQ(uint8_t irqNum, uint8_t irqVector) {
         // Check if there is an override available for this IRQ
         Core::Firmware::ACPI::MADTIRQSrcOverride* IRQOverride = GetIRQSrcOverride(irqNum);

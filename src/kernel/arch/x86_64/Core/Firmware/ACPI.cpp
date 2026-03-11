@@ -198,7 +198,7 @@ namespace Core::Firmware {
         lai_create_namespace();
         asm volatile("sti");
 
-        lai_enable_acpi(0);
+        lai_enable_acpi(1);
         _laiLoaded = true;
     }
 
