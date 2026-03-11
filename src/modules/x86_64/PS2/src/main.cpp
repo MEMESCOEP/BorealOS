@@ -6,9 +6,9 @@
 #include "../../../modules/Common/HID/Service.h"
 #include "Core/ServiceManager.h"
 #include "Core/Firmware/ACPI.h"
-#include "IO/Serial.h"
-#include "KernelData.h"
 #include "PS2Definitions.h"
+#include "KernelData.h"
+#include "IO/Serial.h"
 
 RELY_ON(EXTERNAL_MODULE(HID_MODULE_NAME, HID_MODULE_VERSION));
 MODULE(PS2_MODULE_NAME, PS2_MODULE_DESCRIPTION, PS2_MODULE_VERSION, PS2_MODULE_IMPORTANCE);
@@ -21,41 +21,11 @@ uint8_t mouseID = 0x00;
 bool canHandleLockKey = true;
 bool twoChannels = false;
 bool extended = false;
-bool prevLeft = false, prevRight = false, prevMiddle = false, prevBtn4 = false, prevBtn5 = false;
+bool prevMouseLeft = false, prevMouseRight = false, prevMouseMiddle = false, prevMouseBtn4 = false, prevMouseBtn5 = false;
 bool capsLock = false, scrollLock = false, numLock = false;
 bool port1Works = false, port2Works = false;
 bool keyboardInitialized = false;
 bool mouseInitialized = false;
-
-COMPATIBLE_FUNC() {
-    kernel = Kernel<KernelData>::GetInstance();
-    if (!kernel) {
-        LOG_ERROR("Failed to get kernel instance!");
-        return false;
-    }
-
-    // ACPI isn't supported on this system, assume PS/2 exists
-    if (kernel->ArchitectureData->Acpi.ACPISupported() == false) return true;
-
-    void* fadtPtr = kernel->ArchitectureData->Acpi.GetTable("FADT");
-
-    // No FADT table was found, assume PS/2 exists
-    if (!fadtPtr) return true;
-
-    Core::Firmware::ACPI::FADT* fadt = (Core::Firmware::ACPI::FADT*)fadtPtr;
-
-    // ACPI 1.0 is old enough that we *have* to assume PS/2 exists, as BootArchitectureFlags is only defined in ACPI 2.0+
-    if (fadt->sdt.revision == 0x1) return true;
-
-    // We have to rely on the firmware to tell us if the PS/2 controller exists, as any attempt to access it can cause crashes and hangs on some systems
-    // NOTE: A lot of firmware implementations are pretty dogshit and don't set bit 1 correctly (I'm looking at you, Dell and HP!)
-    if (!(fadt->BootArchitectureFlags & (1 << 1))) {
-        LOG_WARNING("There is no PS/2 controller to initialize on this system.");
-        return false;
-    }
-
-    return true;
-}
 
 // Clear any left over data in the PS/2 controller's data port
 // NOTE: We don't use ReadDataFromController because it waits, and we shouldn't wait for data to become available here!
@@ -65,20 +35,20 @@ void ClearDataBuffer() {
     }
 }
 
-uint8_t ReadDataFromController(uint8_t port) {
-    // Wait until output buffer is full before reading
-    while (!(IO::Serial::inb(STATUS_CMD) & 0x1));
-
-    // Return the data
-    return IO::Serial::inb(port);
-}
-
 void SendDataToController(uint8_t port, uint8_t value) {
     // Wait for the input buffer to be empty before sending the data
     while (IO::Serial::inb(STATUS_CMD) & 0x2);
 
     // Send the data
     IO::Serial::outb(port, value);
+}
+
+uint8_t ReadDataFromController(uint8_t port) {
+    // Wait until output buffer is full before reading
+    while (!(IO::Serial::inb(STATUS_CMD) & 0x1));
+
+    // Return the data
+    return IO::Serial::inb(port);
 }
 
 uint8_t SendKBCommandWithResult(uint8_t command, bool responseIsACK = false) {
@@ -172,6 +142,12 @@ uint8_t ResetPort(bool isPort2) {
 
     LOG_WARNING("PS/2 port %u8 reset failed after 3 retries!", isPort2 ? 2 : 1);
     return 0xFF;
+}
+
+uint8_t BuildTypematicByte(uint8_t rate, uint8_t delay) {
+    rate  &= 0x1F;  // Clamp to 5 bits
+    delay &= 0x03;  // Clamp to 2 bits
+    return (delay << 3) | rate;
 }
 
 void UpdateKeyboardLEDs() {
@@ -316,11 +292,11 @@ void MouseHandler() {
     delete inputEvent;
 
     // Buttons
-    auto sendButtonEvent = [&](bool prev, bool curr, HID::MouseButton button) {
-        if (prev == curr) return;
+    auto sendButtonEvent = [&](bool prevState, bool currrentState, HID::MouseButton button) {
+        if (prevState == currrentState) return;
         HID::InputEvent* inputEvent = new HID::InputEvent {
             .deviceId = 2,
-            .type = curr ? HID::InputEventType::MouseButtonPress : HID::InputEventType::MouseButtonRelease,
+            .type = currrentState ? HID::InputEventType::MouseButtonPress : HID::InputEventType::MouseButtonRelease,
             .mouseEvent = {
                 .deltaX = 0,
                 .deltaY = 0,
@@ -334,17 +310,17 @@ void MouseHandler() {
         delete inputEvent;
     };
 
-    sendButtonEvent(prevLeft,   leftBtnDown,   HID::MouseButton::Left);
-    sendButtonEvent(prevRight,  rightBtnDown,  HID::MouseButton::Right);
-    sendButtonEvent(prevMiddle, middleBtnDown, HID::MouseButton::Middle);
-    sendButtonEvent(prevBtn4,   btn4Down,      HID::MouseButton::Button4);
-    sendButtonEvent(prevBtn5,   btn5Down,      HID::MouseButton::Button5);
+    sendButtonEvent(prevMouseLeft,   leftBtnDown,   HID::MouseButton::Left);
+    sendButtonEvent(prevMouseRight,  rightBtnDown,  HID::MouseButton::Right);
+    sendButtonEvent(prevMouseMiddle, middleBtnDown, HID::MouseButton::Middle);
+    sendButtonEvent(prevMouseBtn4,   btn4Down,      HID::MouseButton::Button4);
+    sendButtonEvent(prevMouseBtn5,   btn5Down,      HID::MouseButton::Button5);
 
-    prevLeft   = leftBtnDown;
-    prevRight  = rightBtnDown;
-    prevMiddle = middleBtnDown;
-    prevBtn4   = btn4Down;
-    prevBtn5   = btn5Down;
+    prevMouseLeft   = leftBtnDown;
+    prevMouseRight  = rightBtnDown;
+    prevMouseMiddle = middleBtnDown;
+    prevMouseBtn4   = btn4Down;
+    prevMouseBtn5   = btn5Down;
 }
 
 STATUS InitPS2Controller() {
@@ -434,12 +410,6 @@ STATUS InitPS2Controller() {
 
     LOG_INFO("PS/2 controller initialized in %s-channel mode.", (twoChannels && port1Works && port2Works) ? "dual" : "single");
     return STATUS::SUCCESS;
-}
-
-uint8_t BuildTypematicByte(uint8_t rate, uint8_t delay) {
-    rate  &= 0x1F;  // clamp to 5 bits
-    delay &= 0x03;  // clamp to 2 bits
-    return (delay << 3) | rate;
 }
 
 STATUS InitKeyboard() {
@@ -569,6 +539,34 @@ STATUS InitMouse() {
 
     mouseInitialized = true;
     return STATUS::SUCCESS;
+}
+
+COMPATIBLE_FUNC() {
+    kernel = Kernel<KernelData>::GetInstance();
+    if (!kernel) {
+        LOG_ERROR("Failed to get kernel instance!");
+        return false;
+    }
+
+    // ACPI isn't supported on this system, assume PS/2 exists
+    if (kernel->ArchitectureData->Acpi.ACPISupported() == false) return true;
+
+    // Assume PS/2 exists if the FADT table wasn't found
+    void* fadtPtr = kernel->ArchitectureData->Acpi.GetTable("FADT");
+    if (!fadtPtr) return true;
+    Core::Firmware::ACPI::FADT* fadt = (Core::Firmware::ACPI::FADT*)fadtPtr;
+
+    // ACPI 1.0 is old enough that we *have* to assume PS/2 exists, as BootArchitectureFlags is only defined in ACPI 2.0+
+    if (fadt->sdt.revision == 0x1) return true;
+
+    // At this point, we have to rely on the firmware to tell us if the PS/2 controller exists, as any attempt to access it can cause crashes and hangs on some systems (e.g. x86 Macs)
+    // NOTE: A lot of firmware implementations are pretty dogshit and/or inconsistent, they might not set bit 1 correctly (I'm looking at you, Dell and HP!)
+    if (!(fadt->BootArchitectureFlags & (1 << 1))) {
+        LOG_WARNING("There is no PS/2 controller to initialize on this system. Some firmware implementations don't populate BIT 1 of the boot arch flags if USB legacy emulation is enabled.");
+        return false;
+    }
+
+    return true;
 }
 
 LOAD_FUNC() {
