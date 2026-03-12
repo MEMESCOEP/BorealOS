@@ -19,6 +19,10 @@ if(ARCH STREQUAL "x86_64")
             -mno-red-zone
             -m64
             -mabi=sysv
+            -mno-sse2
+            -mno-mmx
+            -mno-avx
+            -mno-avx512f
     )
 
     set(LINKER_OPTIONS
