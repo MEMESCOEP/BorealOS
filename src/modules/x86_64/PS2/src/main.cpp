@@ -421,6 +421,9 @@ STATUS InitKeyboard() {
         return STATUS::FAILURE;
     }
 
+    // Clear the data buffer to get rid of stuck data
+    ClearDataBuffer();
+
     // We use scancode set 2
     LOG_DEBUG("Setting scancode set to 2...");
     SendKBCommandWithResult(KEYBOARD_GET_SELECT_SCANCODE_SET, true); // Set the scancode set
