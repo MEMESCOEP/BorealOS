@@ -22,6 +22,7 @@
 #include "Core/Time/Scheduler.h"
 #include "Core/Time/TSC.h"
 #include "Formats/SymbolLoader.h"
+#include "IO/PCI.h"
 
 struct KernelData {
     IO::SerialPort SerialPort {IO::Serial::COM1};
@@ -43,6 +44,7 @@ struct KernelData {
     Core::ServiceManager *ServiceManager;
     Core::Drivers::DriverManager *DriverManager;
     Core::Time::Scheduler *DefaultScheduler; // Core 0 scheduler. Other cores should have their own scheduler instance.
+    IO::PCI Pci;
 };
 
 #endif //BOREALOS_KERNELDATA_H

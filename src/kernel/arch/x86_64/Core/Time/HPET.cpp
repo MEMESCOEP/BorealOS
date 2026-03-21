@@ -83,7 +83,6 @@ void HPET::Initialize() {
         uint64_t currentTime = hpet->GetNanoseconds();
         uint64_t delta = currentTime - lastTime;
         uint64_t msDelta = delta / 1'000'000ULL;
-        LOG_DEBUG("Tick! Time since last tick: %u64ms", msDelta);
         lastTime = currentTime;
     });
 
@@ -99,7 +98,6 @@ void HPET::Initialize() {
     SET_BIT(*configReg, 0);
 
     asm volatile ("sti");
-    while (true);
 }
 
     uint64_t HPET::GetCounter() const {

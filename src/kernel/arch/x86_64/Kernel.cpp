@@ -93,6 +93,10 @@ void Kernel<T>::Initialize() {
     ArchitectureData->Tsc = Core::Time::TSC(&ArchitectureData->Hpet, &ArchitectureData->Cpu);
     LOG(LOG_LEVEL::INFO, "Initialized TSC with frequency approximately %u64hz.", ArchitectureData->Tsc.GetFrequency());
 
+    // PCI:
+    ArchitectureData->Pci.Initialize();
+    LOG(LOG_LEVEL::INFO, "Initialized PCI.");
+
     // Init ram fs:
     auto files = module_request.response->modules;
     if (!files || module_request.response->module_count == 0) {
