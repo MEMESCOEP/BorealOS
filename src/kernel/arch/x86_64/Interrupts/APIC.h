@@ -49,6 +49,7 @@ namespace Interrupts {
             static constexpr uint8_t  MINIMUM_IRQ_NUM    = 0x00;
             static constexpr uint8_t  IRQ_OFFSET         = 0x20;
 
+            uint8_t GetLAPICID() const { return _LAPICID; }
             void MapGSI(uint32_t gsi, uint8_t vector, uint8_t deliveryMode, uint8_t polarity, uint8_t trigger);
 
         private:

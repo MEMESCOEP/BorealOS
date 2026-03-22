@@ -2,6 +2,8 @@
 #define BOREALOS_PCI_H
 
 #include <Definitions.h>
+#include "Utility/List.h"
+#include "Memory/Paging.h"
 #include "IO/Serial.h"
 
 namespace IO {
@@ -9,6 +11,8 @@ namespace IO {
     /// The PCI interface is common, though implementation differs from architecture to architecture.
     class PCI {
         public:
+        PCI(Memory::Paging* paging);
+
         struct PCIDeviceHeader {
             // Location
             uint8_t bus;
@@ -30,6 +34,21 @@ namespace IO {
             uint8_t  bist;           // 0x0F
         };
 
+        struct PCI_BAR {
+            bool     isIOPort;
+            bool     is64Bit;
+            bool     isPrefetchable;
+            uint64_t address;
+            uint64_t size;
+        };
+
+        struct MSIXTableEntry {
+            uint32_t messageAddrLow;
+            uint32_t messageAddrHigh;
+            uint32_t messageData;
+            uint32_t vectorControl; // Bit 0 is masked
+        };
+
         // Common PCI header flags
         static constexpr uint16_t PCI_HEADER_FLAG_MULTIFUNCTION = 0x80;
         static constexpr uint16_t PCI_HEADER_FLAG_HEADER_TYPE   = 0x0E;
@@ -40,6 +59,11 @@ namespace IO {
         static constexpr uint16_t PCI_HEADER_FLAG_REVISION      = 0x08;
         static constexpr uint16_t PCI_HEADER_FLAG_COMMAND       = 0x04;
         static constexpr uint16_t PCI_HEADER_FLAG_STATUS        = 0x06;
+
+        // Capabilities
+        static constexpr uint16_t PCI_CAPABILITIES_POINTER = 0x34;
+        static constexpr uint8_t PCI_CAPABILITY_MSI_X      = 0x11;
+        static constexpr uint8_t PCI_CAPABILITY_MSI        = 0x05;
 
         // Offsets
         static constexpr uint8_t PCI_OFFSET_SECONDARY_BUS = 0x18;
@@ -224,19 +248,31 @@ namespace IO {
         static constexpr uint16_t PCI_VENDOR_ID_UNPOPULATED = 0xFFFF;
         static constexpr uint16_t PCI_CONFIG_ADDRESS = 0xCF8;
         static constexpr uint16_t PCI_CONFIG_DATA    = 0xCFC;
+    
+        PCI::PCI_BAR ReadBAR(const PCI::PCIDeviceHeader& device, uint8_t barIndex);
+        uint32_t ReadConfig(const PCI::PCIDeviceHeader& device, uint8_t offset);
+        uint8_t FindCapability(const PCI::PCIDeviceHeader& device, uint8_t capabilityID);
+        bool EnableMSIX(const PCI::PCIDeviceHeader& device, uint64_t messageAddr, uint32_t messageData, uint16_t entryIndex);
+        bool EnableMSI(const PCI::PCIDeviceHeader& device, uint64_t messageAddr, uint32_t messageData);
+        void WriteConfig(const PCI::PCIDeviceHeader& device, uint8_t offset, uint32_t value);
+        void FindDevicesByClass(uint8_t classCode, uint8_t subclass, Utility::List<PCI::PCIDeviceHeader*>& results);
+        void FindDevicesByID(uint16_t vendorID, uint16_t deviceID, Utility::List<PCI::PCIDeviceHeader*>& results);
+        void Initialize();
 
+        private:
         PCI::PCIDeviceHeader GetDeviceHeader(uint8_t bus, uint8_t slot, uint8_t function);
+        uint32_t ReadConfigDWord(uint8_t bus, uint8_t slot, uint8_t function, uint8_t offset);
         uint16_t ReadConfigWord(uint8_t bus, uint8_t slot, uint8_t function, uint8_t offset);
         uint16_t GetHeaderType(uint8_t bus, uint8_t slot, uint8_t function);
         uint16_t GetClassCode(uint8_t bus, uint8_t slot, uint8_t function);
         uint16_t GetVendorID(uint8_t bus, uint8_t slot, uint8_t function);
         uint16_t GetDeviceID(uint8_t bus, uint8_t slot, uint8_t function);
+        void WriteConfigDWord(uint8_t bus, uint8_t slot, uint8_t function, uint8_t offset, uint32_t value);
         void CheckFunction(uint8_t bus, uint8_t slot, uint8_t function);
         void CheckSlot(uint8_t bus, uint8_t slot);
         void CheckBus(uint8_t bus);
-        void Initialize();
-
-        //explicit PCI()
+        Utility::List<PCI::PCIDeviceHeader>* _PCIDevices = nullptr;
+        Memory::Paging* _paging = nullptr;
     };
 }
 
