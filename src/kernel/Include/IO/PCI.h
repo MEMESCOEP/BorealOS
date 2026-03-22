@@ -258,6 +258,7 @@ namespace IO {
         void FindDevicesByClass(uint8_t classCode, uint8_t subclass, Utility::List<PCI::PCIDeviceHeader*>& results);
         void FindDevicesByID(uint16_t vendorID, uint16_t deviceID, Utility::List<PCI::PCIDeviceHeader*>& results);
         void Initialize();
+        bool initialized = false;
 
         private:
         PCI::PCIDeviceHeader GetDeviceHeader(uint8_t bus, uint8_t slot, uint8_t function);

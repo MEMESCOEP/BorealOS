@@ -347,6 +347,7 @@ namespace IO {
         }
 
         LOG_INFO("Discovered and stored %u8 PCI device(s).", _PCIDevices->Size());
+        initialized = true;
     }
 
     PCI::PCI(Memory::Paging* paging) {
