@@ -49,6 +49,9 @@ namespace Interrupts {
             static constexpr uint8_t  MINIMUM_IRQ_NUM    = 0x00;
             static constexpr uint8_t  IRQ_OFFSET         = 0x20;
 
+            uint8_t GetLAPICID() const { return _LAPICID; }
+            void MapGSI(uint32_t gsi, uint8_t vector, uint8_t deliveryMode, uint8_t polarity, uint8_t trigger);
+
         private:
             struct IOAPICData {
                 volatile uint32_t* base;
@@ -70,7 +73,7 @@ namespace Interrupts {
             void UnmaskIRQ(uint8_t irqNum) override;
             void MapIRQ(uint8_t irqNum, uint8_t irqVector);
             void SendEOI(uint8_t irq) override;
-            
+
             Utility::List<Core::Firmware::ACPI::MADTIRQSrcOverride*> _IRQSrcOverrides;
             Utility::List<Core::Firmware::ACPI::MADTIOAPIC*> _IOAPICEntries;
             Utility::List<IOAPICData*> _IOAPICs;

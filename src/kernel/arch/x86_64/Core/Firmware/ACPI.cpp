@@ -192,13 +192,16 @@ namespace Core::Firmware {
     }
 
     void ACPI::LoadLAI() {
+        laihost_init();
+
         // lai_enable_tracing(LAI_TRACE_IO | LAI_TRACE_NS | LAI_TRACE_OP); SLOW! Takes like 8 minutes to boot with this enabled on real hardware.
         lai_set_acpi_revision(_rsdp->revision);
         asm volatile("cli"); // Disable interrupts while we set up the ACPI namespace to avoid
+
         lai_create_namespace();
         asm volatile("sti");
 
-        lai_enable_acpi(0);
+        lai_enable_acpi(1);
         _laiLoaded = true;
     }
 
