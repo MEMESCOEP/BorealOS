@@ -10,9 +10,7 @@ namespace IO {
 
     /// The PCI interface is common, though implementation differs from architecture to architecture.
     class PCI {
-        public:
-        PCI(Memory::Paging* paging);
-
+    public:
         struct PCIDeviceHeader {
             // Location
             uint8_t bus;
@@ -260,7 +258,10 @@ namespace IO {
         void Initialize();
         bool initialized = false;
 
-        private:
+        //PCI(Memory::Paging* paging);
+        explicit PCI(Memory::Paging* paging);
+
+    private:
         PCI::PCIDeviceHeader GetDeviceHeader(uint8_t bus, uint8_t slot, uint8_t function);
         uint32_t ReadConfigDWord(uint8_t bus, uint8_t slot, uint8_t function, uint8_t offset);
         uint16_t ReadConfigWord(uint8_t bus, uint8_t slot, uint8_t function, uint8_t offset);
@@ -272,7 +273,7 @@ namespace IO {
         void CheckFunction(uint8_t bus, uint8_t slot, uint8_t function);
         void CheckSlot(uint8_t bus, uint8_t slot);
         void CheckBus(uint8_t bus);
-        Utility::List<PCI::PCIDeviceHeader>* _PCIDevices = nullptr;
+        Utility::List<PCI::PCIDeviceHeader> _PCIDevices;
         Memory::Paging* _paging = nullptr;
     };
 }

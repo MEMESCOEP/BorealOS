@@ -44,7 +44,7 @@ struct KernelData {
     Core::ServiceManager *ServiceManager;
     Core::Drivers::DriverManager *DriverManager;
     Core::Time::Scheduler *DefaultScheduler; // Core 0 scheduler. Other cores should have their own scheduler instance.
-    IO::PCI Pci {&Paging};
+    IO::PCI* Pci;
 };
 
 #endif //BOREALOS_KERNELDATA_H

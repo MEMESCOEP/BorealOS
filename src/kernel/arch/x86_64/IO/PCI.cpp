@@ -1,6 +1,10 @@
 #include <IO/PCI.h>
 
 namespace IO {
+    PCI::PCI(Memory::Paging* paging) : _PCIDevices(32) {
+        this->_paging = paging;
+    }
+
     PCI::PCIDeviceHeader PCI::GetDeviceHeader(uint8_t bus, uint8_t slot, uint8_t function) {
         PCIDeviceHeader header;
 
@@ -126,22 +130,18 @@ namespace IO {
     }
 
     void PCI::FindDevicesByClass(uint8_t classCode, uint8_t subclass, Utility::List<PCIDeviceHeader*>& results) {
-        if (!_PCIDevices) return;
-
-        for (size_t i = 0; i < _PCIDevices->Size(); i++) {
-            if ((*_PCIDevices)[i].classCode == classCode &&
-                (*_PCIDevices)[i].subclass == subclass)
-                results.Add(&(*_PCIDevices)[i]);
+        for (size_t i = 0; i < _PCIDevices.Size(); i++) {
+            if ((_PCIDevices)[i].classCode == classCode &&
+                (_PCIDevices)[i].subclass == subclass)
+                results.Add(&(_PCIDevices)[i]);
         }
     }
 
     void PCI::FindDevicesByID(uint16_t vendorID, uint16_t deviceID, Utility::List<PCIDeviceHeader*>& results) {
-        if (!_PCIDevices) return;
-
-        for (size_t i = 0; i < _PCIDevices->Size(); i++) {
-            if ((*_PCIDevices)[i].vendorID == vendorID &&
-                (*_PCIDevices)[i].deviceID == deviceID)
-                results.Add(&(*_PCIDevices)[i]);
+        for (size_t i = 0; i < _PCIDevices.Size(); i++) {
+            if ((_PCIDevices)[i].vendorID == vendorID &&
+                (_PCIDevices)[i].deviceID == deviceID)
+                results.Add(&(_PCIDevices)[i]);
         }
     }
 
@@ -281,10 +281,12 @@ namespace IO {
     }
 
     void PCI::CheckFunction(uint8_t bus, uint8_t slot, uint8_t function) {
+        LOG_DEBUG("Getting header for PCI device at %u8:%u8.%u8...", bus, slot, function);
         PCI::PCIDeviceHeader header = GetDeviceHeader(bus, slot, function);
 
         // Store the device
-        _PCIDevices->Add(header);
+        LOG_DEBUG("Storing header for PCI device at %u8:%u8.%u8...", bus, slot, function);
+        _PCIDevices.Add(header);
 
         LOG_DEBUG("PCI %u8:%u8.%u8:\n\r  * Vendor ID: 0x%x8\n\r  * Device ID: 0x%x8\n\r  * Class: 0x%x8\n\r  * Subclass: 0x%x8\n\r",
             header.bus, header.slot, header.function,
@@ -323,9 +325,6 @@ namespace IO {
 
     // NOTE: MSI, MSI-X, and BAR reading are done per-driver, so we don't do that here
     void PCI::Initialize() {
-        // Initialize the PCI devices array, we store up to 256 devices
-        _PCIDevices = new Utility::List<PCIDeviceHeader>(256);
-
         // We start by enumerating the PCI bus via the recursive bus enumeration method
         // NOTE: This is more efficient than blindly scanning every single bus/slot combo, as we only check populated buses
         uint8_t headerType = GetHeaderType(0, 0, 0) & 0xFF;
@@ -346,11 +345,7 @@ namespace IO {
             }
         }
 
-        LOG_INFO("Discovered and stored %u8 PCI device(s).", _PCIDevices->Size());
+        LOG_INFO("Discovered and stored %u8 PCI device(s).", _PCIDevices.Size());
         initialized = true;
-    }
-
-    PCI::PCI(Memory::Paging* paging) {
-        _paging = paging;
     }
 }

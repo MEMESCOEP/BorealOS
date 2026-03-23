@@ -94,7 +94,8 @@ void Kernel<T>::Initialize() {
     LOG(LOG_LEVEL::INFO, "Initialized TSC with frequency approximately %u64hz.", ArchitectureData->Tsc.GetFrequency());
 
     // PCI:
-    ArchitectureData->Pci.Initialize();
+    ArchitectureData->Pci = new IO::PCI(&ArchitectureData->Paging);
+    ArchitectureData->Pci->Initialize();
     LOG(LOG_LEVEL::INFO, "Initialized PCI.");
 
     // Init ram fs:
