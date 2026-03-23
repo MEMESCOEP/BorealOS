@@ -247,6 +247,7 @@ namespace IO {
         static constexpr uint16_t PCI_CONFIG_ADDRESS = 0xCF8;
         static constexpr uint16_t PCI_CONFIG_DATA    = 0xCFC;
     
+        PCI::PCIDeviceHeader GetDeviceHeader(uint8_t bus, uint8_t slot, uint8_t function);
         PCI::PCI_BAR ReadBAR(const PCI::PCIDeviceHeader& device, uint8_t barIndex);
         uint32_t ReadConfig(const PCI::PCIDeviceHeader& device, uint8_t offset);
         uint8_t FindCapability(const PCI::PCIDeviceHeader& device, uint8_t capabilityID);
@@ -261,7 +262,6 @@ namespace IO {
         explicit PCI(Memory::Paging* paging);
 
     private:
-        PCI::PCIDeviceHeader GetDeviceHeader(uint8_t bus, uint8_t slot, uint8_t function);
         uint32_t ReadConfigDWord(uint8_t bus, uint8_t slot, uint8_t function, uint8_t offset);
         uint16_t ReadConfigWord(uint8_t bus, uint8_t slot, uint8_t function, uint8_t offset);
         uint16_t GetHeaderType(uint8_t bus, uint8_t slot, uint8_t function);

@@ -6,7 +6,6 @@
 #include "lai_include.h"
 
 extern "C" {
-
     void laihost_log(int level, const char* message) {
         switch (level) {
             case LAI_DEBUG_LOG:
@@ -98,30 +97,41 @@ extern "C" {
     }
 
     uint8_t laihost_pci_readb(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset) {
-        LOG_WARNING("laihost_pci is not implemented yet!");
-        return 0xFF;
+        IO::PCI* pci = Kernel<KernelData>::GetInstance()->ArchitectureData->Pci;
+        uint32_t val = pci->ReadConfig(pci->GetDeviceHeader(bus, slot, fun), offset);
+        return (val >> ((offset & 3) * 8)) & 0xFF;
     }
 
-    uint16_t laihost_pci_readw(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset){
-        LOG_WARNING("laihost_pci is not implemented yet!");
-        return 0xFFFF;
+    uint16_t laihost_pci_readw(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset) {
+        IO::PCI* pci = Kernel<KernelData>::GetInstance()->ArchitectureData->Pci;
+        uint32_t val = pci->ReadConfig(pci->GetDeviceHeader(bus, slot, fun), offset);
+        return (val >> ((offset & 2) * 8)) & 0xFFFF;
     }
 
-    uint32_t laihost_pci_readd(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset){
-        LOG_WARNING("laihost_pci is not implemented yet!");
-        return 0xFFFFFFFF;
+    uint32_t laihost_pci_readd(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset) {
+        IO::PCI* pci = Kernel<KernelData>::GetInstance()->ArchitectureData->Pci;
+        return pci->ReadConfig(pci->GetDeviceHeader(bus, slot, fun), offset);
     }
 
-    void laihost_pci_writeb(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset, uint8_t val){
-        LOG_WARNING("laihost_pci is not implemented yet!");
+    void laihost_pci_writeb(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset, uint8_t val) {
+        IO::PCI* pci = Kernel<KernelData>::GetInstance()->ArchitectureData->Pci;
+        uint32_t current = pci->ReadConfig(pci->GetDeviceHeader(bus, slot, fun), offset);
+        uint32_t shift = (offset & 3) * 8;
+        uint32_t newVal = (current & ~(0xFF << shift)) | ((uint32_t)val << shift);
+        pci->WriteConfig(pci->GetDeviceHeader(bus, slot, fun), offset, newVal);
     }
 
-    void laihost_pci_writew(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset, uint16_t val){
-        LOG_WARNING("laihost_pci is not implemented yet!");
+    void laihost_pci_writew(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset, uint16_t val) {
+        IO::PCI* pci = Kernel<KernelData>::GetInstance()->ArchitectureData->Pci;
+        uint32_t current = pci->ReadConfig(pci->GetDeviceHeader(bus, slot, fun), offset);
+        uint32_t shift = (offset & 2) * 8;
+        uint32_t newVal = (current & ~(0xFFFF << shift)) | ((uint32_t)val << shift);
+        pci->WriteConfig(pci->GetDeviceHeader(bus, slot, fun), offset, newVal);
     }
 
-    void laihost_pci_writed(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset, uint32_t val){
-        LOG_WARNING("laihost_pci is not implemented yet!");
+    void laihost_pci_writed(UNUSED uint16_t seg, uint8_t bus, uint8_t slot, uint8_t fun, uint16_t offset, uint32_t val) {
+        IO::PCI* pci = Kernel<KernelData>::GetInstance()->ArchitectureData->Pci;
+        pci->WriteConfig(pci->GetDeviceHeader(bus, slot, fun), offset, val);
     }
 
     void laihost_sleep(uint64_t ms) {
