@@ -1,7 +1,7 @@
 #include <IO/PCI.h>
 
 namespace IO {
-    PCI::PCI(Memory::Paging* paging) : _PCIDevices(32) {
+    PCI::PCI(Memory::Paging* paging) : _PCIDevices(256) {
         this->_paging = paging;
     }
 
@@ -281,11 +281,9 @@ namespace IO {
     }
 
     void PCI::CheckFunction(uint8_t bus, uint8_t slot, uint8_t function) {
-        LOG_DEBUG("Getting header for PCI device at %u8:%u8.%u8...", bus, slot, function);
         PCI::PCIDeviceHeader header = GetDeviceHeader(bus, slot, function);
 
         // Store the device
-        LOG_DEBUG("Storing header for PCI device at %u8:%u8.%u8...", bus, slot, function);
         _PCIDevices.Add(header);
 
         LOG_DEBUG("PCI %u8:%u8.%u8:\n\r  * Vendor ID: 0x%x8\n\r  * Device ID: 0x%x8\n\r  * Class: 0x%x8\n\r  * Subclass: 0x%x8\n\r",

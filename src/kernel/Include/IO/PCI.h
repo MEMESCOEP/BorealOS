@@ -258,7 +258,6 @@ namespace IO {
         void Initialize();
         bool initialized = false;
 
-        //PCI(Memory::Paging* paging);
         explicit PCI(Memory::Paging* paging);
 
     private:
