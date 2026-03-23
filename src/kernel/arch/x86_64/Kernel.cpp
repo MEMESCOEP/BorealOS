@@ -14,6 +14,7 @@
 
 Kernel<KernelData> kernel;
 KernelData kernelData;
+bool debugLogging = false;
 
 template<typename T>
 Kernel<T> *Kernel<T>::GetInstance() {
