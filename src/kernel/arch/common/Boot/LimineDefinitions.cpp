@@ -46,6 +46,13 @@ volatile limine_rsdp_request rsdp_request = {
     .response = nullptr
 };
 
+__attribute__((used, section(".limine_requests")))
+volatile limine_executable_cmdline_request cmdargs_request = {
+    .id = LIMINE_EXECUTABLE_CMDLINE_REQUEST_ID,
+    .revision = 0,
+    .response = nullptr,
+};
+
 // Finally, define the start and end markers for the Limine requests.
 // These can also be moved anywhere, to any .c file, as seen fit.
 

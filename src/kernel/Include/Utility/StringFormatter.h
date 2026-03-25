@@ -3,6 +3,7 @@
 
 #include <Definitions.h>
 #include <stdarg.h>
+#include "List.h"
 
 namespace Utility {
     class StringFormatter {
@@ -12,6 +13,7 @@ namespace Utility {
         static uint32_t strlen(const char* str);
         static size_t HexToSize(const char* hexStr, size_t length);
         static void TrimTrailingSpaces(char* str, uint64_t strLength);
+        static void Split(const char* str, char delimiter, Utility::List<const char*>& parts);
     };
 }
 

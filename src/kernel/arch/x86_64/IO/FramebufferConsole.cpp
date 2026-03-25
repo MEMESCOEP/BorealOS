@@ -8,6 +8,19 @@ namespace IO {
 
         // Get the framebuffer, we'll only use one for now
         framebuffer = framebuffer_request.response->framebuffers[0];
+        LOG_DEBUG("Framebuffer #0 is %u64x%u64 @ %u64bpp:\n\r  * FB address is %p\n\r  * Pitch is %u64\n\r  * Red mask size & shift: %u64 | %u64\n\r  * Green mask size & shift: %u64 | %u64\n\r  * Blue mask size & shift: %u64 | %u64\n\r",
+            framebuffer->width,
+            framebuffer->height,
+            framebuffer->bpp,
+            framebuffer->address,
+            framebuffer->pitch,
+            framebuffer->red_mask_size,
+            framebuffer->red_mask_shift,
+            framebuffer->green_mask_size,
+            framebuffer->green_mask_shift,
+            framebuffer->blue_mask_size,
+            framebuffer->blue_mask_shift
+        );
 
         // Initialize flanterm
         ftContext = flanterm_fb_init(
@@ -31,13 +44,13 @@ namespace IO {
             nullptr,                               // default_bg_bright
             nullptr,                               // default_fg_bright
             nullptr,                               // font
-            0,                                     // font_width
-            0,                                     // font_height
+            8,                                     // font_width
+            16,                                    // font_height
             1,                                     // font_spacing
             1,                                     // font_scale_x
             1,                                     // font_scale_y
             0,                                     // margin
-            0                                      // rotation
+            FLANTERM_FB_ROTATE_0                   // rotation
         );
 
         if (!ftContext) PANIC("Flanterm initialization failed!");

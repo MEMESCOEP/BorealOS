@@ -235,4 +235,23 @@ namespace Utility {
             }
         }
     }
+
+    void StringFormatter::Split(const char* str, char delimiter, Utility::List<const char*>& parts) {
+        uint32_t length = strlen(str);
+
+        char* copy = new char[length + 1];
+        memcpy(copy, str, length + 1);
+
+        char* start = copy;
+        for (size_t i = 0; i <= length; i++) {
+            if (copy[i] == delimiter || copy[i] == '\0') {
+                copy[i] = '\0';
+
+                if (start != &copy[i]) // Skip empty tokens
+                    parts.Add(start);
+
+                start = &copy[i + 1];
+            }
+        }
+    }
 } // Utility
