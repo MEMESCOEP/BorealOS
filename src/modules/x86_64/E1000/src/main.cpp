@@ -59,7 +59,7 @@ void Reset() {
     WriteRegister(E1000_REGISTER_CONTROL, ReadRegister(E1000_REGISTER_CONTROL) | E1000_CONTROL_AUTO_SPEED_DETECT | E1000_CONTROL_SET_LINK_UP);
 }
 
-// RELY_ON(EXTERNAL_MODULE("Some other module", VERSION(0,0,1)));
+RELY_ON(EXTERNAL_MODULE(NETWORKING_MODULE_NAME, VERSION(0,0,1)));
 COMPATIBLE_FUNC() {
     kernel = Kernel<KernelData>::GetInstance();
     if (!kernel) {
