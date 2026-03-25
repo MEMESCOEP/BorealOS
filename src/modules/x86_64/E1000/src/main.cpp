@@ -1,5 +1,7 @@
 #include <Module.h>
 
+#include <Utility/List.h>
+#include "../../../modules/Common/Networking/Service.h"
 #include "../Service.h"
 #include "E1000Definitions.h"
 #include "KernelData.h"
@@ -11,7 +13,7 @@ IO::PCI* pciInstance = nullptr;
 IO::PCI::PCIDeviceHeader* _device = nullptr;
 IO::PCI::PCI_BAR bar0;
 volatile uint32_t* _mmioBase = nullptr;
-uint16_t _mac[6] = {};
+uint8_t _mac[6] = {};
 
 uint32_t ReadRegister(uint32_t offset) {
     return _mmioBase[offset / 4];
@@ -122,6 +124,44 @@ LOAD_FUNC() {
     // Reset the NIC and read the MAC address
     Reset();
     ReadMAC();
+
+    // Register the E1000 with the networking service
+    Networking::NetworkService *networking = static_cast<Networking::NetworkService*>(
+        Core::ServiceManager::GetInstance()->GetService(NETWORKING_SERVICE_NAME));
+
+    if (!networking) {
+        LOG_ERROR("Networking service is not available!");
+        return STATUS::FAILURE;
+    }
+
+    Networking::NetworkInterface iface {
+        .ID            = (uint64_t)_device,
+        .type          = Networking::InterfaceType::Ethernet,
+        .state         = Networking::InterfaceState::Down,
+        .vendorID      = E1000_VENDOR_ID,
+        .productID     = E1000_DEVICE_ID,
+        .macAddress    = { _mac[0], _mac[1], _mac[2], _mac[3], _mac[4], _mac[5] },
+        .interfaceName = "eth0",
+        .manufacturer  = "Intel",
+        .description   = "Intel E1000 Gigabit Ethernet",
+        .mtu           = 1500,
+        .txFunc        = [](const Networking::Packet* packet) -> STATUS {
+            // TODO: Write to the E1000 TX descriptor ring here.
+            // For now, just log that we would send the packet.
+            LOG_DEBUG("E1000 TX: %u64 bytes on interface %u64", packet->length, packet->interfaceID);
+            return STATUS::SUCCESS;
+        }
+    };
+
+    STATUS result = networking->RegisterInterface(&iface);
+    if (result != STATUS::SUCCESS) {
+        LOG_ERROR("Failed to register Intel E1000 as a network interface!");
+        return result;
+    }
+
+    // Bring the link up
+    networking->SetInterfaceState(iface.ID, Networking::InterfaceState::Up);
+    LOG_DEBUG("Intel E1000 NIC initialized and registered as '%s'.", iface.interfaceName);
 
     LOG_DEBUG("Intel E1000 NIC(s) initialized.");
     return STATUS::SUCCESS;
