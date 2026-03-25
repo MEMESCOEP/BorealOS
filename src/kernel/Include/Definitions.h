@@ -53,7 +53,8 @@ enum class STATUS {
     INVALID_ARGUMENT,
     DEVICE_NOT_READY,
     NOT_SUPPORTED,
-    ALREADY_EXISTS
+    ALREADY_EXISTS,
+    PENDING
 };
 
 // Architecture specific kernel definitions
