@@ -48,7 +48,12 @@ constexpr uint64_t PiB = TiB * 1024;
 
 enum class STATUS {
     SUCCESS,
-    FAILURE
+    FAILURE,
+    NOT_FOUND,
+    INVALID_ARGUMENT,
+    DEVICE_NOT_READY,
+    NOT_SUPPORTED,
+    ALREADY_EXISTS
 };
 
 // Architecture specific kernel definitions
