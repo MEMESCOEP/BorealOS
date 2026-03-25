@@ -11,8 +11,8 @@ namespace Interrupts {
     uint64_t GDT::entries[5]; // Null, Code, Data, TSS low and high
     GDT::GDTPointer GDT::gdtp;
 
-    void GDT::SetEntry(int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t granularity) {
-        GDTEntry entry{};
+    /*void GDT::SetEntry(int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t granularity) {
+        GDTEntry entry = {};
 
         entry.LimitLow = limit & 0xFFFF;
         entry.BaseLow = base & 0xFFFF;
@@ -23,6 +23,18 @@ namespace Interrupts {
         entry.BaseHigh = (base >> 24) & 0xFF;
 
         entries[index] = *reinterpret_cast<uint64_t*>(&entry);
+    }*/
+
+    void GDT::SetEntry(int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t granularity) {
+        GDTEntry entry = {};
+        entry.LimitLow    = limit & 0xFFFF;
+        entry.BaseLow     = base & 0xFFFF;
+        entry.BaseMiddle  = (base >> 16) & 0xFF;
+        entry.Access      = access;
+        entry.Granularity = (limit >> 16) & 0x0F;
+        entry.Granularity |= granularity & 0xF0;
+        entry.BaseHigh    = (base >> 24) & 0xFF;
+        memcpy(&entries[index], &entry, sizeof(uint64_t));
     }
 
     void GDT::SetTSSDescriptor(int index, uint64_t base, uint32_t limit) {
