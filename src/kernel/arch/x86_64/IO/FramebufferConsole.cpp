@@ -59,7 +59,7 @@ namespace IO {
 
         if (!ftContext) {
             LOG_ERROR("Flanterm initialization failed!");
-            dbg_main(exceptionVector);
+            dbg_main(1);
             PANIC("Flanterm initialization failed (debugger returned control)!");
         }
 
