@@ -46,6 +46,8 @@ extern "C" {
     extern void* ISRStubTable[];
 }
 
+extern "C" uint64_t dbg_regs[];
+
 namespace Interrupts {
     IDT::IDT(InterruptController *ic) {
         this->_ic = ic;
@@ -113,6 +115,36 @@ namespace Interrupts {
                      (exceptionVector < 32) ? ExceptionNames[exceptionVector] : "Unknown", errorCode);
             return; // In testing mode, just return
         }
+
+        // Populate minidbg's register array from the saved registers
+        dbg_regs[0]  = registers->rax;
+        dbg_regs[1]  = registers->rbx;
+        dbg_regs[2]  = registers->rcx;
+        dbg_regs[3]  = registers->rdx;
+        dbg_regs[4]  = registers->rsi;
+        dbg_regs[5]  = registers->rdi;
+        dbg_regs[7]  = registers->rbp;
+        dbg_regs[8]  = registers->r8;
+        dbg_regs[9]  = registers->r9;
+        dbg_regs[10] = registers->r10;
+        dbg_regs[11] = registers->r11;
+        dbg_regs[12] = registers->r12;
+        dbg_regs[13] = registers->r13;
+        dbg_regs[14] = registers->r14;
+        dbg_regs[15] = registers->r15;
+        dbg_regs[23] = errorCode;
+
+        // Read live control registers
+        uint64_t cr0, cr2, cr3, cr4;
+        asm volatile("mov %%cr0, %0" : "=r"(cr0));
+        asm volatile("mov %%cr2, %0" : "=r"(cr2));
+        asm volatile("mov %%cr3, %0" : "=r"(cr3));
+        asm volatile("mov %%cr4, %0" : "=r"(cr4));
+        dbg_regs[17] = cr0;  // offset 136
+        dbg_regs[18] = 0;    // cr1 doesn't exist
+        dbg_regs[19] = cr2;  // offset 152
+        dbg_regs[20] = cr3;  // offset 160
+        dbg_regs[21] = cr4;  // offset 168
 
         LOG_ERROR("\n\r\n\r-- CPU Exception Occurred --\n\r");
 

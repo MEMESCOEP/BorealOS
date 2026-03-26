@@ -2,6 +2,10 @@
 #include <Kernel.h>
 #include <stdarg.h>
 
+extern "C" {
+    #include <x86_64/dbg.h> // minidbg
+}
+
 #include "KernelData.h"
 #include "Interrupts/GDT.h"
 #include "Interrupts/TSS.h"
@@ -165,6 +169,16 @@ template<typename T>
     kernelData.Console.PrintString(message);
     kernelData.Console.PrintString("\n\r");
 
+    // Drop into minidbg
+    kernelData.Console.PrintString("[");
+    kernelData.Console.PrintString(ANSI::Colors::Foreground::Cyan);
+    kernelData.Console.PrintString("DEBUG\033[0m] Dropping into kernel debugger (minidbg)...\n\r");
+    dbg_main(1);
+
+    // The debugger can return control, so we need to halt the CPU
+    kernelData.Console.PrintString("[");
+    kernelData.Console.PrintString(ANSI::Colors::Foreground::Cyan);
+    kernelData.Console.PrintString("DEBUG\033[0m] Kernel debugger (minidbg) exited, halting now.\n\r");
     while (true) {
         asm ("hlt");
     }

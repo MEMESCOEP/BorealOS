@@ -58,9 +58,7 @@ namespace IO {
         );
 
         if (!ftContext) {
-            LOG_ERROR("Flanterm initialization failed!");
-            dbg_main(1);
-            PANIC("Flanterm initialization failed (debugger returned control)!");
+            PANIC("Flanterm initialization failed!");
         }
 
         initialized = true;
