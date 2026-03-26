@@ -1,5 +1,9 @@
 #include "IDT.h"
 
+extern "C" {
+    #include <x86_64/dbg.h> // minidbg
+}
+
 #include "Kernel.h"
 #include "../KernelData.h"
 
@@ -127,6 +131,8 @@ namespace Interrupts {
         LOG_ERROR("R9: 0x%x64 R10: 0x%x64 R11: 0x%x64 R12: 0x%x64", registers->r9, registers->r10, registers->r11, registers->r12);
         LOG_ERROR("R13: 0x%x64 R14: 0x%x64 R15: 0x%x64", registers->r13, registers->r14, registers->r15);
 
+        LOG_DEBUG("Dropping into minidbg...");
+        dbg_main(exceptionVector);
         PANIC("Exception occurred");
     }
 

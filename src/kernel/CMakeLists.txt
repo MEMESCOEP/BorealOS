@@ -33,7 +33,13 @@ FetchContent_Declare(
         GIT_TAG        master
 )
 
-FetchContent_MakeAvailable(flanterm lai tlsf)
+FetchContent_Declare(
+        minidbg
+        GIT_REPOSITORY https://gitlab.com/bztsrc/minidbg.git
+        GIT_TAG        master
+)
+
+FetchContent_MakeAvailable(flanterm lai tlsf minidbg)
 
 file(GLOB_RECURSE FLANTERM_SOURCES ${flanterm_SOURCE_DIR}/src/*.c)
 file(GLOB_RECURSE LAI_SOURCES ${lai_SOURCE_DIR}/*.c)
@@ -41,8 +47,6 @@ FILE(GLOB_RECURSE TLSF_SOURCES ${tlsf_SOURCE_DIR}/*.c)
 
 set_source_files_properties(${LAI_SOURCES} PROPERTIES COMPILE_FLAGS "-w -Wno-pedantic -Wno-error")
 set_source_files_properties(${tlsf_SOURCE_DIR}/tlsf.c PROPERTIES COMPILE_FLAGS "-D tlsf_assert=kernel_assert -Wno-implicit-function-declaration -Wno-unused-function")
-
-add_executable(kernel.elf ${SOURCES} ${COMMON_SOURCES} ${HEADERS} ${FLANTERM_SOURCES} ${LAI_SOURCES} ${TLSF_SOURCES})
 
 add_library(kernel.api INTERFACE)
 target_include_directories(kernel.api INTERFACE
@@ -53,7 +57,28 @@ target_include_directories(kernel.api INTERFACE
         ${flanterm_SOURCE_DIR}/src
         ${lai_SOURCE_DIR}/include
         ${tlsf_SOURCE_DIR}
+        ${minidbg_SOURCE_DIR}
 )
+
+if(ARCH STREQUAL "x86_64")
+        FILE(GLOB_RECURSE MINIDBG_SOURCES 
+                ${minidbg_SOURCE_DIR}/x86_64/*.c
+                ${minidbg_SOURCE_DIR}/x86_64/*.S
+                ${minidbg_SOURCE_DIR}/dbg.c
+        )
+
+        target_include_directories(kernel.api INTERFACE ${minidbg_SOURCE_DIR}/x86_64/)
+elseif(ARCH STREQUAL "aarch64")
+        FILE(GLOB_RECURSE MINIDBG_SOURCES 
+                ${minidbg_SOURCE_DIR}/aarch64/*.c
+                ${minidbg_SOURCE_DIR}/aarch64/*.S
+                ${minidbg_SOURCE_DIR}/dbg.c
+        )
+
+        target_include_directories(kernel.api INTERFACE ${minidbg_SOURCE_DIR}/aarch64/)
+endif()
+
+add_executable(kernel.elf ${SOURCES} ${COMMON_SOURCES} ${HEADERS} ${FLANTERM_SOURCES} ${LAI_SOURCES} ${TLSF_SOURCES} ${MINIDBG_SOURCES})
 
 target_link_libraries(kernel.elf PRIVATE kernel.api)
 

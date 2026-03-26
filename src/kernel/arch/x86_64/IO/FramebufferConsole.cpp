@@ -1,5 +1,9 @@
 #include "FramebufferConsole.h"
 
+extern "C" {
+    #include <x86_64/dbg.h> // minidbg
+}
+
 namespace IO {
     void FramebufferConsole::Initialize() {
         // Make sure limine provided a framebuffer for us to use
@@ -53,7 +57,12 @@ namespace IO {
             FLANTERM_FB_ROTATE_0                   // rotation
         );
 
-        if (!ftContext) PANIC("Flanterm initialization failed!");
+        if (!ftContext) {
+            LOG_ERROR("Flanterm initialization failed!");
+            dbg_main(exceptionVector);
+            PANIC("Flanterm initialization failed (debugger returned control)!");
+        }
+
         initialized = true;
 
         PrintString(ANSI::EscapeCodes::ClearScreen);
