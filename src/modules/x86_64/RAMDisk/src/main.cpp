@@ -1,0 +1,97 @@
+#include <Module.h>
+#include "../Service.h"
+
+MODULE(RAMDISK_MODULE_NAME, RAMDISK_MODULE_DESCRIPTION, RAMDISK_MODULE_VERSION, RAMDISK_MODULE_IMPORTANCE);
+RELY_ON(EXTERNAL_MODULE(DISK_MODULE_NAME, VERSION(0,0,1)));
+
+static Disk::Device* RAMDiskDevice = nullptr;
+uint64_t RAMDiskSize = DEFAULT_RAMDISK_SIZE;
+
+static STATUS Read(Disk::Device* device, uint64_t offset, uint64_t size, void* buffer) {
+    RAMDisk::RAMDiskData* data = (RAMDisk::RAMDiskData*)device->driverData;
+    if (offset + size > data->size) return STATUS::FAILURE;
+    memcpy(buffer, data->buffer + offset, size);
+    return STATUS::SUCCESS;
+}
+
+static STATUS Write(Disk::Device* device, uint64_t offset, uint64_t size, const void* buffer) {
+    RAMDisk::RAMDiskData* data = (RAMDisk::RAMDiskData*)device->driverData;
+    if (offset + size > data->size) return STATUS::FAILURE;
+    memcpy(data->buffer + offset, buffer, size);
+    return STATUS::SUCCESS;
+}
+
+static STATUS Flush(Disk::Device* device) {
+    (void)device;
+    return STATUS::SUCCESS;
+}
+
+static size_t GetPartitions(Disk::Device* device, Disk::Partition* partitions, size_t maxPartitions) {
+    (void)device; (void)partitions; (void)maxPartitions;
+    return 0;
+}
+
+static STATUS CreatePartition(Disk::Device* device, uint64_t offset, uint64_t size, const char* name) {
+    (void)device; (void)offset; (void)size; (void)name;
+    return STATUS::FAILURE;
+}
+
+static STATUS DeletePartition(Disk::Device* device, const char* name) {
+    (void)device; (void)name;
+    return STATUS::FAILURE;
+}
+
+COMPATIBLE_FUNC() {
+    // TODO: Make sure the device has enough RAM to creater the RAM disk
+    return true;
+}
+
+LOAD_FUNC() {
+    // TODO: Get ram disk name and size from kernel parameters if they are passed
+    LOG_INFO("Creating RAM disk \"%s\" with a size of %u64 KiB...", DEFAULT_RAMDISK_NAME, RAMDiskSize / Constants::KiB);
+
+    Disk::DiskService* diskService = static_cast<Disk::DiskService*>(
+        Core::ServiceManager::GetInstance()->GetService(DISK_SERVICE_NAME));
+
+    if (diskService == nullptr) {
+        LOG_ERROR("Failed to get disk service!");
+        return STATUS::FAILURE;
+    }
+
+    // Create a buffer to act as the block device
+    RAMDisk::RAMDiskData* data = new RAMDisk::RAMDiskData();
+    data->buffer = new uint8_t[RAMDiskSize];
+    data->size = RAMDiskSize;
+    memset(data->buffer, 0, RAMDiskSize);
+
+    // Create a disk device so it can be registered with the disk service
+    Disk::Device* device = (Disk::Device*)new uint8_t[sizeof(Disk::Device)];
+    memset(device, 0, sizeof(Disk::Device));
+    strncpy((char*)device->name, DEFAULT_RAMDISK_NAME, 63);
+    device->capacity        = RAMDiskSize;
+    device->driverData      = data;
+    device->Read            = Read;
+    device->Write           = Write;
+    device->Flush           = Flush;
+    device->GetPartitions   = GetPartitions;
+    device->CreatePartition = CreatePartition;
+    device->DeletePartition = DeletePartition;
+
+    if (diskService->RegisterDevice(device) != STATUS::SUCCESS) {
+        LOG_ERROR("Failed to register RAM disk device!");
+        delete[] data->buffer;
+        delete data;
+        delete[] (uint8_t*)device;
+        return STATUS::FAILURE;
+    }
+
+    RAMDiskDevice = device;
+    LOG_DEBUG("RAM disk \"%s\" is at address 0x%x64 and reserves up to address 0x%x64", (char*)device->name, device, device + device->capacity);
+    LOG_DEBUG("RAM disk data buffer is at address 0x%x64", data->buffer);
+
+    // Zero the entire RAM disk so it's created in a clean state
+    memset(data->buffer, 0, RAMDiskSize);
+    LOG_DEBUG("RAM disk zeroed (wrote %u64 byte(s))", RAMDiskSize);
+    LOG_INFO("RAM disk registered successfully as \"%s\"", DEFAULT_RAMDISK_NAME);
+    return STATUS::SUCCESS;
+}
