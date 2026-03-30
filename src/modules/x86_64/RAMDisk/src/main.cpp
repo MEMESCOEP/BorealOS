@@ -89,6 +89,12 @@ LOAD_FUNC() {
     LOG_DEBUG("RAM disk \"%s\" is at address 0x%x64 and reserves up to address 0x%x64", (char*)device->name, device, device + device->capacity);
     LOG_DEBUG("RAM disk data buffer is at address 0x%x64", data->buffer);
 
+    // Make sure the capacity is reported correctly
+    if (RAMDiskDevice->capacity != RAMDiskSize) {
+        LOG_ERROR("RAM disk device reported a capacity of %u64 KiB, but %u64 KiB was expected!", RAMDiskDevice->capacity / Constants::KiB, RAMDiskSize / Constants::KiB);
+        return STATUS::FAILURE;
+    }
+
     // Zero the entire RAM disk so it's created in a clean state
     memset(data->buffer, 0, RAMDiskSize);
     LOG_DEBUG("RAM disk zeroed (wrote %u64 byte(s))", RAMDiskSize);
