@@ -8,15 +8,31 @@ static Disk::Device* RAMDiskDevice = nullptr;
 uint64_t RAMDiskSize = DEFAULT_RAMDISK_SIZE;
 
 static STATUS Read(Disk::Device* device, uint64_t offset, uint64_t size, void* buffer) {
+    // Make sure the buffer and device not null
+    if (!buffer || !device) return STATUS::FAILURE;
+
     RAMDisk::RAMDiskData* data = (RAMDisk::RAMDiskData*)device->driverData;
+
+    // Detect out of bounds and integer overflow conditions
     if (offset + size > data->size) return STATUS::FAILURE;
+    if (offset + size < offset) return STATUS::FAILURE;
+
+    // Read into the buffer
     memcpy(buffer, data->buffer + offset, size);
     return STATUS::SUCCESS;
 }
 
 static STATUS Write(Disk::Device* device, uint64_t offset, uint64_t size, const void* buffer) {
+    // Make sure the buffer and device not null
+    if (!buffer || !device) return STATUS::FAILURE;
+
     RAMDisk::RAMDiskData* data = (RAMDisk::RAMDiskData*)device->driverData;
+
+    // Detect out of bounds and integer overflow conditions
     if (offset + size > data->size) return STATUS::FAILURE;
+    if (offset + size < offset) return STATUS::FAILURE;
+
+    // Write into the buffer
     memcpy(data->buffer + offset, buffer, size);
     return STATUS::SUCCESS;
 }
@@ -39,6 +55,28 @@ static STATUS CreatePartition(Disk::Device* device, uint64_t offset, uint64_t si
 static STATUS DeletePartition(Disk::Device* device, const char* name) {
     (void)device; (void)name;
     return STATUS::FAILURE;
+}
+
+bool Test() {
+    if (!RAMDiskDevice) {
+        LOG_ERROR("RAM disk device is null!");
+        return false;
+    }
+
+    uint8_t dummy = 0;
+    bool allPassed = true;
+    auto runTest = [&](const char* name, bool result) {
+        LOG_DEBUG("%s: %s", name, result ? "PASSED" : "FAILED");
+        if (!result) allPassed = false;
+    };
+
+    // Run the tests
+    runTest("Out-of-bounds read",    RAMDiskDevice->Read(RAMDiskDevice,  RAMDiskSize, 1, &dummy) == STATUS::FAILURE);
+    runTest("Out-of-bounds write",   RAMDiskDevice->Write(RAMDiskDevice, RAMDiskSize, 1, &dummy) == STATUS::FAILURE);
+    runTest("Integer overflow read", RAMDiskDevice->Read(RAMDiskDevice,  UINT64_MAX,  1, &dummy) == STATUS::FAILURE);
+    runTest("Null buffer read",      RAMDiskDevice->Read(RAMDiskDevice,  0,           1, nullptr) == STATUS::FAILURE);
+
+    return allPassed;
 }
 
 COMPATIBLE_FUNC() {
@@ -99,5 +137,5 @@ LOAD_FUNC() {
     memset(data->buffer, 0, RAMDiskSize);
     LOG_DEBUG("RAM disk zeroed (wrote %u64 byte(s))", RAMDiskSize);
     LOG_INFO("RAM disk registered successfully as \"%s\"", DEFAULT_RAMDISK_NAME);
-    return STATUS::SUCCESS;
+    return Test() ? STATUS::SUCCESS : STATUS::FAILURE;
 }
