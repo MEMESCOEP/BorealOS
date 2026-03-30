@@ -37,24 +37,10 @@ static STATUS Write(Disk::Device* device, uint64_t offset, uint64_t size, const 
     return STATUS::SUCCESS;
 }
 
+// Flush does nothing for a RAM disk because the writes are fast and happen immediately
 static STATUS Flush(Disk::Device* device) {
     (void)device;
     return STATUS::SUCCESS;
-}
-
-static size_t GetPartitions(Disk::Device* device, Disk::Partition* partitions, size_t maxPartitions) {
-    (void)device; (void)partitions; (void)maxPartitions;
-    return 0;
-}
-
-static STATUS CreatePartition(Disk::Device* device, uint64_t offset, uint64_t size, const char* name) {
-    (void)device; (void)offset; (void)size; (void)name;
-    return STATUS::FAILURE;
-}
-
-static STATUS DeletePartition(Disk::Device* device, const char* name) {
-    (void)device; (void)name;
-    return STATUS::FAILURE;
 }
 
 bool Test() {
@@ -106,14 +92,11 @@ LOAD_FUNC() {
     Disk::Device* device = (Disk::Device*)new uint8_t[sizeof(Disk::Device)];
     memset(device, 0, sizeof(Disk::Device));
     strncpy((char*)device->name, DEFAULT_RAMDISK_NAME, 63);
-    device->capacity        = RAMDiskSize;
-    device->driverData      = data;
-    device->Read            = Read;
-    device->Write           = Write;
-    device->Flush           = Flush;
-    device->GetPartitions   = GetPartitions;
-    device->CreatePartition = CreatePartition;
-    device->DeletePartition = DeletePartition;
+    device->capacity   = RAMDiskSize;
+    device->driverData = data;
+    device->Read       = Read;
+    device->Write      = Write;
+    device->Flush      = Flush;
 
     if (diskService->RegisterDevice(device) != STATUS::SUCCESS) {
         LOG_ERROR("Failed to register RAM disk device!");

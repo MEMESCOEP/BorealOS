@@ -21,6 +21,9 @@ private:
     static STATUS RegisterDevice(Disk::Device* device);
     static STATUS UnregisterDevice(const char* name);
     static size_t GetDevices(Disk::Device** devices, size_t maxDevices);
+    static size_t GetPartitions(Disk::Device *device, Disk::Partition *partitions, size_t maxPartitions);
+    static STATUS CreatePartition(Disk::Device *device, uint64_t offset, uint64_t size, const char* name);
+    static STATUS DeletePartition(Disk::Device *device, const char* name);
 };
 
 

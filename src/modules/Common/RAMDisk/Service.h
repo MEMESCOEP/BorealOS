@@ -3,7 +3,7 @@
 
 #include <Core/ServiceManager.h>
 #include <Utility/StringFormatter.h>
-#include "../../../modules/Common/Disk/Service.h"
+#include "../../../modules/Common/DiskService/Service.h"
 
 #define RAMDISK_MODULE_NAME "RAM Disk Driver"
 #define RAMDISK_MODULE_DESCRIPTION "Creates a RAM disk and presents it as a standard block device."
