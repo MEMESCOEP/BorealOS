@@ -3,6 +3,19 @@
 # Currently only builds for X86_64 architecture
 
 set -euo pipefail
+
+# Process command line arguments
+for arg in "$@"; do
+  if [ "$arg" = "--clean" ]; then
+    echo "Cleaning 'build/' and 'ramfs/'..."
+    rm -rf "./build/"
+
+    for file in $(find "./ramfs/" -type f ! -name "GIT_MARKER"); do
+        rm -rf "$file"
+    done
+  fi
+done
+
 # Check if ./deps/Limine exists
 if [ ! -d "./deps/Limine" ]; then
     echo "Limine not found! Make sure to init submodules."

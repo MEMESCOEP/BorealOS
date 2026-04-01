@@ -1,4 +1,4 @@
-set(MODULE_NAME PS2)
+set(MODULE_NAME RAMDisk)
 project(${MODULE_NAME} LANGUAGES C CXX ASM)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -6,9 +6,6 @@ set(CMAKE_CXX_EXTENSIONS ON)
 
 set(CMAKE_CXX_COMPILER ${CXX_COMPILER})
 set(CMAKE_ASM_COMPILER ${ASM_COMPILER})
-
-# Here you'd add source files, or other CMake commands to set up your module
-# Every module requires configuration, which is done using the MODULE macro, and if it relies on something the RELY_ON macro.
 
 # file(GLOB_RECURSE SOURCE_FILES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/*.c ${CMAKE_CURRENT_SOURCE_DIR}/*.S ${CMAKE_CURRENT_SOURCE_DIR}/*.h)
 # add_executable(${MODULE_NAME}.drv ${SOURCE_FILES})

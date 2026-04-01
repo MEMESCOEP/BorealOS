@@ -3,7 +3,7 @@
 #define HAS_SERVICE 0 // Set this to 1 if your module provides a service for other modules to use.
 #include "../Service.h"
 
-#include "../../../modules/Common/HID/Service.h"
+#include "../../../modules/Common/HIDService/Service.h"
 #include "Core/ServiceManager.h"
 #include "Core/Firmware/ACPI.h"
 #include "PS2Definitions.h"

@@ -26,14 +26,12 @@ namespace Disk {
         void* driverData;
         const char name[64];
         uint64_t capacity;
+        uint64_t sectorSize;
+        uint64_t sectorCount;
 
         ReadDiskFunc Read;
         WriteDiskFunc Write;
         FlushDiskFunc Flush;
-
-        GetPartitionsFunc GetPartitions;
-        CreatePartitionFunc CreatePartition;
-        DeletePartitionFunc DeletePartition;
     };
 
     typedef STATUS (*ReadPartitionFunc)(Partition *partition, uint64_t offset, uint64_t size, void* buffer);
@@ -41,6 +39,7 @@ namespace Disk {
     typedef STATUS (*FlushPartitionFunc)(Partition *partition);
 
     struct Partition {
+        Device* device;
         void* driverData;
         const char name[64];
         uint64_t offset;
@@ -61,6 +60,9 @@ namespace Disk {
         RegisterDeviceFunc RegisterDevice;
         UnregisterDeviceFunc UnregisterDevice;
         GetDevicesFunc GetDevices;
+        GetPartitionsFunc GetPartitions;
+        CreatePartitionFunc CreatePartition;
+        DeletePartitionFunc DeletePartition;
     };
 }
 

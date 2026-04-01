@@ -19,6 +19,9 @@ uintptr_t SizedNewAllocate(size_t bytes) {
     Memory::HeapAllocator* heap = &Kernel<KernelData>::GetInstance()->ArchitectureData->HeapAllocator;
     uintptr_t rawAddr = heap->Allocate({.bytes = actualBytes});
 
+    // The allocation might fail, so we need to catch that
+    if (!rawAddr) return 0;
+
     auto* header = reinterpret_cast<AllocationHeader*>(rawAddr);
     header->totalSize = actualBytes;
     header->magic = ALLOC_MAGIC;

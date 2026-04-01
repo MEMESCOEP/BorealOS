@@ -13,7 +13,10 @@ DiskTracker::DiskTracker() : _devices(16) {
         .GetDeviceByName = GetDeviceByName,
         .RegisterDevice = RegisterDevice,
         .UnregisterDevice = UnregisterDevice,
-        .GetDevices = GetDevices
+        .GetDevices = GetDevices,
+        .GetPartitions = GetPartitions,
+        .CreatePartition = CreatePartition,
+        .DeletePartition = DeletePartition
     };
 
     trackerInstance = this;
@@ -23,7 +26,7 @@ Disk::DiskService *DiskTracker::GetService() {
      return &_service;
 }
 
-Disk::Device * DiskTracker::GetDeviceByName(const char *name) {
+Disk::Device *DiskTracker::GetDeviceByName(const char *name) {
     for (size_t i = 0; i < trackerInstance->_devices.Size(); i++) {
         if (strcmp(trackerInstance->_devices[i]->name, name) == 0) {
             return trackerInstance->_devices[i];
@@ -64,3 +67,8 @@ size_t DiskTracker::GetDevices(Disk::Device **devices, size_t maxDevices) {
 
     return count;
 }
+
+// TODO: Implement these functions when we actually start using partitions
+size_t DiskTracker::GetPartitions(Disk::Device *device, Disk::Partition *partitions, size_t maxPartitions) { return 0; }
+STATUS DiskTracker::CreatePartition(Disk::Device *device, uint64_t offset, uint64_t size, const char* name) { return STATUS::FAILURE; }
+STATUS DiskTracker::DeletePartition(Disk::Device *device, const char* name) { return STATUS::FAILURE; }
