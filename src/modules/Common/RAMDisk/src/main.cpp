@@ -60,18 +60,18 @@ bool Test() {
     runTest("integer overflow read", RAMDiskDevice->Read(RAMDiskDevice, UINT64_MAX, 1, &dummy) == STATUS::FAILURE);
     runTest("out-of-bounds write", RAMDiskDevice->Write(RAMDiskDevice, RAMDiskSize, 1, &dummy) == STATUS::FAILURE);
     runTest("out-of-bounds read", RAMDiskDevice->Read(RAMDiskDevice, RAMDiskSize, 1, &dummy) == STATUS::FAILURE);
-    runTest("null buffer read", RAMDiskDevice->Read(RAMDiskDevice,  0, 1, nullptr) == STATUS::FAILURE);
+    runTest("null buffer read", RAMDiskDevice->Read(RAMDiskDevice, 0, 1, nullptr) == STATUS::FAILURE);
 
     return allPassed;
 }
 
 COMPATIBLE_FUNC() {
-    // TODO: Make sure the device has enough RAM to creater the RAM disk
+    // TODO: Make sure the device has enough RAM to create the RAM disk
     return true;
 }
 
 LOAD_FUNC() {
-    // TODO: Get ram disk name and size from kernel parameters if they are passed
+    // TODO: Get RAM disk name and size from kernel parameters if they are passed
     LOG_INFO("Creating RAM disk \"%s\" with a size of %u64 KiB...", DEFAULT_RAMDISK_NAME, RAMDiskSize / Constants::KiB);
 
     Disk::DiskService* diskService = static_cast<Disk::DiskService*>(
