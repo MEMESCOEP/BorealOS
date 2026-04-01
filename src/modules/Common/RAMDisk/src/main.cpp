@@ -92,12 +92,13 @@ LOAD_FUNC() {
     Disk::Device* device = (Disk::Device*)new uint8_t[sizeof(Disk::Device)];
     memset(device, 0, sizeof(Disk::Device));
     strncpy((char*)device->name, DEFAULT_RAMDISK_NAME, 63);
-    device->capacity   = RAMDiskSize;
-    device->sectorSize = 4096;
-    device->driverData = data;
-    device->Read       = Read;
-    device->Write      = Write;
-    device->Flush      = Flush;
+    device->capacity    = RAMDiskSize;
+    device->sectorSize  = DEFAULT_RAMDISK_SECTOR_SIZE;
+    device->secotrCount = device->capacity / device->sectorSize
+    device->driverData  = data;
+    device->Read        = Read;
+    device->Write       = Write;
+    device->Flush       = Flush;
 
     if (diskService->RegisterDevice(device) != STATUS::SUCCESS) {
         LOG_ERROR("Failed to register RAM disk device!");

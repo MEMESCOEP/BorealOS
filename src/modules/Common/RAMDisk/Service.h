@@ -10,8 +10,9 @@
 #define RAMDISK_MODULE_VERSION VERSION(0,0,1)
 #define RAMDISK_MODULE_IMPORTANCE Formats::DriverModule::Importance::Required
 
-#define DEFAULT_RAMDISK_SIZE 4 * Constants::MiB
-#define DEFAULT_RAMDISK_NAME "ram0"
+#define DEFAULT_RAMDISK_SECTOR_SIZE 4096
+#define DEFAULT_RAMDISK_SIZE        4 * Constants::MiB
+#define DEFAULT_RAMDISK_NAME        "ram0"
 
 namespace RAMDisk {
     struct RAMDiskData {
