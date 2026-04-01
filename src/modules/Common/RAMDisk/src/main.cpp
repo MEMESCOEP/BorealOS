@@ -93,6 +93,7 @@ LOAD_FUNC() {
     memset(device, 0, sizeof(Disk::Device));
     strncpy((char*)device->name, DEFAULT_RAMDISK_NAME, 63);
     device->capacity   = RAMDiskSize;
+    device->sectorSize = 4096;
     device->driverData = data;
     device->Read       = Read;
     device->Write      = Write;
