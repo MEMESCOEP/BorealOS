@@ -8,7 +8,7 @@ static Disk::Device* RAMDiskDevice = nullptr;
 uint64_t RAMDiskSize = DEFAULT_RAMDISK_SIZE;
 
 static STATUS Read(Disk::Device* device, uint64_t offset, uint64_t size, void* buffer) {
-    // Make sure the buffer and device not null
+    // Make sure the buffer and device are not null
     if (!buffer || !device) return STATUS::FAILURE;
 
     RAMDisk::RAMDiskData* data = (RAMDisk::RAMDiskData*)device->driverData;
@@ -23,7 +23,7 @@ static STATUS Read(Disk::Device* device, uint64_t offset, uint64_t size, void* b
 }
 
 static STATUS Write(Disk::Device* device, uint64_t offset, uint64_t size, const void* buffer) {
-    // Make sure the buffer and device not null
+    // Make sure the buffer and device are not null
     if (!buffer || !device) return STATUS::FAILURE;
 
     RAMDisk::RAMDiskData* data = (RAMDisk::RAMDiskData*)device->driverData;
