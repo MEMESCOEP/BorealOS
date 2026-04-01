@@ -94,7 +94,7 @@ LOAD_FUNC() {
     strncpy((char*)device->name, DEFAULT_RAMDISK_NAME, 63);
     device->capacity    = RAMDiskSize;
     device->sectorSize  = DEFAULT_RAMDISK_SECTOR_SIZE;
-    device->secotrCount = device->capacity / device->sectorSize
+    device->sectorCount = device->capacity / device->sectorSize;
     device->driverData  = data;
     device->Read        = Read;
     device->Write       = Write;
@@ -111,6 +111,7 @@ LOAD_FUNC() {
     RAMDiskDevice = device;
     LOG_DEBUG("RAM disk \"%s\" is at address 0x%x64 and reserves up to address 0x%x64", (char*)device->name, device, device + device->capacity);
     LOG_DEBUG("RAM disk data buffer is at address 0x%x64", data->buffer);
+    LOG_DEBUG("RAM disk has %u64 sector(s) (sector size is %u64)", device->sectorCount, device->sectorSize);
 
     // Make sure the capacity is reported correctly
     if (RAMDiskDevice->capacity != RAMDiskSize) {
