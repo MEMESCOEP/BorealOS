@@ -52,15 +52,15 @@ bool Test() {
     uint8_t dummy = 0;
     bool allPassed = true;
     auto runTest = [&](const char* name, bool result) {
-        LOG_DEBUG("%s: %s", name, result ? "PASSED" : "FAILED");
+        LOG_DEBUG("%s %s test", result ? "Passed" : "Failed", name);
         if (!result) allPassed = false;
     };
 
     // Run the tests
-    runTest("Out-of-bounds read",    RAMDiskDevice->Read(RAMDiskDevice,  RAMDiskSize, 1, &dummy) == STATUS::FAILURE);
-    runTest("Out-of-bounds write",   RAMDiskDevice->Write(RAMDiskDevice, RAMDiskSize, 1, &dummy) == STATUS::FAILURE);
-    runTest("Integer overflow read", RAMDiskDevice->Read(RAMDiskDevice,  UINT64_MAX,  1, &dummy) == STATUS::FAILURE);
-    runTest("Null buffer read",      RAMDiskDevice->Read(RAMDiskDevice,  0,           1, nullptr) == STATUS::FAILURE);
+    runTest("integer overflow read", RAMDiskDevice->Read(RAMDiskDevice, UINT64_MAX, 1, &dummy) == STATUS::FAILURE);
+    runTest("out-of-bounds write", RAMDiskDevice->Write(RAMDiskDevice, RAMDiskSize, 1, &dummy) == STATUS::FAILURE);
+    runTest("out-of-bounds read", RAMDiskDevice->Read(RAMDiskDevice, RAMDiskSize, 1, &dummy) == STATUS::FAILURE);
+    runTest("null buffer read", RAMDiskDevice->Read(RAMDiskDevice,  0, 1, nullptr) == STATUS::FAILURE);
 
     return allPassed;
 }
