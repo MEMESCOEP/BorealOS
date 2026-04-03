@@ -116,6 +116,9 @@ LOAD_FUNC() {
     // Make sure the capacity is reported correctly
     if (RAMDiskDevice->capacity != RAMDiskSize) {
         LOG_ERROR("RAM disk device reported a capacity of %u64 KiB, but %u64 KiB was expected!", RAMDiskDevice->capacity / Constants::KiB, RAMDiskSize / Constants::KiB);
+        delete[] data->buffer;
+        delete data;
+        delete[] (uint8_t*)device;
         return STATUS::FAILURE;
     }
 
