@@ -109,9 +109,9 @@ LOAD_FUNC() {
     }
 
     RAMDiskDevice = device;
-    LOG_DEBUG("RAM disk \"%s\" is at address 0x%x64 and reserves up to address 0x%x64", (char*)device->name, device, device + device->capacity);
+    LOG_DEBUG("RAM disk \"%s\" is at address 0x%x64 and reserves address range 0x%x64 - 0x%x64", (char*)device->name, device, device, device + device->capacity);
     LOG_DEBUG("RAM disk data buffer is at address 0x%x64", data->buffer);
-    LOG_DEBUG("RAM disk has %u64 sector(s) (sector size is %u64)", device->sectorCount, device->sectorSize);
+    LOG_DEBUG("RAM disk has %u64 sector(s) (sector size is %u64 B)", device->sectorCount, device->sectorSize);
 
     // Make sure the capacity is reported correctly
     if (RAMDiskDevice->capacity != RAMDiskSize) {
