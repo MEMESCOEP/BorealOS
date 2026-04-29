@@ -57,6 +57,7 @@ namespace Memory {
         PagingState* kernelPagingState; // The Paging state for the kernel! When we are in kernel mode this will be used.
         uint64_t kernelHigherHalfOffset;
         PagingState* currentPagingState; // The currently active Paging state, this will be the same as kernelVmmState when we're in kernel mode
+        uint64_t kernelElfOffset;
 
         void CopyExistingPageTableToNew(PagingState *vmmState, uint64_t offset, uint64_t higherHalfOffset);
         void DeepCopyPageTables(uint32_t level, uintptr_t srcPhysical, uintptr_t dstPhysical, uint64_t higherHalfOffset);

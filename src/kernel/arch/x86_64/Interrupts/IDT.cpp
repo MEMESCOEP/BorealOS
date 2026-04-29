@@ -106,7 +106,6 @@ namespace Interrupts {
             backupState = _paging->GetCurrentPagingState();
         }
 
-        //LOG_DEBUG("IRQ %u8", irq);
         if (_irqHandlers[irq] != nullptr) {
             _irqHandlers[irq]();
         }
