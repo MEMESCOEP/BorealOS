@@ -108,7 +108,7 @@ namespace Memory {
         vmmState->pml4 = reinterpret_cast<PML4 *>(stateMemory + Architecture::KernelPageSize); // The PML4 will be stored in the page immediately following the Paging state
         memset((reinterpret_cast<void *>(reinterpret_cast<uint64_t>(vmmState->pml4) + kernelHigherHalfOffset)), 0, sizeof(PML4)); // Clear the PML4
 
-        CopyExistingPageTableToNew(vmmState, kernelElfOffset, kernelHigherHalfOffset);
+        CopyExistingPageTableToNew(vmmState, kernelHigherHalfOffset, kernelHigherHalfOffset);
 
         return reinterpret_cast<PagingState*>(stateMemory);
     }
