@@ -29,18 +29,7 @@ namespace Memory {
 
     class Paging {
     public:
-        struct PT  { uint64_t entries[512]; } ALIGNED(0x1000);
-
-        struct PD  { uint64_t entries[512]; } ALIGNED(0x1000);
-
-        struct PDP { uint64_t entries[512]; } ALIGNED(0x1000);
-
-        struct PML4{ uint64_t entries[512]; } ALIGNED(0x1000);
-
-        struct PagingState {
-            PML4* pml4;
-        };
-
+        struct PagingState;
         explicit Paging(PMM* pmm);
 
         /// Kernel virtual memory management initialization. To use the Paging for a process we must use a different function
@@ -82,6 +71,15 @@ namespace Memory {
 
         static constexpr uint64_t PointerMask = 0x000FFFFFFFFFF000; // Mask to get the address portion of a page table entry
         static constexpr uint64_t FlagsMask = 0xFFF0000000000FFF; // Mask to get the flags portion of a page table entry
+
+
+        struct PT  { uint64_t entries[512]; } ALIGNED(0x1000);
+
+        struct PD  { uint64_t entries[512]; } ALIGNED(0x1000);
+
+        struct PDP { uint64_t entries[512]; } ALIGNED(0x1000);
+
+        struct PML4{ uint64_t entries[512]; } ALIGNED(0x1000);
     };
 } // Memory
 

@@ -6,6 +6,10 @@
 #include "../IO/FramebufferConsole.h"
 
 namespace Memory {
+    struct Paging::PagingState {
+        PML4* pml4;
+    };
+
     Paging::Paging(PMM *pmm) {
         physicalMemoryManager = pmm;
         kernelPagingState = nullptr;
