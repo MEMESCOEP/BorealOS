@@ -8,7 +8,7 @@ extern "C" {
 }
 
 namespace Interrupts {
-    uint64_t GDT::entries[5]; // Null, Code, Data, TSS low and high
+    uint64_t GDT::entries[8]; // Null, Code, Data, TSS low and high, UserCode, UserData
     GDT::GDTPointer GDT::gdtp;
 
     /*void GDT::SetEntry(int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t granularity) {
@@ -68,6 +68,11 @@ namespace Interrupts {
 
         // TSS descriptor
         SetTSSDescriptor(3, tss_address, sizeof(TSS::TSSStruct) - 1);
+
+        // User mode code segment descriptor
+        SetEntry(5, 0, 0xFFFFF, 0xF2, 0xC0); // star anchor
+        SetEntry(6, 0, 0xFFFFF, 0xF2, 0xA0); // UserData 64 DPL=3 SS on SYSRET
+        SetEntry(7, 0, 0xFFFFF, 0xFA, 0xA0); // UserCode 64 DPL=3 CS on SYSRET, L bit set
 
         gdtp.Limit = sizeof(entries) - 1;
         gdtp.Base = reinterpret_cast<uint64_t>(&entries);

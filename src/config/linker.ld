@@ -29,6 +29,12 @@ SECTIONS
     /* Move to the next memory page for .text */
     . = ALIGN(CONSTANT(MAXPAGESIZE));
 
+    .user_trampoline : {
+        __user_trampoline_start = .;
+        *(.user_trampoline .user_trampoline.*)
+        __user_trampoline_end = .;
+    } :text
+
     .text : {
      *(.text .text.*)
     } :text

@@ -20,7 +20,7 @@ namespace Interrupts {
             uint64_t Base;
         };
 
-        static uint64_t entries[5]; // Null, Code, Data, TSS
+        static uint64_t entries[8]; // Null, Code, Data, TSS, UserCode, UserData
         static GDTPointer gdtp;
         static void SetEntry(int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t granularity);
         static void SetTSSDescriptor(int index, uint64_t base, uint32_t limit);

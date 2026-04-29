@@ -15,6 +15,7 @@ extern "C" {
 #include "Utility/StringFormatter.h"
 #include "Utility/ANSI.h"
 #include "Memory/PMM.h"
+#include "Interrupts/Syscall.h"
 
 Kernel<KernelData> kernel;
 KernelData kernelData;
@@ -40,6 +41,10 @@ void Kernel<T>::Initialize() {
     LOG(LOG_LEVEL::INFO, "Initialized GDT & TSS. (GDT at %p, TSS at %p)",
         Interrupts::GDT::GetGDTPointer(),
         Interrupts::TSS::GetTSSStruct());
+
+    // Syscall:
+    Interrupts::Syscall::Initialize();
+    LOG(LOG_LEVEL::INFO, "Initialized syscall handling.");
 
     // PIC:
     static uint8_t picData [sizeof(Interrupts::PIC)]; // bit ugly, but required to init a vtable class before we can use new to allocate it on the heap.
@@ -73,6 +78,7 @@ void Kernel<T>::Initialize() {
     // Paging:
     ArchitectureData->Paging = Memory::Paging(&ArchitectureData->Pmm);
     ArchitectureData->Paging.Initialize();
+    ArchitectureData->Idt.SetPagingManager(&ArchitectureData->Paging); // We need to set the paging reference in the IDT so that the IDT can switch back to the kernel's page table if an interrupt occurs while we're running with a different page table.
     LOG(LOG_LEVEL::INFO, "Initialized paging.");
 
     // Heap:
@@ -151,6 +157,9 @@ void Kernel<T>::Start() {
     // Load all drivers, we do this in the start function because this ensures we have finished initialization of all main kernel subsystems before we start loading drivers, which may depend on those subsystems.
     ArchitectureData->DriverManager->LoadDriversFromFileSystem();
     LOG_INFO("Finished loading drivers.");
+
+    // Load userspace:
+    Interrupts::Syscall::Trampoline();
 }
 
 template<typename T>

@@ -8,14 +8,14 @@ namespace Memory {
     enum class PageFlags : uint64_t {
         Present = 1 << 0,
         ReadWrite = 1 << 1,
-        UserSupervisor = 1 << 2,
+        User = 1 << 2,
         WriteThrough = 1 << 3,
         CacheDisable = 1 << 4,
         Accessed = 1 << 5,
         Dirty = 1 << 6,
         HugePage = 1 << 7,
         Global = 1 << 8,
-        NoExecute = 1ULL << 63
+        NoExecute = 1ULL << 63,
     };
 
     constexpr enum PageFlags operator|(PageFlags a, PageFlags b) {
@@ -29,7 +29,17 @@ namespace Memory {
 
     class Paging {
     public:
-        struct PagingState;
+        struct PT  { uint64_t entries[512]; } ALIGNED(0x1000);
+
+        struct PD  { uint64_t entries[512]; } ALIGNED(0x1000);
+
+        struct PDP { uint64_t entries[512]; } ALIGNED(0x1000);
+
+        struct PML4{ uint64_t entries[512]; } ALIGNED(0x1000);
+
+        struct PagingState {
+            PML4* pml4;
+        };
 
         explicit Paging(PMM* pmm);
 
@@ -38,6 +48,9 @@ namespace Memory {
 
         void MapPage(uint64_t virtualAddress, uint64_t physicalAddress, PageFlags flags);
         void UnmapPage(uint64_t virtualAddress);
+
+        void MapPage(PagingState* vmmState, uint64_t virtualAddress, uint64_t physicalAddress, PageFlags flags);
+        void UnmapPage(PagingState* vmmState, uint64_t virtualAddress);
 
         void MapPages(uint64_t virtualAddressStart, uint64_t physicalAddressStart, size_t pageCount, PageFlags flags);
         void UnmapPages(uint64_t virtualAddressStart, size_t pageCount);
@@ -48,7 +61,7 @@ namespace Memory {
         void SwitchToKernelPageTable();
         [[nodiscard]] PagingState* GetKernelPagingState() const { return kernelPagingState; }
         [[nodiscard]] PagingState* GetCurrentPagingState() const { return currentPagingState; }
-        [[nodiscard]] PagingState* CreatePagingStateForProcess() const;
+        [[nodiscard]] PagingState* CreatePagingStateForProcess();
         void SwitchToPageTable(PagingState* newState);
     private:
         PMM* physicalMemoryManager;
@@ -69,14 +82,6 @@ namespace Memory {
 
         static constexpr uint64_t PointerMask = 0x000FFFFFFFFFF000; // Mask to get the address portion of a page table entry
         static constexpr uint64_t FlagsMask = 0xFFF0000000000FFF; // Mask to get the flags portion of a page table entry
-
-        struct PT  { uint64_t entries[512]; } ALIGNED(0x1000);
-
-        struct PD  { uint64_t entries[512]; } ALIGNED(0x1000);
-
-        struct PDP { uint64_t entries[512]; } ALIGNED(0x1000);
-
-        struct PML4{ uint64_t entries[512]; } ALIGNED(0x1000);
     };
 } // Memory
 

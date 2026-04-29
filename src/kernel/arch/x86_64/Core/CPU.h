@@ -88,24 +88,27 @@ namespace Core {
     }
     
     class CPU {
-        public:
+    public:
         void Initialize();
+
         bool HasFeature(CPUFeatures::Feature feature);
-        uint64_t ReadMSR(uint32_t msr);
-        void WriteMSR(uint32_t msr, uint64_t value);
-        bool HasInvariantTSC();
 
         char processorName[49];
         char vendorID[13];
 
-        private:
+        static uint64_t ReadMSR(uint32_t msr);
+        static void WriteMSR(uint32_t msr, uint64_t value);
+        static bool HasInvariantTSC();
+        static uint64_t ReadCR3();
+        static void WriteCR0(uint64_t value);
+        static uint64_t ReadCR0();
+        static void WriteCR4(uint64_t value);
+        static uint64_t ReadCR4();
+
+    private:
         static constexpr unsigned int CPUID_BRAND_STRING_START = 0x80000002;
         static constexpr unsigned int CPUID_BRAND_STRING_END = 0x80000004;
 
-        void WriteCR0(unsigned long value);
-        unsigned long ReadCR0(void);
-        void WriteCR4(unsigned long value);
-        unsigned long ReadCR4(void);
         void InitializeSSE();
         void InitializeFPU();
         uint32_t featureEAX, featureEBX, featureECX, featureEDX; // These should only be used for the CPUID supported features leaf

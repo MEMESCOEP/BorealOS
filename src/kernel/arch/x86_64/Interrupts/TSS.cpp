@@ -5,12 +5,12 @@ extern "C" {
     extern char _fault_handler_stack_top[];
 }
 
-// TODO: When implementing user mode support, set rsp1 and rsp2 appropriately.
 namespace Interrupts {
     TSS::TSSStruct TSS::_tss = {};
 
     void TSS::Initialize() {
         // Set RSP0 to the top of the kernel stack
+        // TODO: RSP0 must be set per CPU when we implement SMP support, so uhh yeah update this then.
         _tss.RSP0 = reinterpret_cast<uint64_t>(Architecture::KernelStackTop);
 
         // Set IST1 to the top of the double fault stack (defined in entry.S)

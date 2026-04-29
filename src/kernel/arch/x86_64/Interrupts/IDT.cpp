@@ -101,9 +101,21 @@ namespace Interrupts {
     }
 
     void IDT::IRQHandler(uint8_t irq, Registers *registers) {
+        Memory::Paging::PagingState* backupState = nullptr;
+        if (_pagingInitialized) {
+            backupState = _paging->GetCurrentPagingState();
+        }
+
         //LOG_DEBUG("IRQ %u8", irq);
         if (_irqHandlers[irq] != nullptr) {
             _irqHandlers[irq]();
+        }
+
+        if (_pagingInitialized) {
+            // Check if the handler changed the paging state, and if so, switch back to the kernel's paging state before sending EOI
+            if (backupState != _paging->GetCurrentPagingState()) {
+                _paging->SwitchToPageTable(backupState);
+            }
         }
 
         _ic->SendEOI(irq);
