@@ -548,6 +548,7 @@ STATUS InitMouse() {
 }
 
 COMPATIBLE_FUNC() {
+    return false;
     kernel = Kernel<KernelData>::GetInstance();
     if (!kernel) {
         LOG_ERROR("Failed to get kernel instance!");
@@ -576,6 +577,7 @@ COMPATIBLE_FUNC() {
 }
 
 LOAD_FUNC() {
+    return STATUS::FAILURE;
     // Get the service manager instance
     LOG_DEBUG("Getting service manager and HID service instances...");
     serviceManager = Core::ServiceManager::GetInstance();

@@ -83,6 +83,10 @@ add_subdirectory(src/kernel)
 set(MODULE_OUTPUT_DIR ${CMAKE_SOURCE_DIR}/ramfs/modules)
 add_subdirectory(src/modules)
 
+set(BINARY_OUTPUT_DIR ${CMAKE_SOURCE_DIR}/ramfs/bin)
+set(LIBRARY_OUTPUT_DIR ${CMAKE_SOURCE_DIR}/ramfs/lib)
+add_subdirectory(src/binaries) # This provides bin & lib targets under the target Binaries
+
 # Add a build target called Kernel that depends on the kernel.elf target and installs it into ./src/config/boot/kernel.elf
 add_custom_target(CopyKernel ALL
         DEPENDS kernel.elf
@@ -98,5 +102,5 @@ add_custom_command(TARGET CopyKernel POST_BUILD
 
 # Add a target called "Kernel" which builds kernel.elf and the target Modules, but make sure kernel.elf is built BEFROE Modules, because Modules depends on kernel.elf
 add_custom_target(Kernel ALL
-        DEPENDS CopyKernel Modules
+        DEPENDS CopyKernel Modules Binaries
 )
