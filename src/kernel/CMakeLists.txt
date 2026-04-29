@@ -17,7 +17,7 @@ include(FetchContent)
 
 FetchContent_Declare(
         flanterm
-        GIT_REPOSITORY https://codeberg.org/Mintsuki/Flanterm
+        GIT_REPOSITORY https://github.com/Mintsuki/Flanterm.git
         GIT_TAG        trunk
 )
 

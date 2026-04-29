@@ -19,7 +19,7 @@ namespace Core {
                     : "c"(msr), "a"(lo), "d"(hi));
     }
 
-    void CPU::WriteCR0(unsigned long value) {
+    void CPU::WriteCR0(uint64_t value) {
         __asm__ volatile (
             "mov %0, %%cr0"
             :
@@ -28,8 +28,8 @@ namespace Core {
         );
     }
 
-    unsigned long CPU::ReadCR0(void) {
-        unsigned long value;
+    uint64_t CPU::ReadCR0() {
+        uint64_t value;
         __asm__ volatile (
             "mov %%cr0, %0"
             : "=r"(value)
@@ -39,7 +39,7 @@ namespace Core {
         return value;
     }
 
-    void CPU::WriteCR4(unsigned long value) {
+    void CPU::WriteCR4(uint64_t value) {
         __asm__ volatile (
             "mov %0, %%cr4"
             :
@@ -48,10 +48,21 @@ namespace Core {
         );
     }
 
-    unsigned long CPU::ReadCR4(void) {
-        unsigned long value;
+    uint64_t CPU::ReadCR4() {
+        uint64_t value;
         __asm__ volatile (
             "mov %%cr4, %0"
+            : "=r"(value)
+            :
+            : "memory"
+        );
+        return value;
+    }
+
+    uint64_t CPU::ReadCR3() {
+        uint64_t value;
+        __asm__ volatile (
+            "mov %%cr3, %0"
             : "=r"(value)
             :
             : "memory"
@@ -106,7 +117,7 @@ namespace Core {
         LOG_DEBUG("FPU status: 0x%x16", statusWord);
 
         // Finally, set the NE bit (bit 5) for native exceptions
-        unsigned long cr0 = ReadCR0();
+        uint64_t cr0 = ReadCR0();
         cr0 |=  (1 << 5);
         WriteCR0(cr0);
 
@@ -115,7 +126,7 @@ namespace Core {
 
     void CPU::InitializeSSE() {
         // Clear the EM bit (bit 2) and set the MP bit (bit 1) in CR0 to allow SSE instructions to execute without throwing invalid opcode exceptions
-        unsigned long cr0 = ReadCR0();
+        uint64_t cr0 = ReadCR0();
         cr0 &= ~(1 << 2);
         cr0 |=  (1 << 1);
         WriteCR0(cr0);
@@ -124,7 +135,7 @@ namespace Core {
         // FXSAVE / FXRSTOR / MXCSR / LDMXCSR / STMXCSR
 
         // Set the OSFXSR (bit 9) and OSXMMEXCPT (bit 10) bits in CR4
-        unsigned long cr4 = ReadCR4();
+        uint64_t cr4 = ReadCR4();
         cr4 |= (1 << 9);
         cr4 |= (1 << 10);
         WriteCR4(cr4);

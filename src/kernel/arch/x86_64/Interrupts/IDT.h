@@ -4,6 +4,7 @@
 #include <Definitions.h>
 
 #include "PIC.h"
+#include "Memory/Paging.h"
 
 namespace Interrupts {
     class IDT {
@@ -39,6 +40,7 @@ namespace Interrupts {
         void UnmaskIRQ(uint8_t uint8) const;
         void MaskIRQ(uint8_t uint8) const;
         void SetInterruptController(InterruptController* ic);
+        void SetPagingManager(Memory::Paging* paging) { _paging = paging; _pagingInitialized = true; }
 
     private:
         InterruptController* _ic;
@@ -47,6 +49,9 @@ namespace Interrupts {
         void (*_irqHandlers[256])(void) = { nullptr };
         void SetIDTEntry(uint8_t vector, uint64_t isr, uint8_t flags);
         bool _isTesting = false;
+
+        Memory::Paging* _paging;
+        bool _pagingInitialized = false;
     };
 } // Interrupts
 

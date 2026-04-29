@@ -15,6 +15,7 @@ namespace Memory {
         kernelPagingState = nullptr;
         currentPagingState = nullptr;
         kernelHigherHalfOffset = hhdm_request.response->offset;
+        kernelElfOffset = 0XFFFFFFFF80000000;
     }
 
     void Paging::Initialize() {
@@ -30,7 +31,6 @@ namespace Memory {
         vmmState->pml4 = reinterpret_cast<PML4 *>(stateMemory + Architecture::KernelPageSize); // The PML4 will be stored in the page immediately following the Paging state
         memset((reinterpret_cast<void *>(reinterpret_cast<uint64_t>(vmmState->pml4) + kernelHigherHalfOffset)), 0, sizeof(PML4)); // Clear the PML4
 
-        uint64_t kernelElfOffset = 0XFFFFFFFF80000000;
         CopyExistingPageTableToNew(vmmState, kernelElfOffset, kernelHigherHalfOffset);
 
         LOG_DEBUG("Copied over kernel ELF mappings to the Paging's PML4. Now switching to the new page table...");
@@ -47,8 +47,15 @@ namespace Memory {
         UnmapPage(currentPagingState, physicalMemoryManager, virtualAddress, kernelHigherHalfOffset);
     }
 
-    void Paging::MapPages(uint64_t virtualAddressStart, uint64_t physicalAddressStart, size_t pageCount,
-        PageFlags flags) {
+    void Paging::MapPage(PagingState *vmmState, uint64_t virtualAddress, uint64_t physicalAddress, PageFlags flags) {
+        MapPage(vmmState, physicalMemoryManager, virtualAddress, physicalAddress, flags, kernelHigherHalfOffset);
+    }
+
+    void Paging::UnmapPage(PagingState *vmmState, uint64_t virtualAddress) {
+        UnmapPage(vmmState, physicalMemoryManager, virtualAddress, kernelHigherHalfOffset);
+    }
+
+    void Paging::MapPages(uint64_t virtualAddressStart, uint64_t physicalAddressStart, size_t pageCount, PageFlags flags) {
         for (size_t i = 0; i < pageCount; i++) {
             MapPage(virtualAddressStart + i * Architecture::KernelPageSize, physicalAddressStart + i * Architecture::KernelPageSize, flags);
         }
@@ -90,16 +97,26 @@ namespace Memory {
         SwitchToPageTable(kernelPagingState);
     }
 
-    Paging::PagingState * Paging::CreatePagingStateForProcess() const {
-        // TODO: implement this, later when working on processes.
-        PANIC("CreatePagingStateForProcess is not implemented yet!");
-        return nullptr;
+    Paging::PagingState *Paging::CreatePagingStateForProcess() {
+        size_t requiredPages = (sizeof(PagingState) + Architecture::KernelPageSize - 1) / Architecture::KernelPageSize;
+        size_t requiredPagesForTables = 1; // We dynamically allocate other as necessary.
+        size_t totalRequiredPages = requiredPages + requiredPagesForTables;
+        uintptr_t stateMemory = physicalMemoryManager->AllocatePages(totalRequiredPages);
+        if (!stateMemory) PANIC("Failed to allocate memory for process Paging state!");
+
+        auto* vmmState = reinterpret_cast<PagingState *>(stateMemory + kernelHigherHalfOffset); // make it accessible.
+        vmmState->pml4 = reinterpret_cast<PML4 *>(stateMemory + Architecture::KernelPageSize); // The PML4 will be stored in the page immediately following the Paging state
+        memset((reinterpret_cast<void *>(reinterpret_cast<uint64_t>(vmmState->pml4) + kernelHigherHalfOffset)), 0, sizeof(PML4)); // Clear the PML4
+
+        CopyExistingPageTableToNew(vmmState, kernelHigherHalfOffset, kernelHigherHalfOffset);
+
+        return reinterpret_cast<PagingState*>(stateMemory);
     }
 
     void Paging::SwitchToPageTable(PagingState *state) {
         auto newState = reinterpret_cast<PagingState *>(reinterpret_cast<uint64_t>(state) + kernelHigherHalfOffset); // Convert from phys to virt.
         if (!newState || !newState->pml4) PANIC("Invalid Paging state provided for page table switch!");
-        if (newState == currentPagingState) return; // No need to switch if we're already on the desired page table
+        if (newState == currentPagingState) return; // Already on this page table, no need to switch
 
         auto newPml4PhysicalAddress = reinterpret_cast<uint64_t>(newState->pml4); // the pml4 is in physical memory, so this is already the physical address
         asm volatile("mov %0, %%cr3" : : "r"(newPml4PhysicalAddress) : "memory"); // Load the new page table into CR3
@@ -172,7 +189,7 @@ namespace Memory {
         if (physicalAddress & (Architecture::KernelPageSize - 1)) PANIC("Physical address is not page-aligned!");
 
         uint64_t entryFlags = static_cast<uint64_t>(flags) | static_cast<uint64_t>(PageFlags::Present);
-        auto directoryFlags = static_cast<uint64_t>(PageFlags::Present | PageFlags::ReadWrite | PageFlags::UserSupervisor);
+        auto directoryFlags = static_cast<uint64_t>(PageFlags::Present | PageFlags::ReadWrite | PageFlags::User);
 
         uint32_t pml4Index, pdpIndex, pdIndex, ptIndex, pageOffset;
         ExtractPageTableIndices(virtualAddress, pml4Index, pdpIndex, pdIndex, ptIndex, pageOffset);
